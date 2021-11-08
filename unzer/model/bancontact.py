@@ -7,30 +7,30 @@ from .abstract_paymenttype import PaymentType
 
 
 class Bancontact(PaymentType):
-	method = "bancontact"
+    method = "bancontact"
 
-	REQUIRED_ATTRIBUTES = ["holder"]
+    REQUIRED_ATTRIBUTES = ["holder"]
 
-	def __init__(
-			self,
-			holder,
-			**kwargs
-	):
-		"""Create a new Bancontact paymentType ressource.
+    def __init__(
+            self,
+            holder,
+            **kwargs
+    ):
+        """Create a new Bancontact paymentType ressource.
 
-		:param holder: The holder name.
-		:type holder: basestring
-		"""
-		super(Bancontact, self).__init__(**kwargs)
-		self.holder = holder  # type: str
+        :param holder: The holder name.
+        :type holder: basestring
+        """
+        super(Bancontact, self).__init__(**kwargs)
+        self.holder = holder  # type: str
 
-	def serialize(self):
-		return {
-			"holder": self.holder,
-		}
+    def serialize(self):
+        return {
+            "holder": self.holder,
+        }
 
-	@classmethod
-	def fromDict(cls, data):
-		data = data.copy()
-		data["key"] = data["id"]
-		return cls(**data)
+    @classmethod
+    def fromDict(cls, data):
+        data = data.copy()
+        data["key"] = data["id"]
+        return cls(**data)

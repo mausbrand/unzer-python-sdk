@@ -9,28 +9,28 @@ from .base import BaseModel
 
 
 class PaymentType(BaseModel):
-	@abc.abstractproperty
-	def method(self):
-		"""Hold the type as str."""
-		pass
+    @abc.abstractproperty
+    def method(self):
+        """Hold the type as str."""
+        pass
 
-	def __init__(
-			self,
-			key=None,
-			**kwargs
-	):
-		"""Create a new paymentType ressource.
+    def __init__(
+            self,
+            key=None,
+            **kwargs
+    ):
+        """Create a new paymentType ressource.
 
-		:param key: (optional) (original: id) ID for this payment type
-		:type key: basestring
-		"""
-		self.key = key  # type: str
+        :param key: (optional) (original: id) ID for this payment type
+        :type key: basestring
+        """
+        self.key = key  # type: str
 
-	def serialize(self):
-		return {}
+    def serialize(self):
+        return {}
 
-	@classmethod
-	def fromDict(cls, data):
-		data = data.copy()
-		data["key"] = data["id"]
-		return cls(**data)
+    @classmethod
+    def fromDict(cls, data):
+        data = data.copy()
+        data["key"] = data["id"]
+        return cls(**data)
