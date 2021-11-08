@@ -9,6 +9,7 @@ import re
 from types import NoneType
 
 import unzer.client
+from .abstract_paymenttype import PaymentType
 from .base import BaseModel
 from ..utils import parseBool, parseDateTime
 
@@ -153,7 +154,7 @@ class PaymentGetResponse(BaseModel):
 		:type typeId: str
 
 		:param client: (optional) The client instance.
-		:type typeId: unzer.client.UnzerClient
+		:type client: unzer.client.UnzerClient
 		"""
 		if transactions is None:
 			transactions = []
@@ -300,6 +301,107 @@ class PaymentTransaction(BaseModel):
 		data["subSubOperation"] = matchDict["subSubOperation"]
 		data["subSubCode"] = matchDict["subSubCode"]
 		return cls(**data)
+
+
+class PaymentRequest(BaseModel):
+	REQUIRED_ATTRIBUTES = ["paymentType"]
+
+	def __init__(
+			self,
+			paymentType=None,
+			amount=None,
+			currency="EUR",
+			returnUrl=None,
+			card3ds=None,
+			paymentReference=None,
+			orderId=None,
+			invoiceId=None,
+			effectiveInterestRate=None,
+			customerId=None,
+			metadataId=None,
+			basketId=None,
+
+			client=None,
+			**kwargs
+	):
+		"""Create a new PaymentRequest.
+
+		:param paymentType: The PaymentType model, will provide the typeId.
+		:type paymentType: PaymentType
+		:param amount: The amount to be charged on the specified paymentType.
+			Amount in positive decimal values. Accepted length: Decimal{10,4}.
+		:type amount: float
+		:param currency: (optional) ISO currency code.
+		:type currency: str
+		:param returnUrl: (optional) URL to redirect the customer after
+			the payment is completed (in case of redirect payments
+			e.g. Paypal, Sofort). Required in condition.
+		:type returnUrl: str
+		:param card3ds: (optional) Indicate a 3ds transaction.
+			Only valid for Card method: Overrides the existing
+			credit card configuration if possible.
+		:type card3ds: bool
+		:param paymentReference: Transaction description
+		:type paymentReference: str
+		:param orderId: (optional) Order id that identifies the payment on merchant side.
+		:type orderId: str
+		:param invoiceId: (optional) invoice id that is assigned to the payment on merchant side.
+		:type invoiceId: str
+		:param effectiveInterestRate: (optional) Only valid for Installment method:
+			The affected installment rated. Required in case of Installment method.
+		:type effectiveInterestRate: str
+
+		Resources
+		:param customerId: (optional) Customer id used for this transaction.
+		:type customerId: str
+		:param metadataId: (optional) Meta data ID used for this transaction.
+		:type metadataId: str
+		:param basketId: (optional) Basket ID used for this transaction.
+		:type basketId: str
+
+		:param client: (optional) The client instance.
+		:type client: unzer.client.UnzerClient
+		"""
+		if not isinstance(card3ds, (bool, NoneType)):
+			raise TypeError("Invalid value %r for card3ds. Must be a boolean or None." % card3ds)
+		self.paymentType = paymentType  # type:PaymentType
+		self.amount = amount  # type:float
+		self.currency = currency  # type: str
+		self.returnUrl = returnUrl  # type: str
+		self.card3ds = card3ds  # type: Union[bool, None]
+		self.paymentReference = paymentReference  # type: str
+		self.orderId = orderId  # type: str
+		self.invoiceId = invoiceId  # type: str
+		self.effectiveInterestRate = effectiveInterestRate  # type: str
+		# PaymentResponseResources
+		self.customerId = customerId  # type: str
+		self.metadataId = metadataId  # type: str
+		self.basketId = basketId  # type: str
+
+		self._client = client  # type: unzer.client.UnzerClient
+
+	def serialize(self):
+		data = {
+			"amount": self.amount,
+			"currency": self.currency,
+			"returnUrl": self.returnUrl,
+			"card3ds": self.card3ds,
+			"paymentReference": self.paymentReference,
+			"orderId": self.orderId,
+			"invoiceId": self.invoiceId,
+			"effectiveInterestRate": self.effectiveInterestRate,
+			"resources": {
+				"customerId": self.customerId,
+				"typeId": self.paymentType.key if self.paymentType else None,
+				"metadataId": self.metadataId,
+				"basketId": self.basketId,
+			},
+		}
+		return data
+
+	@classmethod
+	def fromDict(cls, data):
+		raise NotImplementedError("Use PaymentResponse.fromDict for your responses.")
 
 
 class PaymentResponse(BaseModel):

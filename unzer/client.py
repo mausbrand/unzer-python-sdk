@@ -12,8 +12,9 @@ from urllib3.exceptions import TimeoutError
 
 from . import __version__
 from .model import *
+from .model.abstract_paymenttype import PaymentType
 from .model.basket import Basket
-from .model.payment import PaymentGetResponse, PaymentResponse
+from .model.payment import PaymentGetResponse, PaymentRequest, PaymentResponse
 from .model.paymentpage import PaymentPage, PaymentPageResponse
 from .model.webhook import Webhook
 
@@ -295,6 +296,26 @@ class UnzerClient(object):
 		)
 		return Basket.fromDict(data)
 
+	def createPaymentType(self, paymentType):
+		"""Create a new PaymentType at Unzer.
+
+		This can be any Object which inherits the abstract class PaymentType.
+
+		:param paymentType: The PaymentPage model
+		:type paymentType: PaymentType
+		:return: The paymentType response
+		:rtype: PaymentType
+		"""
+		if not isinstance(paymentType, PaymentType):
+			raise TypeError("Expected a PaymentType object. Got %r" % type(paymentType))
+		paymentType.validateBeforeRequest()
+		data = self.request(
+			"types/%s" % paymentType.method,
+			"POST",
+			paymentType.serialize(),
+		)
+		return type(paymentType).fromDict(data)
+
 	def createPaymentPage(self, paymentPage):
 		"""The initialize payment page call with direct charge purpose.
 
@@ -344,6 +365,31 @@ class UnzerClient(object):
 			"GET",
 		)
 		return PaymentGetResponse.fromDict(data, self)
+
+	def charge(self, payment):
+		"""Charge call for redirect payments.
+
+		The paymentType will be created within this method,
+		if not already created.
+
+		:param payment: The PaymentRequest model
+		:type payment: PaymentRequest
+		:return: The paymentType response
+		:rtype: PaymentResponse
+		"""
+		if not isinstance(payment, PaymentRequest):
+			raise TypeError("Expected a PaymentRequest object. Got %r" % type(PaymentRequest))
+		if not payment.paymentType:
+			raise ValueError("No paymentType set")
+		if not payment.paymentType.key:
+			payment.paymentType = self.createPaymentType(payment.paymentType)
+		payment.validateBeforeRequest()
+		data = self.request(
+			"payments/charges",
+			"POST",
+			payment.serialize(),
+		)
+		return PaymentResponse.fromDict(data)
 
 	def getChargedTransaction(self, codeOrOrderId, txnCode):
 		"""Fetch the corresponding charged transaction.
