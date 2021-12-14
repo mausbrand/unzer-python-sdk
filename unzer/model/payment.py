@@ -38,6 +38,7 @@ class PaymentState:
     PARTLY = 3
     PAYMENT_REVIEW = 4
     CHARGEBACK = 5
+    CREATE = 6
 
 
 PaymentStateInverted = {v: k for k, v in vars(PaymentState).items()}
