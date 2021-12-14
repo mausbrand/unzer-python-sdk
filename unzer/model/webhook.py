@@ -6,8 +6,7 @@ __email__ = "se@mausbrand.de"
 from .base import BaseModel
 
 IP_ADDRESS = {
-    "3.120.62.83", "18.196.35.212",  # docs
-    "35.157.10.171", "18.197.240.190",  # reality
+    "3.120.62.83", "18.196.35.212",
 }
 
 
