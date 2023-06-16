@@ -50,9 +50,9 @@ class PaymentTypes:
     GIROPAY = "gro"
     IDEAL = "idl"
     INVOICE = "ivc"
-    INVOICE_GUARANTEED = "ivg"
-    INVOICE_FACTORING = "ivf"
-    INVOICE_SECURED = "ivs"
+    INVOICE_GUARANTEED = "ivg"  # deprecated
+    INVOICE_FACTORING = "ivf"  # deprecated
+    INVOICE_SECURED = "ivs"  # deprecated
     PAYPAL = "ppl"
     PREPAYMENT = "ppy"
     PRZELEWY24 = "p24"
@@ -69,6 +69,8 @@ class PaymentTypes:
     BANCONTACT = "bct"
     PF_CARD = "pfc"
     PF_EFINANCE = "pfe"
+    UNZER_PAYLATER_INVOICE = "piv"
+    KLARNA = "kla"
     UNKNOWN = "unknown"
 
 
