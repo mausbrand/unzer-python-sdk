@@ -9,7 +9,6 @@ from types import NoneType
 
 import requests
 from urllib3.exceptions import TimeoutError
-
 from . import __version__
 from .model import *
 from .model.abstract_paymenttype import PaymentType
@@ -366,6 +365,19 @@ class UnzerClient(object):
         )
         return PaymentGetResponse.fromDict(data, self)
 
+    def authorize(self, payment):
+        """Authorize call for redirect payments.
+
+        The paymentType will be created within this method,
+        if not already created.
+
+        :param payment: The PaymentRequest model
+        :type payment: PaymentRequest
+        :return: The paymentType response
+        :rtype: PaymentResponse
+        """
+        return self._authorize_or_charge("authorize", payment)
+
     def charge(self, payment):
         """Charge call for redirect payments.
 
@@ -377,6 +389,13 @@ class UnzerClient(object):
         :return: The paymentType response
         :rtype: PaymentResponse
         """
+        return self._authorize_or_charge("charges", payment)
+
+    def _authorize_or_charge(self, type_, payment):
+        """Internal helper for authorize and charge calls
+        """
+        if type_ not in {"authorize", "charges"}:
+            raise ValueError("Invalid type %r" % type_)
         if not isinstance(payment, PaymentRequest):
             raise TypeError("Expected a PaymentRequest object. Got %r" % type(PaymentRequest))
         if not payment.paymentType:
@@ -385,10 +404,12 @@ class UnzerClient(object):
             payment.paymentType = self.createPaymentType(payment.paymentType)
         payment.validateBeforeRequest()
         data = self.request(
-            "payments/charges",
+            "payments/%s" % type_,
             "POST",
             payment.serialize(),
         )
+        if data.get("isError"):
+            raise ErrorResponse.fromDict(data)
         return PaymentResponse.fromDict(data)
 
     def getChargedTransaction(self, codeOrOrderId, txnCode):

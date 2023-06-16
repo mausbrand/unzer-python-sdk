@@ -4,15 +4,19 @@ __author__ = "Sven Eberth"
 __email__ = "se@mausbrand.de"
 
 import datetime
+import logging
 
 import requests
 
+logger = logging.getLogger("unzer-sdk")
 
 class Error(object):
-    def __init__(self, code, merchantMessage, customerMessage):
+    def __init__(self, code, merchantMessage, customerMessage, **kwargs):
         self.code = code
         self.merchantMessage = merchantMessage
         self.customerMessage = customerMessage
+        if kwargs:
+            logger.warning("Error got additional unhandled data: %r", kwargs)
 
     def __str__(self):
         return "%s %s: %s" % (self.__class__.__name__, self.code, self.merchantMessage)
@@ -41,6 +45,7 @@ class ErrorResponse(Exception):
             isPending=None,
             isSuccess=None,
             srcResponse=None,
+            **kwargs
 
     ):
         super(ErrorResponse, self).__init__(message)
@@ -56,6 +61,8 @@ class ErrorResponse(Exception):
         self.isPending = isPending  # type: bool
         self.isSuccess = isSuccess  # type: bool
         self.srcResponse = srcResponse  # type: requests.Response
+        if kwargs:
+            logger.warning("ErrorResponse got additional unhandled data: %r", kwargs)
 
     @classmethod
     def fromDict(cls, data, message="Unzer Error"):

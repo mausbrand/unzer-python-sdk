@@ -5,8 +5,12 @@ __email__ = "se@mausbrand.de"
 
 from .base import BaseModel
 
+# https://docs.unzer.com/reference/basic-integration-req/#allowlist-of-ip-addresses
 IP_ADDRESS = {
+    # Production environment
     "3.120.62.83", "18.196.35.212",
+    # Sandbox environment
+    "35.157.10.171", "18.197.240.190",
 }
 
 
