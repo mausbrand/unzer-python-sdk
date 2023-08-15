@@ -237,6 +237,14 @@ class PaymentGetResponse(BaseModel):
             raise ValueError("Invalid type %r" % typeId)  # TODO: or return PaymentTypes.UNKNOWN?
         return paymentType
 
+    def charge(self, amount):  # type: (float) -> PaymentResponse
+        req_kwargs = self.__dict__.copy()
+        req_kwargs["paymentType"] = PaymentType.construct(self.paymentType)(self.typeId)
+        req_kwargs["amount"] = amount
+        logging.debug("req_kwargs = %r", req_kwargs)
+        req = PaymentRequest(**req_kwargs)
+        return self._client.charge(req)
+
 
 class PaymentTransaction(BaseModel):
     def __init__(
@@ -312,6 +320,7 @@ class PaymentRequest(BaseModel):
     def __init__(
             self,
             paymentType=None,
+            paymentId=None,
             amount=None,
             currency="EUR",
             returnUrl=None,
@@ -368,6 +377,7 @@ class PaymentRequest(BaseModel):
         if not isinstance(card3ds, (bool, NoneType)):
             raise TypeError("Invalid value %r for card3ds. Must be a boolean or None." % card3ds)
         self.paymentType = paymentType  # type:PaymentType
+        self.paymentId = paymentId  # type:str
         self.amount = amount  # type:float
         self.currency = currency  # type: str
         self.returnUrl = returnUrl  # type: str

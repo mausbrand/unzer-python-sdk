@@ -34,3 +34,8 @@ class PaymentType(BaseModel):
         data = data.copy()
         data["key"] = data["id"]
         return cls(**data)
+
+    @classmethod
+    def construct(cls, method):
+        sub_cls = type(str(method).title(), (cls,), {"method": method})
+        return sub_cls

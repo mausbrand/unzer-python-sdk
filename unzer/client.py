@@ -391,7 +391,7 @@ class UnzerClient(object):
         """
         return self._authorize_or_charge("charges", payment)
 
-    def _authorize_or_charge(self, type_, payment):
+    def _authorize_or_charge(self, type_, payment):  # type: (str, PaymentRequest) -> PaymentResponse
         """Internal helper for authorize and charge calls
         """
         if type_ not in {"authorize", "charges"}:
@@ -404,7 +404,7 @@ class UnzerClient(object):
             payment.paymentType = self.createPaymentType(payment.paymentType)
         payment.validateBeforeRequest()
         data = self.request(
-            "payments/%s" % type_,
+            "/".join(filter(None, ["payments", payment.paymentId, type_])),
             "POST",
             payment.serialize(),
         )
