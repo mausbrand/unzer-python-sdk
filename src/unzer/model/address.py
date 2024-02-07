@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 __author__ = "Sven Eberth"
 __email__ = "se@mausbrand.de"
 
@@ -21,19 +19,19 @@ class Address(BaseModel):
         """Create a new Address.
 
         :param firstname: (optional) Address firstname (+lastname: max. 81 chars). Required in case of billing address.
-        :type firstname: basestring
+        :type firstname: str
         :param lastname: (optional)  Address lastname (+firstname: max. 81 chars). Required in case of billing address.
-        :type lastname: basestring
+        :type lastname: str
         :param street: (optional) Address street (max. 50 chars). Required in case of billing address.
-        :type street: basestring
+        :type street: str
         :param state: (optional) Address state in ISO 3166-2 format (max. 8 chars). Required in case of billing address.
-        :type state: basestring
+        :type state: str
         :param zipCode: (optional) Address zip code (max. 10 chars). Required in case of billing address.
-        :type zipCode: basestring
+        :type zipCode: str
         :param city: (optional) Address city (max. 30 chars). Required in case of billing address.
-        :type city: basestring
+        :type city: str
         :param country: (optional) Address country in ISO A2 format (max. 2 chars). Required in case of billing address.
-        :type country: basestring
+        :type country: str
         """
         self.firstname = firstname  # type: str
         self.lastname = lastname  # type: str

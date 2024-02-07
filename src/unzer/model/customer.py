@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 __author__ = "Sven Eberth"
 __email__ = "se@mausbrand.de"
 
@@ -37,26 +35,26 @@ class Customer(BaseModel):
         """Create a new Customer.
 
         :param key: (optional) (original: id) Customer's generated code by Unzer's Payment
-        :type key: basestring
+        :type key: str
         :param firstname: Customer's lastname
-        :type firstname: basestring
+        :type firstname: str
         :param lastname: Customer's firstname
-        :type lastname: basestring
+        :type lastname: str
         :param salutation: (optional) Must be either 'mr', 'mrs' or 'unknown'
-        :type salutation: basestring | Salutation
+        :type salutation: str | Salutation
         :param company: (optional) Company name
-        :type company: basestring
+        :type company: str
         :param customerId: (optional) Must be unique and identifies the customer.
             Can be used in place of the resource id
-        :type customerId: basestring
+        :type customerId: str
         :param birthDate: (optional) Birthdate of the customer in format yyyy-mm-dd or dd.mm.yyyy
-        :type birthDate: datetime.datetime | datetime.date | basestring
+        :type birthDate: datetime.datetime | datetime.date | str
         :param email: (optional) Customer's email
-        :type email: basestring
+        :type email: str
         :param phone: (optional) Customer's phone
-        :type phone: basestring
+        :type phone: str
         :param mobile: (optional) Customer's mobile
-        :type mobile: basestring
+        :type mobile: str
         :param billingAddress: (optional) billing address
         :type billingAddress: Address
         :param shippingAddress: (optional) shipping address
@@ -106,7 +104,7 @@ class Customer(BaseModel):
     def birthDate(self, value):
         if not value:
             value = None
-        elif isinstance(value, basestring):
+        elif isinstance(value, str):
             if "-" in value:  # ISO Date
                 value = datetime.datetime.strptime(value, "%Y-%m-%d")
             elif "." in value:  # European Date

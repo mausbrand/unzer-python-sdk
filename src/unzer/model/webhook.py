@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 __author__ = "Sven Eberth"
 __email__ = "se@mausbrand.de"
 
@@ -83,7 +81,7 @@ class Webhook(BaseModel):
 
     @event.setter
     def event(self, value):
-        if isinstance(value, basestring):
+        if isinstance(value, str):
             value = [value]
         if not isinstance(value, list):
             raise TypeError("Event must be a str or list of str. Got %r" % type(value))

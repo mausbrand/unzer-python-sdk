@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 __author__ = "Sven Eberth"
 __email__ = "se@mausbrand.de"
 
@@ -20,21 +18,21 @@ from .model.webhook import Webhook
 logger = logging.getLogger("unzer-sdk")
 
 
-class UnzerClient(object):
+class UnzerClient:
     endpoint = "https://api.unzer.com/v1"
     retryDelays = (1, 2, 4, 8)
     timeout = 5
 
     def __init__(
             self,
-            privateKey,
-            publicKey,
-            sandbox=False,
-            language="en",
+            private_key:str,
+            public_key:str,
+            sandbox:bool=False,
+            language:str="en",
     ):
         super(UnzerClient, self).__init__()
-        self.privateKey = privateKey
-        self.publicKey = publicKey
+        self.private_key = private_key
+        self.public_key = public_key
         self.sandbox = sandbox
         self.language = language
 
@@ -63,7 +61,7 @@ class UnzerClient(object):
             method,
             headers,
             payload,
-            auth=(self.privateKey, "")
+            auth=(self.private_key, "")
         )
 
     def _request(self, url, method, headers, payload, auth):
@@ -150,7 +148,7 @@ class UnzerClient(object):
         :type errorId: str
         :rtype: dict
         """
-        if not isinstance(errorId, basestring):
+        if not isinstance(errorId, str):
             raise TypeError("Expected a errorId of type str. Got %r" % type(errorId))
         return self.request(
             "errors/%s" % errorId,
@@ -220,7 +218,7 @@ class UnzerClient(object):
             if not customer.key and not customer.customerId:
                 raise TypeError("Customer has no customerId oder key (id)")
             codeOrExternalId = customer.customerId or customer.key
-        elif isinstance(customer, basestring):
+        elif isinstance(customer, str):
             codeOrExternalId = customer
         else:
             raise TypeError("Expected a Customer object or str. Got %r" % type(customer))
@@ -341,7 +339,7 @@ class UnzerClient(object):
         :return: The PaymentPage ressource
         :rtype: PaymentPageResponse
         """
-        if not isinstance(payPageId, basestring):
+        if not isinstance(payPageId, str):
             raise TypeError("Expected a payPageId of type str. Got %r" % type(payPageId))
         data = self.request(
             "paypage/%s" % payPageId,
@@ -357,7 +355,7 @@ class UnzerClient(object):
         :return: Payment ressource
         :rtype: PaymentGetResponse
         """
-        if not isinstance(codeOrOrderId, basestring):
+        if not isinstance(codeOrOrderId, str):
             raise TypeError("Expected a codeOrOrderId of type str. Got %r" % type(codeOrOrderId))
         data = self.request(
             "payments/%s" % codeOrOrderId,
@@ -424,9 +422,9 @@ class UnzerClient(object):
         :return: PaymentResponse ressource
         :rtype: PaymentResponse
         """
-        if not isinstance(codeOrOrderId, basestring):
+        if not isinstance(codeOrOrderId, str):
             raise TypeError("Expected a codeOrOrderId of type str. Got %r" % type(codeOrOrderId))
-        if not isinstance(txnCode, (basestring, NoneType)):
+        if not isinstance(txnCode, (str, NoneType)):
             raise TypeError("Expected a txnCode of type str or None. Got %r" % type(txnCode))
         data = self.request(
             "payments/%s/charges/%s" % (codeOrOrderId, txnCode or ""),

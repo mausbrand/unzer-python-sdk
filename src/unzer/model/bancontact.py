@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 __author__ = "Sven Eberth"
 __email__ = "se@mausbrand.de"
 
@@ -19,7 +17,7 @@ class Bancontact(PaymentType):
         """Create a new Bancontact paymentType ressource.
 
         :param holder: The holder name.
-        :type holder: basestring
+        :type holder: str
         """
         super(Bancontact, self).__init__(**kwargs)
         self.holder = holder  # type: str

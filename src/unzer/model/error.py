@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 __author__ = "Sven Eberth"
 __email__ = "se@mausbrand.de"
 
@@ -10,7 +8,7 @@ import requests
 
 logger = logging.getLogger("unzer-sdk")
 
-class Error(object):
+class Error:
     def __init__(self, code, merchantMessage, customerMessage, **kwargs):
         self.code = code
         self.merchantMessage = merchantMessage

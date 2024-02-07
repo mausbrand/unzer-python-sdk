@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 __author__ = "Sven Eberth"
 __email__ = "se@mausbrand.de"
 
@@ -28,9 +26,9 @@ class BasketItem(BaseModel):
         """Create a new BasketItem.
 
         :param basketItemReferenceId: (optional) Unique basket item reference ID (within the basket)
-        :type basketItemReferenceId: basestring
+        :type basketItemReferenceId: str
         :param unit: (optional) Unit description of the item e.g. &quot;pc&quot;
-        :type unit: basestring
+        :type unit: str
         :param quantity: Integer Quantity of the basket item format: int32
         :type quantity: int
         :param amountDiscount: (optional) Discount amount for the basket item
@@ -47,19 +45,19 @@ class BasketItem(BaseModel):
         :param amountPerUnit: NET amount per unit format: float
         :type amountPerUnit: float
         :param amountNet: (optional) Net amount. Equals amountGross if vat value is 0. format: float
-        :type amountNet: basestring
+        :type amountNet: str
         :param title: Title of the basket item (max. 255)
-        :type title: basestring
+        :type title: str
         :param subTitle: (optional) The defined subTitle which is displayed on our Payment Page later on
-        :type subTitle: basestring
+        :type subTitle: str
         :param imageUrl: (optional) The defined imageUrl for the related basketItem
             and will be displayed on our Payment Page
-        :type imageUrl: basestring
+        :type imageUrl: str
         :param participantId: (optional) Only valid for marketplace payment:
             Channel Id(s) of marketplace's participant(s).
-        :type participantId: basestring
+        :type participantId: str
         :param kind: (original: type) (optional)
-        :type kind: basestring
+        :type kind: str
         """
         self.basketItemReferenceId = basketItemReferenceId
         self.unit = unit

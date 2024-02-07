@@ -1,14 +1,10 @@
-# -*- coding: utf-8 -*-
-
 __author__ = "Sven Eberth"
 __email__ = "se@mausbrand.de"
 
 import abc
 
 
-class BaseModel(object):
-    __metaclass__ = abc.ABCMeta
-
+class BaseModel(abc.ABC):
     EMPTY_STRING = ""
 
     REQUIRED_ATTRIBUTES = []

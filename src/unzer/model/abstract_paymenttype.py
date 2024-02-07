@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 __author__ = "Sven Eberth"
 __email__ = "se@mausbrand.de"
 
@@ -9,7 +7,8 @@ from .base import BaseModel
 
 
 class PaymentType(BaseModel):
-    @abc.abstractproperty
+    @property
+    @abc.abstractmethod
     def method(self):
         """Hold the type as str."""
         pass
@@ -22,7 +21,7 @@ class PaymentType(BaseModel):
         """Create a new paymentType ressource.
 
         :param key: (optional) (original: id) ID for this payment type
-        :type key: basestring
+        :type key: str
         """
         self.key = key  # type: str
 

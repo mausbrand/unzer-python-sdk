@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 __author__ = "Sven Eberth"
 __email__ = "se@mausbrand.de"
 
@@ -23,7 +21,7 @@ class Basket(BaseModel):
         """Create a new Basket.
 
         :param key: (optional)
-        :type key: basestring
+        :type key: str
         :param amountTotalGross: (optional)
         :type amountTotalGross: float
         :param amountTotalVat: (optional)
@@ -31,11 +29,11 @@ class Basket(BaseModel):
         :param amountTotalDiscount: (optional)
         :type amountTotalDiscount: float
         :param currencyCode: (optional) example: EUR
-        :type currencyCode: basestring
+        :type currencyCode: str
         :param orderId: example: s-bsk-XXX
-        :type orderId: basestring
+        :type orderId: str
         :param note: (optional)
-        :type note: basestring
+        :type note: str
         :param basketItems: (optional)
         :type basketItems: list[BasketItem]
         """
