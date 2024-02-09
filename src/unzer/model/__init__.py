@@ -1,10 +1,13 @@
 __author__ = "Sven Eberth"
 __email__ = "se@mausbrand.de"
 
+from .abstract_paymenttype import PaymentType
 from .address import Address
 from .bancontact import Bancontact
+from .base import BaseModel
 from .basket import Basket
 from .basketItem import BasketItem
+from .card import Card
 from .customer import Customer
 from .error import Error, ErrorResponse
 from .payment import PaymentGetResponse, PaymentRequest, PaymentResponse, PaymentTransaction
@@ -16,8 +19,10 @@ __all__ = [
     "Bancontact",
     "Basket",
     "BasketItem",
+    "Card",
     "Customer",
-    "Error", "ErrorResponse",
+    "Error",
+    "ErrorResponse",
     "PaymentGetResponse",
     "PaymentPage",
     "PaymentPageResponse",
