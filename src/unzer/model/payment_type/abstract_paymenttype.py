@@ -3,7 +3,7 @@ __email__ = "se@mausbrand.de"
 
 import abc
 
-from .base import BaseModel
+from ..base import BaseModel
 
 
 class PaymentType(BaseModel):
@@ -36,5 +36,8 @@ class PaymentType(BaseModel):
 
     @classmethod
     def construct(cls, method):
+        # TODO: Choose already defined class
+        print(f"{cls.__subclasses__ = }")
+        print(f"{cls.__subclasses__() = }")
         sub_cls = type(str(method).title(), (cls,), {"method": method})
         return sub_cls

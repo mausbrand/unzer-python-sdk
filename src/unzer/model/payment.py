@@ -2,34 +2,34 @@ __author__ = "Sven Eberth"
 __email__ = "se@mausbrand.de"
 
 import datetime
+import enum
 import logging
 import re
+import typing as t
 from types import NoneType
 
-import unzer.client
-from .abstract_paymenttype import PaymentType
 from .base import BaseModel
+from .payment_type.abstract_paymenttype import PaymentType
 from ..utils import parseBool, parseDateTime
 
+if t.TYPE_CHECKING:
+    from ..client import UnzerClient
 
-class TransactionStatus:
+
+class TransactionStatus(enum.Enum):
     SUCCESS = "success"
     PENDING = "pending"
     ERROR = "error"
 
 
-TransactionStatusInverted = {v: k for k, v in vars(TransactionStatus).items()}
 
-
-class Action:
+class Action(enum.Enum):
     CHARGE = "charge"
     AUTHORIZE = "authorize"
 
 
-ActionInverted = {v: k for k, v in vars(Action).items()}
 
-
-class PaymentState:
+class PaymentState(enum.Enum):
     PENDING = 0
     COMPLETED = 1
     CANCELED = 2
@@ -39,10 +39,8 @@ class PaymentState:
     CREATE = 6
 
 
-PaymentStateInverted = {v: k for k, v in vars(PaymentState).items()}
 
-
-class PaymentTypes:
+class PaymentTypes(enum.Enum):
     CARD = "crd"
     EPS = "eps"
     GIROPAY = "gro"
@@ -72,7 +70,6 @@ class PaymentTypes:
     UNKNOWN = "unknown"
 
 
-PaymentTypesInverted = {v: k for k, v in vars(PaymentTypes).items()}
 
 paymentUrlRe = re.compile(
     r"^https://api.unzer.com/v1/"
@@ -105,7 +102,7 @@ class PaymentGetResponse(BaseModel):
             linkPayId=None,
             typeId=None,
 
-            client=None,
+            client: "UnzerClient" = None,
 
             **kwargs
     ):
@@ -159,8 +156,9 @@ class PaymentGetResponse(BaseModel):
         """
         if transactions is None:
             transactions = []
-        if state not in vars(PaymentState).values():
-            raise TypeError("Invalid state %r" % state)
+        state = PaymentState(state)
+        # if state not in vars(PaymentState).values():
+        #     raise TypeError("Invalid state %r" % state)
         if not isinstance(card3ds, (bool, NoneType)):
             raise TypeError("Invalid value %r for card3ds. Must be a boolean or None." % card3ds)
         self.paymentId = paymentId  # type:str
@@ -185,7 +183,7 @@ class PaymentGetResponse(BaseModel):
         self.linkPayId = linkPayId  # type: str
         self.typeId = typeId  # type: str
 
-        self._client = client  # type: unzer.client.UnzerClient
+        self._client: "UnzerClient" = client
 
     def serialize(self):
         raise NotImplementedError("No serialisation for response models.")
@@ -227,15 +225,17 @@ class PaymentGetResponse(BaseModel):
         return transactions
 
     @staticmethod
-    def getPaymentTypeFromTypeId(typeId):
+    def getPaymentTypeFromTypeId(typeId) -> PaymentTypes:
         if not typeId:
             raise ValueError("Invalid typeId %r" % typeId)  # TODO: or return PaymentTypes.UNKNOWN?
         paymentType = typeId.split("-")[1].lower()
-        if paymentType not in vars(PaymentTypes).values():
+        try:
+            paymentType = PaymentTypes(paymentType)
+        except ValueError:
             raise ValueError("Invalid type %r" % typeId)  # TODO: or return PaymentTypes.UNKNOWN?
         return paymentType
 
-    def charge(self, amount):  # type: (float) -> PaymentResponse
+    def charge(self, amount: float) -> "PaymentResponse":
         req_kwargs = self.__dict__.copy()
         req_kwargs["paymentType"] = PaymentType.construct(self.paymentType)(self.typeId)
         req_kwargs["amount"] = amount
