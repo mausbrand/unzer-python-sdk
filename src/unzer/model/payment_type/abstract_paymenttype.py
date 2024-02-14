@@ -2,42 +2,54 @@ __author__ = "Sven Eberth"
 __email__ = "se@mausbrand.de"
 
 import abc
+import logging
+import typing as t
 
 from ..base import BaseModel
+if t.TYPE_CHECKING:
+    from .. import PaymentTypes
+
+logger = logging.getLogger("unzer-sdk").getChild(__name__)
 
 
 class PaymentType(BaseModel):
     @property
     @abc.abstractmethod
-    def method(self):
-        """Hold the type as str."""
+    def method(self) -> "PaymentTypes":
+        """Hold the type."""
         pass
 
     def __init__(
             self,
-            key=None,
+            key: str = None,
             **kwargs
     ):
         """Create a new paymentType ressource.
 
         :param key: (optional) (original: id) ID for this payment type
-        :type key: str
         """
-        self.key = key  # type: str
+        self.key: str = key
 
-    def serialize(self):
+    def serialize(self) -> dict:
         return {}
 
     @classmethod
-    def fromDict(cls, data):
+    def fromDict(cls, data: dict) -> t.Self:
         data = data.copy()
         data["key"] = data["id"]
         return cls(**data)
 
     @classmethod
-    def construct(cls, method):
-        # TODO: Choose already defined class
-        print(f"{cls.__subclasses__ = }")
-        print(f"{cls.__subclasses__() = }")
+    def get_subclasses(cls) -> t.Type[t.Self]:
+        for subclass in cls.__subclasses__():
+            yield from subclass.get_subclasses()
+            yield subclass
+
+    @classmethod
+    def construct(cls, method: "PaymentTypes") -> t.Type["PaymentType"]:
+        for subclass in PaymentType.get_subclasses():
+            if subclass.method == method:
+                return subclass
+        logger.warning(f"Creating not existing PaymentType for method {method} on the fly")
         sub_cls = type(str(method).title(), (cls,), {"method": method})
-        return sub_cls
+        return sub_cls  # noqa
