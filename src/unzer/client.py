@@ -7,9 +7,9 @@ from types import NoneType
 
 import requests
 from urllib3.exceptions import TimeoutError
+
 from . import __version__
 from .model import *
-from .model.abstract_paymenttype import PaymentType
 from .model.basket import Basket
 from .model.payment import PaymentGetResponse, PaymentRequest, PaymentResponse
 from .model.paymentpage import PaymentPage, PaymentPageResponse
@@ -25,10 +25,10 @@ class UnzerClient:
 
     def __init__(
             self,
-            private_key:str,
-            public_key:str,
-            sandbox:bool=False,
-            language:str="en",
+            private_key: str,
+            public_key: str,
+            sandbox: bool = False,
+            language: str = "en",
     ):
         super(UnzerClient, self).__init__()
         self.private_key = private_key

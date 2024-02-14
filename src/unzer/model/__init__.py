@@ -1,25 +1,21 @@
 __author__ = "Sven Eberth"
 __email__ = "se@mausbrand.de"
 
-from .abstract_paymenttype import PaymentType
 from .address import Address
-from .bancontact import Bancontact
-from .base import BaseModel
 from .basket import Basket
 from .basketItem import BasketItem
-from .card import Card
 from .customer import Customer
 from .error import Error, ErrorResponse
-from .payment import PaymentGetResponse, PaymentRequest, PaymentResponse, PaymentTransaction
+from .payment import PaymentGetResponse, PaymentRequest, PaymentResponse, \
+    PaymentTransaction, PaymentTypes
+from .payment_type import *
 from .paymentpage import PaymentPage, PaymentPageResponse
 from .webhook import Webhook
 
 __all__ = [
     "Address",
-    "Bancontact",
     "Basket",
     "BasketItem",
-    "Card",
     "Customer",
     "Error",
     "ErrorResponse",
@@ -29,5 +25,11 @@ __all__ = [
     "PaymentRequest",
     "PaymentResponse",
     "PaymentTransaction",
+    "PaymentTypes",
     "Webhook",
+    # payment_types
+    "PaymentType",
+    "Bancontact",
+    "Card",
+    "PayPal",
 ]
