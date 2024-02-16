@@ -1,6 +1,3 @@
-__author__ = "Sven Eberth"
-__email__ = "se@mausbrand.de"
-
 import datetime
 import enum
 import logging
@@ -22,11 +19,9 @@ class TransactionStatus(enum.Enum):
     ERROR = "error"
 
 
-
 class Action(enum.Enum):
     CHARGE = "charge"
     AUTHORIZE = "authorize"
-
 
 
 class PaymentState(enum.Enum):
@@ -37,7 +32,6 @@ class PaymentState(enum.Enum):
     PAYMENT_REVIEW = 4
     CHARGEBACK = 5
     CREATE = 6
-
 
 
 class PaymentTypes(enum.Enum):
@@ -68,7 +62,6 @@ class PaymentTypes(enum.Enum):
     UNZER_PAYLATER_INVOICE = "piv"
     KLARNA = "kla"
     UNKNOWN = "unknown"
-
 
 
 paymentUrlRe = re.compile(

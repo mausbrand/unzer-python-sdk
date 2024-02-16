@@ -1,12 +1,10 @@
-__author__ = "Sven Eberth"
-__email__ = "se@mausbrand.de"
-
 import datetime
 import logging
 
 import requests
 
 logger = logging.getLogger("unzer-sdk")
+
 
 class Error:
     def __init__(self, code, merchantMessage, customerMessage, **kwargs):

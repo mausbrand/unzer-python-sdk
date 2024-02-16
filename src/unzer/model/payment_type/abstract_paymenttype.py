@@ -1,11 +1,9 @@
-__author__ = "Sven Eberth"
-__email__ = "se@mausbrand.de"
-
 import abc
 import logging
 import typing as t
 
 from ..base import BaseModel
+
 if t.TYPE_CHECKING:
     from .. import PaymentTypes
 

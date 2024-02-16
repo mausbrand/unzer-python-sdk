@@ -1,6 +1,3 @@
-__author__ = "Sven Eberth"
-__email__ = "se@mausbrand.de"
-
 import logging
 import time
 from types import NoneType

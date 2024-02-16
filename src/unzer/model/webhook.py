@@ -1,6 +1,3 @@
-__author__ = "Sven Eberth"
-__email__ = "se@mausbrand.de"
-
 from .base import BaseModel
 
 # https://docs.unzer.com/reference/basic-integration-req/#allowlist-of-ip-addresses

@@ -1,6 +1,3 @@
-__author__ = "Sven Eberth"
-__email__ = "se@mausbrand.de"
-
 from .address import Address
 from .basket import Basket
 from .basketItem import BasketItem

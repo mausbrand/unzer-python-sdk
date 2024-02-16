@@ -1,10 +1,7 @@
-__author__ = "Sven Eberth"
-__email__ = "se@mausbrand.de"
-
 import typing as t
 
-from .abstract_paymenttype import PaymentType
 from unzer.model.payment import PaymentTypes
+from .abstract_paymenttype import PaymentType
 
 
 class Bancontact(PaymentType):
