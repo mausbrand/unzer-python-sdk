@@ -31,6 +31,7 @@ __all__ = [
     "PaymentType",
     "Bancontact",
     "Card",
+    "Ideal",
     "PayPal",
     "Sofort",
 ]
