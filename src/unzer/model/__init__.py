@@ -32,4 +32,5 @@ __all__ = [
     "Bancontact",
     "Card",
     "PayPal",
+    "Sofort",
 ]
