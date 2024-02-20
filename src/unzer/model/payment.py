@@ -6,7 +6,6 @@ import typing as t
 from types import NoneType
 
 from .base import BaseModel
-from .payment_type.abstract_paymenttype import PaymentType
 from ..utils import parseBool, parseDateTime
 
 if t.TYPE_CHECKING:
@@ -645,3 +644,6 @@ class PaymentResponseMetadata(BaseModel):
         # Nobody, really nobody starts identifier with a digit. Unzer: here you have the 3dsEci flag
         data["threeDsEci"] = data["3dsEci"] if "3dsEci" in data else None
         return cls(**data)
+
+
+from unzer.model.payment_type.abstract_paymenttype import PaymentType  # noqa: Avoid circular imports
