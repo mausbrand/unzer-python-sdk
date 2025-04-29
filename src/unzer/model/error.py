@@ -67,7 +67,7 @@ class ErrorResponse(Exception):
             timestamp=datetime.datetime.strptime(data["timestamp"], "%Y-%m-%d %H:%M:%S"),
             url=data["url"],
             errors=[Error(**error) for error in data["errors"]],
-            errorId=data["id"],
+            errorId=data.get("id"),
             traceId=data.get("traceId"),
             isError=data.get("isError"),
             isPending=data.get("isPending"),
