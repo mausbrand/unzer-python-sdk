@@ -1,0 +1,45 @@
+[build-system]
+requires = [
+    "setuptools>=65",
+#    "wheel"
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "unzer"
+dynamic = ["version"]
+dependencies = [
+    "requests"
+]
+requires-python = ">=3.10"
+authors = [
+    { name = "Sven Eberth", email = "se@mausbrand.de" },
+]
+maintainers = [
+    { name = "Sven Eberth", email = "se@mausbrand.de" },
+]
+description = "An unofficial python SDK for unzer.com"
+readme = "README.md"
+license = { file = "LICENSE" }
+keywords = ["unzer", "payment", "sdk", "client"]
+classifiers = [
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules"
+]
+
+[tool.setuptools.dynamic]
+version = { attr = "unzer.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.urls]
+Repository = "https://github.com/mausbrand/unzer-python-sdk.git"
+"Bug Tracker" = "https://github.com/mausbrand/unzer-python-sdk/issues"
+Changelog = "https://github.com/mausbrand/unzer-python-sdk/releases"
