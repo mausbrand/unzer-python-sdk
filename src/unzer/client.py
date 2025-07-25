@@ -96,7 +96,7 @@ class UnzerClient:
                     verify=True,
                     timeout=self.timeout,
                 )
-            except TimeoutError:
+            except (TimeoutError, requests.exceptions.ReadTimeout):
                 logger.exception("Caught TimeoutError")
                 continue
             if 200 <= r.status_code <= 201:
