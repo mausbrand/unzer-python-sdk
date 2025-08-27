@@ -34,6 +34,7 @@ class Basket(BaseModel):
         :param basketItems: (optional)
         :type basketItems: list[BasketItem]
         """
+        super().__init__(**kwargs)
         if basketItems is None:
             basketItems = []
         self.key = key  # type:str

@@ -1,5 +1,6 @@
 import logging
 import time
+import typing as t
 from types import NoneType
 
 import requests
@@ -13,6 +14,8 @@ from .model.paymentpage import PaymentPage, PaymentPageResponse
 from .model.webhook import Webhook
 
 logger = logging.getLogger("unzer-sdk")
+
+HttpMethod = t.Literal["GET", "POST", "PUT", "PATCH", "DELETE"]
 
 
 class UnzerClient:
@@ -33,7 +36,7 @@ class UnzerClient:
         self.sandbox = sandbox
         self.language = language
 
-    def request(self, operation, method, payload=None):
+    def request(self, operation: str, method: HttpMethod, payload: t.Any = None) -> t.Any:
         """Perform a request to the unzer-api.
 
         This method does not really perform the request itself,
@@ -44,7 +47,6 @@ class UnzerClient:
         :param payload: The payload for this request.
             Send json-encoded as body.
         :return: The json-decoded response from the api.
-        :rtype: Any
         """
         url = "%s/%s" % (self.endpoint, operation)
         headers = {
@@ -61,21 +63,18 @@ class UnzerClient:
             auth=(self.private_key, "")
         )
 
-    def _request(self, url, method, headers, payload, auth):
+    def _request(self, url: str, method: str,
+                 headers: list[tuple] | dict[str, str], payload: t.Any,
+                 auth: tuple[str, str]) -> t.Any:
         """Helper method to perform the request with throttling.
 
         :param url: The complete URL.
-        :type url: str
         :param method: The HTTP method (e.g. POST, GET).
-        :type method: str
         :param headers: The HTTP headers.
         :type headers: list[tuple] | dict[str, str]
         :param payload: The HTTP payload (will be json encoded).
-        :type url: Any
         :param auth: The authentication for this request.
-        :type auth: tuple(str, str)
         :return: The json decoded response
-        :type: Any
 
         :raises: :exc:`ErrorResponse` in case of an client error
             or after last retry failed.
@@ -126,11 +125,10 @@ class UnzerClient:
                 raise errorResponse
         raise ErrorResponse("All request attempts failed", srcResponse=r)
 
-    def getKeyPair(self):
+    def getKeyPair(self) -> dict:
         """Provides the public key of the used private key as well as a list of the payment types available for the merchant.
 
         :return: The fetched KeyPairResponse
-        :rtype: dict
         """
         # ToDo: implement KeyPairResponse-model
         return self.request(
@@ -138,12 +136,30 @@ class UnzerClient:
             "GET",
         )
 
-    def getError(self, errorId):
+    def getKeyPairTypes(self) -> dict[str, t.Any]:
+        """Get detailed information and payment method configuration
+
+        The endpoint provides details about the key pairs configured for a merchant account
+        and the payment methods they support, including their associated public key, private key,
+        currencies, and customer types (like B2C or B2B).
+
+        .. seealso::
+
+            - https://api.unzer.com/api-reference/index.html#tag/Keypair/operation/getAvailablePaymentMethodTypesWithTypeInformation
+            - https://docs.unzer.com/server-side-integration/direct-api-integration/manage-api-resources/api-check-key-configuration/
+
+        :return: The fetched KeyPairTypesResponse
+        """
+        # ToDo: implement KeyPairResponse-model
+        return self.request(
+            "keypair/types",
+            "GET",
+        )
+
+    def getError(self, errorId: str) -> dict:
         """Get information about an error
 
         :param errorId: The error id (e.g. p-err-abcdefghij1234567rstuvwyxyz)
-        :type errorId: str
-        :rtype: dict
         """
         if not isinstance(errorId, str):
             raise TypeError("Expected a errorId of type str. Got %r" % type(errorId))
@@ -386,7 +402,7 @@ class UnzerClient:
         """
         return self._authorize_or_charge("charges", payment)
 
-    def _authorize_or_charge(self, type_, payment):  # type: (str, PaymentRequest) -> PaymentResponse
+    def _authorize_or_charge(self, type_: str, payment: PaymentRequest) -> PaymentResponse:
         """Internal helper for authorize and charge calls
         """
         if type_ not in {"authorize", "charges"}:

@@ -2,14 +2,10 @@ import datetime
 import enum
 import logging
 import re
-import typing as t
 from types import NoneType
 
 from .base import BaseModel
 from ..utils import parseBool, parseDateTime
-
-if t.TYPE_CHECKING:
-    from ..client import UnzerClient
 
 
 class TransactionStatus(enum.Enum):
@@ -34,9 +30,18 @@ class PaymentState(enum.Enum):
 
 
 class PaymentTypes(enum.Enum):
+    """
+    Supported payment types
+
+    Used as short-name in type-ids like ``s-crd-abc456def789``
+
+    source: https://github.com/unzerdev/java-sdk/blob/main/src/main/java/com/unzer/payment/paymenttypes/PaymentTypeEnum.java
+    """
     CARD = "crd"
+    CLICK_TO_PAY = "ctp"
     EPS = "eps"
     GIROPAY = "gro"
+    GOOGLE_PAY = "gop"
     IDEAL = "idl"
     INVOICE = "ivc"
     INVOICE_GUARANTEED = "ivg"  # deprecated
@@ -46,22 +51,62 @@ class PaymentTypes(enum.Enum):
     PREPAYMENT = "ppy"
     PRZELEWY24 = "p24"
     SEPA_DIRECT_DEBIT = "sdd"
-    SEPA_DIRECT_DEBIT_GUARANTEED = "ddg"
-    SEPA_DIRECT_DEBIT_SECURED = "dds"
+    SEPA_DIRECT_DEBIT_GUARANTEED = "ddg"  # deprecated
+    SEPA_DIRECT_DEBIT_SECURED = "dds"  # deprecated
     SOFORT = "sft"
     PIS = "pis"
     ALIPAY = "ali"
     WECHATPAY = "wcp"
-    APPLEPAY = "apl"
+    APPLE_PAY = "apl"
     HIRE_PURCHASE_RATE_PLAN = "hdd"
-    INSTALLMENT_SECURED_RATE_PLAN = "ins"
+    INSTALLMENT_SECURED_RATE_PLAN = "ins"  # deprecated
     BANCONTACT = "bct"
     PF_CARD = "pfc"
     PF_EFINANCE = "pfe"
     UNZER_PAYLATER_INVOICE = "piv"
     KLARNA = "kla"
+    PAYLATER_INSTALLMENT = "pit"
+    PAYLATER_DIRECT_DEBIT = "pdd"
+    TWINT = "twt"
+    OPEN_BANKING = "obp"
     UNKNOWN = "unknown"
 
+
+class PaymentMethodTypes(enum.Enum):
+    """
+    Full name of supported payment types
+
+    Used as name in URLs like ``types/<name>/``
+
+    source: https://github.com/unzerdev/integration-core/blob/master/src/BusinessLogic/Domain/PaymentMethod/Enums/PaymentMethodTypes.php
+    """
+    ALI_PAY = "alipay"
+    APPLE_PAY = "applepay"
+    BANCONTACT = "bancontact"
+    CARD = "card"
+    GIROPAY = "giropay"
+    GOOGLE_PAY = "googlepay"
+    IDEAL = "ideal"
+    KLARNA = "klarna"
+    PAYPAL = "paypal"
+    PAYU = "payu"
+    PRZELEWY24 = "przelewy24"
+    POST_FINANCE_CARD = "post-finance-card"
+    POST_FINANCE_EFINANCE = "post-finance-efinance"
+    SOFORT = "sofort"
+    TWINT = "twint"
+    UNZER_DIRECT_DEBIT = "sepa-direct-debit"
+    DIRECT_DEBIT_SECURED = "paylater-direct-debit"
+    UNZER_INSTALLMENT = "paylater-installment"
+    UNZER_INVOICE = "paylater-invoice"
+    UNZER_PREPAYMENT = "prepayment"
+    WECHATPAY = "wechatpay"
+    EPS = "EPS"
+    DIRECT_BANK_TRANSFER = "openbanking-pis"
+    CLICK_TO_PAY = "clicktopay"
+
+
+# TODO: Combine PaymentMethodTypes and PaymentTypes in a dataclass to have their mapping too?
 
 paymentUrlRe = re.compile(
     r"^https://api.unzer.com/v1/"
@@ -93,9 +138,6 @@ class PaymentGetResponse(BaseModel):
             payPageId=None,
             linkPayId=None,
             typeId=None,
-
-            client: "UnzerClient" = None,
-
             **kwargs
     ):
         """Create a new PaymentGetResponse.
@@ -142,10 +184,8 @@ class PaymentGetResponse(BaseModel):
         :type linkPayId: str
         :param typeId: (optional) Id of the types Resource that is to be used for this transaction.
         :type typeId: str
-
-        :param client: (optional) The client instance.
-        :type client: unzer.client.UnzerClient
         """
+        super().__init__(**kwargs)
         if transactions is None:
             transactions = []
         state = PaymentState(state)
@@ -174,8 +214,6 @@ class PaymentGetResponse(BaseModel):
         self.payPageId = payPageId  # type: str
         self.linkPayId = linkPayId  # type: str
         self.typeId = typeId  # type: str
-
-        self._client: "UnzerClient" = client
 
     def serialize(self):
         raise NotImplementedError("No serialisation for response models.")
@@ -268,6 +306,7 @@ class PaymentTransaction(BaseModel):
         :param amount: (optional)
         :type amount: float
         """
+        super().__init__(**kwargs)
         self.paymentId = paymentId  # type:str
         self.transactionId = transactionId  # type:str
         self.participantId = participantId  # type:str
@@ -323,7 +362,6 @@ class PaymentRequest(BaseModel):
             metadataId=None,
             basketId=None,
 
-            client=None,
             **kwargs
     ):
         """Create a new PaymentRequest.
@@ -360,10 +398,8 @@ class PaymentRequest(BaseModel):
         :type metadataId: str
         :param basketId: (optional) Basket ID used for this transaction.
         :type basketId: str
-
-        :param client: (optional) The client instance.
-        :type client: unzer.client.UnzerClient
         """
+        super().__init__(**kwargs)
         if not isinstance(card3ds, (bool, NoneType)):
             raise TypeError("Invalid value %r for card3ds. Must be a boolean or None." % card3ds)
         self.paymentType = paymentType  # type:PaymentType
@@ -380,8 +416,6 @@ class PaymentRequest(BaseModel):
         self.customerId = customerId  # type: str
         self.metadataId = metadataId  # type: str
         self.basketId = basketId  # type: str
-
-        self._client = client  # type: unzer.client.UnzerClient
 
     def serialize(self):
         data = {
@@ -498,6 +532,7 @@ class PaymentResponse(BaseModel):
         :param processing: (optional)
         :type processing: PaymentResponseMetadata
         """
+        super().__init__(**kwargs)
         self.transactionId = transactionId  # type:str
         self.isSuccess = isSuccess  # type:bool
         self.isPending = isPending  # type:bool
@@ -618,6 +653,7 @@ class PaymentResponseMetadata(BaseModel):
             Channel Id(s) of marketplace's participant(s).
         :type participantId: str
         """
+        super().__init__(**kwargs)
         self.creatorId = creatorId  # type:str
         self.identification = identification  # type:str
         self.iban = iban  # type:str

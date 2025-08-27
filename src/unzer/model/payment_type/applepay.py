@@ -2,6 +2,6 @@ from unzer.model.payment import PaymentMethodTypes, PaymentTypes
 from .abstract_paymenttype import PaymentType
 
 
-class Card(PaymentType):
-    method = PaymentTypes.CARD
-    method_name = PaymentMethodTypes.CARD
+class Applepay(PaymentType):
+    method = PaymentTypes.APPLE_PAY
+    method_name = PaymentMethodTypes.APPLE_PAY

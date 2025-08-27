@@ -30,6 +30,7 @@ class Address(BaseModel):
         :param country: (optional) Address country in ISO A2 format (max. 2 chars). Required in case of billing address.
         :type country: str
         """
+        super().__init__(**kwargs)
         self.firstname = firstname  # type: str
         self.lastname = lastname  # type: str
         self.street = street  # type: str

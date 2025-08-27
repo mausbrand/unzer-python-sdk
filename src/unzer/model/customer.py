@@ -59,6 +59,7 @@ class Customer(BaseModel):
         :param companyData: (optional)
         :type companyData: CompanyInfo
         """
+        super().__init__(**kwargs)
         if salutation is None:
             salutation = Salutation.UNKNOWN
         elif salutation not in {Salutation.MR, Salutation.MRS, Salutation.UNKNOWN}:

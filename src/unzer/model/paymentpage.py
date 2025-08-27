@@ -92,6 +92,7 @@ class PaymentPage(BaseModel):
         :param basketId: (optional) The ID of the baskets resource to be used.
         :type basketId: str
         """
+        super().__init__(**kwargs)
         if excludeTypes is None:
             excludeTypes = []
         if additionalAttributes is None:
@@ -184,7 +185,7 @@ class PaymentPageResponse(PaymentPage):
         :param shippingAddressRequired: (optional) Determines whether the customer needs to provide a shipping address.
         :type shippingAddressRequired: bool
         """
-        super(PaymentPageResponse, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.payPageId = payPageId  # type:str
         self.paymentId = paymentId  # type:str
         self.redirectUrl = redirectUrl  # type:str
@@ -192,7 +193,7 @@ class PaymentPageResponse(PaymentPage):
         self.shippingAddressRequired = shippingAddressRequired  # type:bool
 
     def serialize(self):
-        data = super(PaymentPageResponse, self).serialize()
+        data = super().serialize()
         data["id"] = self.payPageId
         data["paymentId"] = self.paymentId
         data["redirectUrl"] = self.redirectUrl

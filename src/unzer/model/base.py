@@ -1,10 +1,26 @@
 import abc
 
+import typing as t
+
+if t.TYPE_CHECKING:
+    from ..client import UnzerClient  # noqa # pylint: disable=unused-import
+
 
 class BaseModel(abc.ABC):
     EMPTY_STRING = ""
 
     REQUIRED_ATTRIBUTES = []
+
+    def __init__(
+            self,
+            client: "UnzerClient" = None,
+            **kwargs,
+    ):
+        """
+        :param client: (optional) The client instance.
+        """
+        super().__init__()
+        self._client: "UnzerClient" = client
 
     def getString(self, value):
         if value is None:
@@ -26,7 +42,7 @@ class BaseModel(abc.ABC):
         """Validate the model.
 
         Useful to check the model for validity before the API request.
-        By default check for the required attributes,
+        By default, check for the required attributes,
         set in :attr:`REQUIRED_ATTRIBUTES` (class attribute).
         """
         for attr in type(self).REQUIRED_ATTRIBUTES:  # use always the cls-attributes

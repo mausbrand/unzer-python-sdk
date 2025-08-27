@@ -68,6 +68,7 @@ class Webhook(BaseModel):
         :param url: The url of the webhook
         :type url: str
         """
+        super().__init__(**kwargs)
         self.webhookId = webhookId
         self.event = event
         self.url = url

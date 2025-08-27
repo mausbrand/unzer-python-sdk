@@ -1,11 +1,12 @@
 import typing as t
 
-from unzer.model.payment import PaymentTypes
+from unzer.model.payment import PaymentMethodTypes, PaymentTypes
 from .abstract_paymenttype import PaymentType
 
 
 class Bancontact(PaymentType):
     method = PaymentTypes.BANCONTACT
+    method_name = PaymentMethodTypes.BANCONTACT
 
     REQUIRED_ATTRIBUTES = ["holder"]
 

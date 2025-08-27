@@ -56,6 +56,7 @@ class BasketItem(BaseModel):
         :param kind: (original: type) (optional)
         :type kind: str
         """
+        super().__init__(**kwargs)
         self.basketItemReferenceId = basketItemReferenceId
         self.unit = unit
         self.quantity = quantity
