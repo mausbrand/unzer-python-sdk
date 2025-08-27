@@ -35,7 +35,7 @@ class PaymentTypes(enum.Enum):
 
     Used as short-name in type-ids like ``s-crd-abc456def789``
 
-    source: https://github.com/unzerdev/java-sdk/blob/main/src/main/java/com/unzer/payment/paymenttypes/PaymentTypeEnum.java
+    source: https://github.com/unzerdev/java-sdk/blob/main/src/main/java/com/unzer/payment/paymenttypes/PaymentTypeEnum.java  # noqa: E501
     """
     CARD = "crd"
     CLICK_TO_PAY = "ctp"
@@ -78,7 +78,7 @@ class PaymentMethodTypes(enum.Enum):
 
     Used as name in URLs like ``types/<name>/``
 
-    source: https://github.com/unzerdev/integration-core/blob/master/src/BusinessLogic/Domain/PaymentMethod/Enums/PaymentMethodTypes.php
+    source: https://github.com/unzerdev/integration-core/blob/master/src/BusinessLogic/Domain/PaymentMethod/Enums/PaymentMethodTypes.php  # noqa: E501
     """
     ALI_PAY = "alipay"
     APPLE_PAY = "applepay"

@@ -145,8 +145,8 @@ class UnzerClient:
 
         .. seealso::
 
-            - https://api.unzer.com/api-reference/index.html#tag/Keypair/operation/getAvailablePaymentMethodTypesWithTypeInformation
-            - https://docs.unzer.com/server-side-integration/direct-api-integration/manage-api-resources/api-check-key-configuration/
+            - https://api.unzer.com/api-reference/index.html#tag/Keypair/operation/getAvailablePaymentMethodTypesWithTypeInformation  # noqa: E501
+            - https://docs.unzer.com/server-side-integration/direct-api-integration/manage-api-resources/api-check-key-configuration/  # noqa: E501
 
         :return: The fetched KeyPairTypesResponse
         """
