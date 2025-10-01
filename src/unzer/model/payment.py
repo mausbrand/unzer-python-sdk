@@ -2,10 +2,14 @@ import datetime
 import enum
 import logging
 import re
+import typing as t
 from types import NoneType
 
 from .base import BaseModel
 from ..utils import parseBool, parseDateTime
+
+if t.TYPE_CHECKING:
+    from ..client import UnzerClient
 
 
 class TransactionStatus(enum.Enum):
@@ -563,7 +567,7 @@ class PaymentResponse(BaseModel):
         raise NotImplementedError("No serialisation for response models.")
 
     @classmethod
-    def fromDict(cls, data):
+    def fromDict(cls, data: dict, client: "UnzerClient") -> t.Self:
         data = data.copy()
         data["transactionId"] = data["id"]
         data["isSuccess"] = parseBool(data["isSuccess"])
@@ -587,7 +591,16 @@ class PaymentResponse(BaseModel):
         data["payPageId"] = data["resources"].get("payPageId") or None
         data["linkPayId"] = data["resources"].get("linkPayId") or None
         data["typeId"] = data["resources"].get("typeId") or None
-        return cls(**data)
+        return cls(**data, client=client)
+
+    def charge(self, amount: float) -> "PaymentResponse":
+        req_kwargs = self.__dict__.copy()
+        paymentTypeName = PaymentGetResponse.getPaymentTypeFromTypeId(self.typeId)
+        req_kwargs["paymentType"] = PaymentType.construct(paymentTypeName)(self.typeId)
+        req_kwargs["amount"] = amount
+        logging.debug("req_kwargs = %r", req_kwargs)
+        req = PaymentRequest(**req_kwargs)
+        return self._client.charge(req)
 
 
 class PaymentResponseMetadata(BaseModel):
@@ -597,6 +610,7 @@ class PaymentResponseMetadata(BaseModel):
             identification=None,
             iban=None,
             bic=None,
+            bank=None,
             externalOrderId=None,
             zgReferenceId=None,
             traceId=None,
@@ -623,6 +637,10 @@ class PaymentResponseMetadata(BaseModel):
         :param bic: (optional) String Bic of the merchant for prepayment or invoice.
             In the case of a direct debit, this value contains the customer Bic.
         :type bic: str
+        :param bank: (optional)
+            Bank of the merchant for prepayment or invoice.
+            In the case of a direct debit, this value contains the customer Bank.
+        :type bank: str
         :param externalOrderId: (optional) String External Order Id of installment transaction
             e.g: Hirepurchase, Installment-Secured.
         :type externalOrderId: str
@@ -637,7 +655,7 @@ class PaymentResponseMetadata(BaseModel):
         :type uniqueId: str
         :param shortId: (optional) String User-friendly reference id of the payment system.
         :type shortId: str
-        :param descriptor: (optional) String Descriptor of the merchant for prepayment or invoice.
+        :param descriptor: (optional) String Descriptor of the merchant for prepayment or invoice..
         :type descriptor: str
         :param holder: (optional) String Holder of the merchant for prepayment or invoice.
             In the case of a direct debit, this value contains the customer holder.
@@ -658,6 +676,7 @@ class PaymentResponseMetadata(BaseModel):
         self.identification = identification  # type:str
         self.iban = iban  # type:str
         self.bic = bic  # type:str
+        self.bank = bank  # type:str
         self.externalOrderId = externalOrderId  # type:str
         self.zgReferenceId = zgReferenceId  # type:str
         self.traceId = traceId  # type:str

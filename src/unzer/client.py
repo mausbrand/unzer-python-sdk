@@ -376,7 +376,7 @@ class UnzerClient:
         )
         return PaymentGetResponse.fromDict(data, self)
 
-    def authorize(self, payment):
+    def authorize(self, payment) -> PaymentResponse:
         """Authorize call for redirect payments.
 
         The paymentType will be created within this method,
@@ -421,7 +421,7 @@ class UnzerClient:
         )
         if data.get("isError"):
             raise ErrorResponse.fromDict(data)
-        return PaymentResponse.fromDict(data)
+        return PaymentResponse.fromDict(data, self)
 
     def getChargedTransaction(self, codeOrOrderId, txnCode):
         """Fetch the corresponding charged transaction.
@@ -443,7 +443,7 @@ class UnzerClient:
             "payments/%s/charges/%s" % (codeOrOrderId, txnCode or ""),
             "GET",
         )
-        return PaymentResponse.fromDict(data)
+        return PaymentResponse.fromDict(data, self)
 
     def listWebhooks(self):
         """Get all webhook resources.

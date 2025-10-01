@@ -136,7 +136,7 @@ class Customer(BaseModel):
     def serialize(self):
         birthDate = self.birthDate
         if isinstance(birthDate, (datetime.datetime, datetime.date)):
-            birthDate = birthDate.strftime("%Y-%M-%d")
+            birthDate = birthDate.strftime("%Y-%m-%d")
 
         billingAddress = self.billingAddress
         if billingAddress is None:

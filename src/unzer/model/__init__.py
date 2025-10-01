@@ -43,6 +43,7 @@ __all__ = [
     "Card",
     "Googlepay",
     "Ideal",
+    "PaylaterInvoice",
     "PayPal",
     "Sofort",
     # paymentpage
