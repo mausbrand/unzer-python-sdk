@@ -5,6 +5,7 @@ import re
 import typing as t
 from types import NoneType
 
+from .additional_transaction_data import AdditionalTransactionData
 from .base import BaseModel
 from ..utils import parseBool, parseDateTime
 
@@ -273,7 +274,6 @@ class PaymentGetResponse(BaseModel):
         req_kwargs = self.__dict__.copy()
         req_kwargs["paymentType"] = PaymentType.construct(self.paymentType)(self.typeId)
         req_kwargs["amount"] = amount
-        logging.debug("req_kwargs = %r", req_kwargs)
         req = PaymentRequest(**req_kwargs)
         return self._client.charge(req)
 
@@ -365,6 +365,7 @@ class PaymentRequest(BaseModel):
             customerId=None,
             metadataId=None,
             basketId=None,
+            additional_transaction_data: AdditionalTransactionData | None = None,
 
             **kwargs
     ):
@@ -402,6 +403,8 @@ class PaymentRequest(BaseModel):
         :type metadataId: str
         :param basketId: (optional) Basket ID used for this transaction.
         :type basketId: str
+
+        :param additional_transaction_data: (optional) Additional transaction data
         """
         super().__init__(**kwargs)
         if not isinstance(card3ds, (bool, NoneType)):
@@ -420,6 +423,7 @@ class PaymentRequest(BaseModel):
         self.customerId = customerId  # type: str
         self.metadataId = metadataId  # type: str
         self.basketId = basketId  # type: str
+        self.additional_transaction_data = additional_transaction_data
 
     def serialize(self):
         data = {
@@ -438,6 +442,8 @@ class PaymentRequest(BaseModel):
                 "basketId": self.basketId,
             },
         }
+        if self.additional_transaction_data is not None:
+            data["additionalTransactionData"] = self.additional_transaction_data.serialize()
         return data
 
     @classmethod
@@ -598,7 +604,6 @@ class PaymentResponse(BaseModel):
         paymentTypeName = PaymentGetResponse.getPaymentTypeFromTypeId(self.typeId)
         req_kwargs["paymentType"] = PaymentType.construct(paymentTypeName)(self.typeId)
         req_kwargs["amount"] = amount
-        logging.debug("req_kwargs = %r", req_kwargs)
         req = PaymentRequest(**req_kwargs)
         return self._client.charge(req)
 

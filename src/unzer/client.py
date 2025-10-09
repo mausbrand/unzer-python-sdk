@@ -36,16 +36,23 @@ class UnzerClient:
         self.sandbox = sandbox
         self.language = language
 
-    def request(self, operation: str, method: HttpMethod, payload: t.Any = None) -> t.Any:
+    def request(
+            self,
+            operation: str,
+            method: HttpMethod,
+            payload: t.Any = None,
+            additional_headers: dict[str, str] = None,
+    ) -> t.Any:
         """Perform a request to the unzer-api.
 
         This method does not really perform the request itself,
         but rather prepares the request for :meth:`_request`.
 
-        :param operation: The HTTP method (e.g. POST, GET).
-        :param method: The method on the REST API. (path).
+        :param operation: The method on the REST API (URL path).
+        :param method: The HTTP method (e.g. POST, GET).
         :param payload: The payload for this request.
             Send json-encoded as body.
+        :param additional_headers: Additional headers for this request.
         :return: The json-decoded response from the api.
         """
         url = "%s/%s" % (self.endpoint, operation)
@@ -55,6 +62,8 @@ class UnzerClient:
             "accept": "application/json",
             "accept-language": self.language,  # language for translation of customerMessage in errors
         }
+        if additional_headers:
+            headers |= additional_headers
         return self._request(
             url,
             method,
@@ -85,6 +94,7 @@ class UnzerClient:
             time.sleep(delay)
             logger.debug("%s %s", method, url)
             logger.debug("payload: %r", payload)
+            logger.debug("headers: %r", headers)
             try:
                 r = requests.request(
                     method,
@@ -376,7 +386,7 @@ class UnzerClient:
         )
         return PaymentGetResponse.fromDict(data, self)
 
-    def authorize(self, payment) -> PaymentResponse:
+    def authorize(self, payment, **kwargs) -> PaymentResponse:
         """Authorize call for redirect payments.
 
         The paymentType will be created within this method,
@@ -387,9 +397,9 @@ class UnzerClient:
         :return: The paymentType response
         :rtype: PaymentResponse
         """
-        return self._authorize_or_charge("authorize", payment)
+        return self._authorize_or_charge("authorize", payment, **kwargs)
 
-    def charge(self, payment):
+    def charge(self, payment, **kwargs):
         """Charge call for redirect payments.
 
         The paymentType will be created within this method,
@@ -400,9 +410,14 @@ class UnzerClient:
         :return: The paymentType response
         :rtype: PaymentResponse
         """
-        return self._authorize_or_charge("charges", payment)
+        return self._authorize_or_charge("charges", payment, **kwargs)
 
-    def _authorize_or_charge(self, type_: str, payment: PaymentRequest) -> PaymentResponse:
+    def _authorize_or_charge(
+            self,
+            type_: str,
+            payment: PaymentRequest,
+            headers: dict[str, str] = None,
+    ) -> PaymentResponse:
         """Internal helper for authorize and charge calls
         """
         if type_ not in {"authorize", "charges"}:
@@ -418,6 +433,7 @@ class UnzerClient:
             "/".join(filter(None, ["payments", payment.paymentId, type_])),
             "POST",
             payment.serialize(),
+            additional_headers=headers or {},
         )
         if data.get("isError"):
             raise ErrorResponse.fromDict(data)

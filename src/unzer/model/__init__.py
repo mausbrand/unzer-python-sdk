@@ -1,3 +1,12 @@
+from .additional_transaction_data import (
+    AdditionalTransactionData,
+    CardTransactionData,
+    CustomerGroup,
+    PaypalData,
+    RegistrationLevel,
+    RiskData,
+    ShippingTransactionData,
+)
 from .address import Address
 from .basket import Basket
 from .basketItem import BasketItem
@@ -23,6 +32,14 @@ __all__ = [
     "Basket",
     "BasketItem",
     "Customer",
+    # additional_transaction_data
+    "AdditionalTransactionData",
+    "CardTransactionData",
+    "CustomerGroup",
+    "PaypalData",
+    "RegistrationLevel",
+    "RiskData",
+    "ShippingTransactionData",
     # error
     "Error",
     "ErrorResponse",

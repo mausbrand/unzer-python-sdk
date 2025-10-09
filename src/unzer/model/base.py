@@ -5,6 +5,8 @@ import typing as t
 if t.TYPE_CHECKING:
     from ..client import UnzerClient  # noqa # pylint: disable=unused-import
 
+JSONValue: t.TypeAlias = str | int | float | bool | list["JSONValue"] | dict[str, "JSONValue"] | None
+
 
 class BaseModel(abc.ABC):
     EMPTY_STRING = ""
@@ -28,17 +30,17 @@ class BaseModel(abc.ABC):
         return value
 
     @abc.abstractmethod
-    def serialize(self):
+    def serialize(self) -> dict[str, JSONValue]:
         """Serialize data from an object as dict for the request-payload."""
         pass
 
     @classmethod
     @abc.abstractmethod
-    def fromDict(cls, data):
+    def fromDict(cls, data: dict[str, JSONValue]) -> t.Self:
         """Unserialize data from a dict from a response to new object"""
         pass
 
-    def validateBeforeRequest(self):
+    def validateBeforeRequest(self) -> bool:
         """Validate the model.
 
         Useful to check the model for validity before the API request.
@@ -50,14 +52,14 @@ class BaseModel(abc.ABC):
                 raise ValueError("%s misses the attribute *%s*." % (type(self).__name__, attr))
         return True
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "%s.%s(%s)" % (
             self.__class__.__module__,
             self.__class__.__name__,
             ", ".join("%s=%r" % (k, v) for k, v in sorted(self))
         )
 
-    def asDict(self):
+    def asDict(self) -> dict[str, t.Any]:
         """Return the model as dict.
 
         This will not be done recursive.
