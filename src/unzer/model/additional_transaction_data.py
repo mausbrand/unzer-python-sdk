@@ -5,7 +5,7 @@ from datetime import date, datetime as dt
 
 from unzer.model.base import BaseModel, JSONValue
 
-logger = logging.getLogger("unzer-sdk")
+logger = logging.getLogger("unzer-sdk").getChild(__name__)
 
 
 class CardTransactionData(BaseModel):

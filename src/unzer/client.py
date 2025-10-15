@@ -13,7 +13,7 @@ from .model.payment import PaymentGetResponse, PaymentRequest, PaymentResponse
 from .model.paymentpage import PaymentPage, PaymentPageResponse
 from .model.webhook import Webhook
 
-logger = logging.getLogger("unzer-sdk")
+logger = logging.getLogger("unzer-sdk").getChild(__name__)
 
 HttpMethod = t.Literal["GET", "POST", "PUT", "PATCH", "DELETE"]
 

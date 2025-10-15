@@ -3,7 +3,7 @@ import logging
 
 import requests
 
-logger = logging.getLogger("unzer-sdk")
+logger = logging.getLogger("unzer-sdk").getChild(__name__)
 
 
 class Error:
