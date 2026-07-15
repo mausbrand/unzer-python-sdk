@@ -4,18 +4,20 @@ from .bancontact import Bancontact
 from .card import Card
 from .googlepay import Googlepay
 from .ideal import Ideal
+from .klarna import Klarna
 from .paylater_invoice import PaylaterInvoice
 from .paypal import PayPal
 from .sofort import Sofort
 
 __all__ = [
-    "PaymentType",
     "Applepay",
     "Bancontact",
     "Card",
     "Googlepay",
     "Ideal",
-    "PaylaterInvoice",
+    "Klarna",
     "PayPal",
+    "PaylaterInvoice",
+    "PaymentType",
     "Sofort",
 ]

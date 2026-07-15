@@ -60,8 +60,9 @@ __all__ = [
     "Card",
     "Googlepay",
     "Ideal",
-    "PaylaterInvoice",
+    "Klarna",
     "PayPal",
+    "PaylaterInvoice",
     "Sofort",
     # paymentpage
     "PaymentPage",
