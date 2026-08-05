@@ -330,7 +330,7 @@ class UnzerClient:
             raise TypeError("Expected a PaymentType object. Got %r" % type(paymentType))
         paymentType.validateBeforeRequest()
         data = self.request(
-            "types/%s" % paymentType.method,
+            "types/%s" % paymentType.method_name.value,
             "POST",
             paymentType.serialize(),
         )
