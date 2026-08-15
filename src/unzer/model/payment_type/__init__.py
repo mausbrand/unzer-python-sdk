@@ -4,11 +4,11 @@ from .applepay import Applepay
 from .bancontact import Bancontact
 from .card import Card
 from .clicktopay import ClickToPay
-from .direct_bank_transfer import DirectBankTransfer
 from .eps import Eps
 from .googlepay import Googlepay
 from .ideal import Ideal
 from .klarna import Klarna
+from .openbanking_pis import OpenbankingPis
 from .paylater_direct_debit import PaylaterDirectDebit
 from .paylater_installment import PaylaterInstallment
 from .paylater_invoice import PaylaterInvoice
@@ -30,11 +30,11 @@ __all__ = [
     "Bancontact",
     "Card",
     "ClickToPay",
-    "DirectBankTransfer",
     "Eps",
     "Googlepay",
     "Ideal",
     "Klarna",
+    "OpenbankingPis",
     "PayPal",
     "PayU",
     "PaylaterDirectDebit",

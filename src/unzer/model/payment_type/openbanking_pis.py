@@ -5,8 +5,8 @@ from unzer.model.payment import PaymentMethodTypes, PaymentTypes
 from .abstract_paymenttype import PaymentType
 
 
-class DirectBankTransfer(PaymentType):
-    """Unzer Direct Bank Transfer
+class OpenbankingPis(PaymentType):
+    """Unzer Open Banking PIS, marketed as *Unzer Direct Bank Transfer*
 
     Pay-by-bank based on a payment initiation service (PIS): the customer is redirected
     to log into their own online banking and authorizes the transfer there.
