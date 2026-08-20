@@ -32,8 +32,15 @@ class UnzerClient:
     retryDelays = (1, 2, 4, 8)
     """Delays in seconds between the retries of a failed request."""
 
-    timeout = 5
-    """Timeout in seconds of a single request."""
+    timeout = 30
+    """Timeout in seconds of a single request.
+
+    Kept well above the response time of a plain payment call: the Pay later
+    methods run a credit check while the request is open, which regularly takes
+    more than ten seconds. A request that times out is retried, and repeating a
+    payment call is not free of consequences -- the second attempt runs into an
+    already used basket at best.
+    """
 
     def __init__(
             self,
@@ -42,6 +49,7 @@ class UnzerClient:
             sandbox: bool = False,
             language: str = "en",
             client_ip: str = None,
+            timeout: int = None,
     ):
         """Create a new client for the unzer-api.
 
@@ -55,6 +63,8 @@ class UnzerClient:
             for their risk checks.
             The API documentation names this header ``x-CLIENTIP``,
             but both the PHP and the Java SDK send it as ``CLIENTIP``.
+        :param timeout: (optional) Timeout in seconds of a single request,
+            overrides :attr:`timeout`.
         """
         super(UnzerClient, self).__init__()
         self.private_key = private_key
@@ -62,6 +72,8 @@ class UnzerClient:
         self.sandbox = sandbox
         self.language = language
         self.client_ip = client_ip
+        if timeout is not None:
+            self.timeout = timeout
 
     def request(
             self,
