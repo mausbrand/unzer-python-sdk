@@ -2,6 +2,7 @@ import logging
 import time
 import typing as t
 from types import NoneType
+from urllib.parse import urlencode
 
 import requests
 from urllib3.exceptions import TimeoutError
@@ -9,8 +10,11 @@ from urllib3.exceptions import TimeoutError
 from . import __version__
 from .model import *
 from .model.basket import Basket
+from .model.installment_plans import InstallmentPlans
 from .model.payment import PaymentGetResponse, PaymentRequest, PaymentResponse
+from .model.payment_type import PaylaterInstallment
 from .model.paymentpage import PaymentPage, PaymentPageResponse
+from .model.risk_check import RiskCheckResponse
 from .model.webhook import Webhook
 
 logger = logging.getLogger("unzer-sdk").getChild(__name__)
@@ -19,9 +23,24 @@ HttpMethod = t.Literal["GET", "POST", "PUT", "PATCH", "DELETE"]
 
 
 class UnzerClient:
-    endpoint = "https://api.unzer.com/v1"
+    endpoint = "https://api.unzer.com"
+    """Base URL of the API, without the version segment."""
+
+    apiVersion = "v1"
+    """Default API version, used unless a request asks for another one."""
+
     retryDelays = (1, 2, 4, 8)
-    timeout = 5
+    """Delays in seconds between the retries of a failed request."""
+
+    timeout = 30
+    """Timeout in seconds of a single request.
+
+    Kept well above the response time of a plain payment call: the Pay later
+    methods run a credit check while the request is open, which regularly takes
+    more than ten seconds. A request that times out is retried, and repeating a
+    payment call is not free of consequences -- the second attempt runs into an
+    already used basket at best.
+    """
 
     def __init__(
             self,
@@ -29,12 +48,32 @@ class UnzerClient:
             public_key: str,
             sandbox: bool = False,
             language: str = "en",
+            client_ip: str = None,
+            timeout: int = None,
     ):
+        """Create a new client for the unzer-api.
+
+        :param private_key: The private key of the keypair.
+        :param public_key: The public key of the keypair.
+        :param sandbox: (optional) Use the sandbox environment.
+        :param language: (optional) Language for translations of customer messages.
+        :param client_ip: (optional) IP address of the customer.
+            Sent as ``CLIENTIP`` header with every request.
+            Required by the Pay later payment methods (e.g. installment)
+            for their risk checks.
+            The API documentation names this header ``x-CLIENTIP``,
+            but both the PHP and the Java SDK send it as ``CLIENTIP``.
+        :param timeout: (optional) Timeout in seconds of a single request,
+            overrides :attr:`timeout`.
+        """
         super(UnzerClient, self).__init__()
         self.private_key = private_key
         self.public_key = public_key
         self.sandbox = sandbox
         self.language = language
+        self.client_ip = client_ip
+        if timeout is not None:
+            self.timeout = timeout
 
     def request(
             self,
@@ -42,6 +81,7 @@ class UnzerClient:
             method: HttpMethod,
             payload: t.Any = None,
             additional_headers: dict[str, str] = None,
+            api_version: str = None,
     ) -> t.Any:
         """Perform a request to the unzer-api.
 
@@ -53,15 +93,21 @@ class UnzerClient:
         :param payload: The payload for this request.
             Send json-encoded as body.
         :param additional_headers: Additional headers for this request.
+        :param api_version: (optional) The API version to use for this request.
+            Defaults to :attr:`apiVersion` (``v1``).
+            Some resources are only available in a newer version
+            (e.g. baskets for the Pay later payment methods).
         :return: The json-decoded response from the api.
         """
-        url = "%s/%s" % (self.endpoint, operation)
+        url = "%s/%s/%s" % (self.endpoint, api_version or self.apiVersion, operation)
         headers = {
             "user-agent": "unzer-python-sdk %s" % __version__,
             "content-type": "application/json; charset=UTF-8",
             "accept": "application/json",
             "accept-language": self.language,  # language for translation of customerMessage in errors
         }
+        if self.client_ip:
+            headers["CLIENTIP"] = self.client_ip
         if additional_headers:
             headers |= additional_headers
         return self._request(
@@ -279,8 +325,9 @@ class UnzerClient:
             "baskets",
             "POST",
             basket.serialize(),
+            api_version=basket.apiVersion,
         )
-        return self.getBasket(data["id"])
+        return self.getBasket(data["id"], api_version=basket.apiVersion)
 
     def updateBasket(self, basket):
         """Update a basket.
@@ -299,20 +346,24 @@ class UnzerClient:
             "baskets/%s" % basket.key,
             "PUT",
             basket.serialize(),
+            api_version=basket.apiVersion,
         )
-        return self.getBasket(data["id"])
+        return self.getBasket(data["id"], api_version=basket.apiVersion)
 
-    def getBasket(self, basketId):
+    def getBasket(self, basketId, api_version: str = None):
         """Fetch a basket.
 
         :param basketId: basket's id (key)
         :type basketId: str
+        :param api_version: (optional) The API version of the basket schema to fetch.
+            A basket created with the v3 schema should also be fetched with ``v3``.
         :return: The fetched basket object
         :rtype: Basket
         """
         data = self.request(
             "baskets/%s" % basketId,
             "GET",
+            api_version=api_version,
         )
         return Basket.fromDict(data)
 
@@ -335,6 +386,100 @@ class UnzerClient:
             paymentType.serialize(),
         )
         return type(paymentType).fromDict(data)
+
+    def getPaylaterInstallmentPlans(
+            self,
+            amount: float,
+            currency: str,
+            country: str,
+            customerType: str = None,
+            orderId: str = None,
+            startDateOfPurchase: str = None,
+            endDateOfPurchase: str = None,
+            nominalInterest: str = None,
+    ) -> InstallmentPlans:
+        """Fetch the available installment plans for a purchase.
+
+        This is the first step of an installment payment: the plans must be presented to
+        the customer, and the :attr:`~unzer.model.InstallmentPlans.inquiryId` of the
+        response is required to create the
+        :class:`~unzer.model.PaylaterInstallment` payment type.
+
+        .. seealso:: https://docs.unzer.com/payment-methods/installment/accept-unzer-installment-server-side-only-integration/  # noqa: E501
+
+        :param amount: Total amount of the purchase.
+        :param currency: ISO currency code of the transaction (``EUR`` or ``CHF``).
+        :param country: The customer's country in ISO 3166 ALPHA-2 format (e.g. ``DE``).
+        :param customerType: (optional) ``B2C`` (``B2B`` is not available yet).
+        :param orderId: (optional) Order id that identifies the payment on merchant side.
+        :param startDateOfPurchase: (optional) Start date of the purchase.
+        :param endDateOfPurchase: (optional) End date of the purchase.
+        :param nominalInterest: (optional) Nominal interest rate as percentage.
+        :return: The available plans
+        """
+        query = {
+            "amount": amount,
+            "currency": currency,
+            "country": country,
+        }
+        for key, value in (
+                ("customerType", customerType),
+                ("orderId", orderId),
+                ("startDateOfPurchase", startDateOfPurchase),
+                ("endDateOfPurchase", endDateOfPurchase),
+                ("nominalInterest", nominalInterest),
+        ):
+            if value is not None:
+                query[key] = value
+        data = self.request(
+            "types/%s/plans?%s" % (PaylaterInstallment.method_name.value, urlencode(query)),
+            "GET",
+        )
+        return InstallmentPlans.fromDict(data)
+
+    def riskCheckPaylaterInstallment(
+            self,
+            payment: PaymentRequest,
+            client_ip: str = None,
+    ) -> RiskCheckResponse:
+        """Perform a risk check for an installment payment.
+
+        This optional call evaluates the customer data before the order is placed,
+        so the customer gets the feedback before finishing the checkout.
+        It is not part of the payment process itself.
+
+        The request requires the customer, basket and paymentType resources
+        of the intended payment, therefore it takes the same
+        :class:`~unzer.model.PaymentRequest` as :meth:`authorize`.
+
+        .. note::
+            The endpoint is part of the API reference (``/v1/types/paylater-installment/risk-check``),
+            but implemented in neither the PHP nor the Java SDK,
+            so the payload could only be taken from the documentation.
+
+        .. seealso:: https://docs.unzer.com/payment-methods/installment/accept-unzer-installment-server-side-only-integration/  # noqa: E501
+
+        :param payment: The PaymentRequest model of the intended payment.
+        :param client_ip: (optional) IP address of the customer,
+            sent as ``CLIENTIP`` header. Falls back to the client's
+            :attr:`client_ip`, which is required by this endpoint.
+        :return: The result of the risk check
+        :raises ErrorResponse: If the risk check was declined.
+        """
+        if not isinstance(payment, PaymentRequest):
+            raise TypeError("Expected a PaymentRequest object. Got %r" % type(payment))
+        if not payment.paymentType or not payment.paymentType.key:
+            raise ValueError("The paymentType must be created before the risk check")
+        payment.validateBeforeRequest()
+        data = self.request(
+            "types/%s/risk-check" % PaylaterInstallment.method_name.value,
+            "POST",
+            payment.serialize(),
+            additional_headers={"CLIENTIP": client_ip} if client_ip else None,
+        )
+        if data.get("isError"):
+            raise ErrorResponse.fromDict(data)
+        return RiskCheckResponse.fromDict(data)
 
     def createPaymentPage(self, paymentPage):
         """The initialize payment page call with direct charge purpose.

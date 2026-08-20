@@ -67,7 +67,9 @@ class PaymentType(BaseModel):
         key_pair_types = self._client.getKeyPairTypes()
         logger.debug(f"key_pair_types: {key_pair_types}")
         for payment_type in key_pair_types["paymentTypes"]:
-            if payment_type["type"] == self.method_name.value:
+            # Compared case-insensitive: Unzer is not consistent about the casing
+            # of the method names (e.g. EPS is documented as *EPS* and as *eps*)
+            if payment_type["type"].lower() == self.method_name.value.lower():
                 return payment_type
         raise LookupError(f"PaymentType {self.method_name} is not configured in the keypair")
 

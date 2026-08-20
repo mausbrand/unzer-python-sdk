@@ -53,6 +53,7 @@ class PaymentTypes(enum.Enum):
     INVOICE_FACTORING = "ivf"  # deprecated
     INVOICE_SECURED = "ivs"  # deprecated
     PAYPAL = "ppl"
+    PAYU = "pyu"
     PREPAYMENT = "ppy"
     PRZELEWY24 = "p24"
     SEPA_DIRECT_DEBIT = "sdd"
@@ -74,6 +75,7 @@ class PaymentTypes(enum.Enum):
     PAYLATER_DIRECT_DEBIT = "pdd"
     TWINT = "twt"
     OPEN_BANKING = "obp"
+    WERO = "wro"
     UNKNOWN = "unknown"
 
 
@@ -106,7 +108,8 @@ class PaymentMethodTypes(enum.Enum):
     UNZER_INVOICE = "paylater-invoice"
     UNZER_PREPAYMENT = "prepayment"
     WECHATPAY = "wechatpay"
-    EPS = "EPS"
+    WERO = "wero"
+    EPS = "eps"
     DIRECT_BANK_TRANSFER = "openbanking-pis"
     CLICK_TO_PAY = "clicktopay"
 
