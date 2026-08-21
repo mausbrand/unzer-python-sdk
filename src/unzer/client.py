@@ -182,7 +182,8 @@ class UnzerClient:
         raise ErrorResponse("All request attempts failed", srcResponse=r)
 
     def getKeyPair(self) -> dict:
-        """Provides the public key of the used private key as well as a list of the payment types available for the merchant.
+        """Provide the public key of the used private key
+        as well as a list of the payment types available for the merchant.
 
         :return: The fetched KeyPairResponse
         """

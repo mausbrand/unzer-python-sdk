@@ -17,18 +17,24 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: "0"
 
       - name: Set up Python ${{ matrix.python }}
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
 
       - name: Install dependencies
         run: |
           python -m pip install -U pycodestyle
+
+      # The diff check only ever sees the current change. A violation that slips
+      # through once is never reported again, so the whole tree is checked too.
+      - name: run pep8check over the full tree
+        run: |
+          pycodestyle src/ tests/
 
       - name: run pep8check @pull_request
         if: ${{ github.event_name == 'pull_request' }}
