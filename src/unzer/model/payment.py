@@ -72,12 +72,27 @@ class PaymentTypes(enum.Enum):
 
     .. seealso:: https://github.com/unzerdev/java-sdk/blob/main/src/main/java/com/unzer/payment/paymenttypes/PaymentTypeEnum.java  # noqa: E501
 
-    .. note::
-        The source has one member this enum deliberately does not:
-        ``UNKNOWN("unknown")``, which the Java SDK uses as a parsing fallback
-        (``.orElse(PaymentTypeEnum.UNKNOWN)``). Here an unrecognised short code
-        raises instead -- it means this SDK is behind the API, and a placeholder
-        would hide that. See :meth:`PaymentGetResponse.getPaymentTypeFromTypeId`.
+    The official SDKs disagree on the exact set, so both were compared. Three
+    deliberate differences:
+
+    ``UNKNOWN("unknown")``
+        Exists in the Java SDK, which uses it as a parsing fallback
+        (``.orElse(PaymentTypeEnum.UNKNOWN)``), and not in the PHP SDK
+        (``Constants/IdStrings.php``). Left out here: an unrecognised short code
+        means this SDK is behind the API, and a placeholder would hide that.
+        See :meth:`PaymentGetResponse.getPaymentTypeFromTypeId`.
+
+    ``ppg`` (payment page)
+        The PHP SDK counts the payment page among the payment types. It is a
+        resource of its own here, and the API never puts a ``s-ppg-`` id into
+        ``resources.typeId`` -- it belongs to ``resources.payPageId``, verified
+        against the sandbox. See :class:`unzer.model.PaymentPage`.
+
+    ``ctp`` (Click to Pay)
+        Present here, and a constant but not a payment type in the PHP SDK.
+        The method is live -- sandbox accounts have it enabled.
+
+    .. seealso:: https://github.com/unzerdev/php-sdk/blob/main/src/Constants/IdStrings.php
     """
     CARD = "crd"
     CLICK_TO_PAY = "ctp"
