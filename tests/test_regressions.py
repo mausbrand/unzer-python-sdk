@@ -248,6 +248,17 @@ class TestKeypairWithSeveralConfigurations:
         from unzer.model import Eps
         assert Eps(client=client).get_configuration()["type"] == "EPS"
 
+    def test_missing_client_raises_runtime_error(self):
+        """A payment type built without a client cannot read its configuration.
+
+        That is a programming error, not an I/O problem — it used to raise
+        `IOError`, which ruff normalised to its alias `OSError` before this became
+        a `RuntimeError`.
+        """
+        from unzer.model import Card
+        with pytest.raises(RuntimeError, match="without a client"):
+            Card().get_configuration()
+
     @responses.activate
     def test_unconfigured_type_raises_lookup_error(self, client):
         responses.add(responses.GET, f"{BASE}/keypair/types", json={"paymentTypes": []})

@@ -87,7 +87,11 @@ class PaymentType(BaseModel):
 
     def get_configuration(self) -> dict:
         if self._client is None:
-            raise OSError(f"PaymentType {type(self).__name__} was not initialized with client instance")
+            raise RuntimeError(
+                f"{type(self).__name__} was created without a client, so it cannot "
+                f"read its keypair configuration. Pass client= to the constructor, "
+                f"or use the instance the client returned."
+            )
         configurations = self.get_configurations()
         if len(configurations) > 1:
             logger.warning(
@@ -107,7 +111,11 @@ class PaymentType(BaseModel):
         :raises LookupError: If the payment type is not configured at all.
         """
         if self._client is None:
-            raise OSError(f"PaymentType {type(self).__name__} was not initialized with client instance")
+            raise RuntimeError(
+                f"{type(self).__name__} was created without a client, so it cannot "
+                f"read its keypair configuration. Pass client= to the constructor, "
+                f"or use the instance the client returned."
+            )
         key_pair_types = self._client.getKeyPairTypes()
         logger.debug(f"key_pair_types: {key_pair_types!r}")
         # Compared case-insensitive: Unzer is not consistent about the casing of the
