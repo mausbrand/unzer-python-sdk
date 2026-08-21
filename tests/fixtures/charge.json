@@ -1,0 +1,36 @@
+{
+  "id": "s-chg-1",
+  "isSuccess": true,
+  "isPending": false,
+  "isError": false,
+  "card3ds": "false",
+  "redirectUrl": "",
+  "message": {
+    "code": "COR.000.100.112",
+    "merchant": "Request successfully processed in 'Merchant in Connector Test Mode'",
+    "customer": "Your payments have been successfully processed in sandbox mode."
+  },
+  "amount": "100.0000",
+  "currency": "EUR",
+  "returnUrl": "https://shop.example.com/return",
+  "date": "2026-08-21 10:15:32",
+  "orderId": "my_order_id_123",
+  "invoiceId": "",
+  "paymentReference": "",
+  "effectiveInterestRate": "",
+  "resources": {
+    "customerId": "s-cst-cd1e6a11c02a",
+    "paymentId": "s-pay-123456",
+    "basketId": "s-bsk-1",
+    "metadataId": "",
+    "payPageId": "",
+    "linkPayId": "",
+    "typeId": "s-crd-jbg2dvomayrn"
+  },
+  "processing": {
+    "uniqueId": "31HA07BC8192A4A6C4C6BB6C2B4C2B4C",
+    "shortId": "4711.7594.1234",
+    "traceId": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
+    "3dsEci": "05"
+  }
+}

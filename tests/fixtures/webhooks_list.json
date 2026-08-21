@@ -1,0 +1,14 @@
+{
+  "events": [
+    {
+      "id": "s-whk-1",
+      "url": "https://shop.example.com/webhook",
+      "event": "charge.succeeded"
+    },
+    {
+      "id": "s-whk-2",
+      "url": "https://shop.example.com/webhook",
+      "event": "payment.completed"
+    }
+  ]
+}

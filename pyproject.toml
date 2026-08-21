@@ -1,7 +1,6 @@
 [build-system]
 requires = [
     "setuptools>=65",
-#    "wheel"
 ]
 build-backend = "setuptools.build_meta"
 
@@ -9,9 +8,9 @@ build-backend = "setuptools.build_meta"
 name = "unzer"
 dynamic = ["version"]
 dependencies = [
-    "requests"
+    "requests>=2.25",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 authors = [
     { name = "Sven Eberth", email = "se@mausbrand.de" },
 ]
@@ -23,14 +22,29 @@ readme = "README.md"
 license = { file = "LICENSE" }
 keywords = ["unzer", "payment", "sdk", "client"]
 classifiers = [
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
-    "Topic :: Software Development :: Libraries :: Python Modules"
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Office/Business :: Financial",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+
+[project.optional-dependencies]
+testing = [
+    "pytest",
+    "pytest-cov",
+    "responses",
+]
+dev = [
+    "build",
+    "pycodestyle",
+    "twine>=6",
 ]
 
 [tool.setuptools.dynamic]
@@ -39,7 +53,26 @@ version = { attr = "unzer.__version__" }
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+unzer = [
+    "py.typed",
+]
+
 [project.urls]
+Documentation = "https://github.com/mausbrand/unzer-python-sdk#readme"
 Repository = "https://github.com/mausbrand/unzer-python-sdk.git"
 "Bug Tracker" = "https://github.com/mausbrand/unzer-python-sdk/issues"
 Changelog = "https://github.com/mausbrand/unzer-python-sdk/releases"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Sandbox tests are opt-in: `pytest -m sandbox` or `pytest --sandbox`. Without
+# this, a leftover .env would make every plain `pytest` create real resources.
+addopts = "--strict-markers -m 'not sandbox'"
+markers = [
+    "sandbox: talks to the Unzer sandbox; skipped unless UNZER_PRIVATE_KEY is set",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["src/unzer"]

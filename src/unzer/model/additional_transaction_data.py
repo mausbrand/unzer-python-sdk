@@ -21,10 +21,12 @@ class CardTransactionData(BaseModel):
 
         :param recurrenceType: Recurrence type for card payments.
             Must be either 'scheduled', 'unscheduled' or 'oneclick'.
-        :param liability: Liability shift indicator (who is liable). (From API context, e.g. for 3DS liability handling.)
+        :param liability: Liability shift indicator (who is liable).
+            (From API context, e.g. for 3DS liability handling.)
         :type liability: str
 
-        :param exemptionType: Exemption type for low-value payments, etc. (Used in specific regulatory or risk contexts.)
+        :param exemptionType: Exemption type for low-value payments, etc.
+            (Used in specific regulatory or risk contexts.)
         :type exemptionType: str
         """
         super().__init__(**kwargs)
@@ -77,11 +79,11 @@ class ShippingTransactionData(BaseModel):
     def fromDict(cls, data: dict[str, JSONValue]) -> t.Self:
         raise NotImplementedError
 
+
 class CustomerGroup(enum.StrEnum):
     TOP = "TOP"
     GOOD = "GOOD"
     NEUTRAL = "NEUTRAL"
-
 
 
 class RegistrationLevel(enum.IntEnum):

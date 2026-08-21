@@ -1,0 +1,21 @@
+{
+  "id": "s-bsk-2",
+  "totalValueGross": "100.0000",
+  "currencyCode": "EUR",
+  "orderId": "my_order_id_124",
+  "note": "",
+  "basketItems": [
+    {
+      "basketItemReferenceId": "my_basket_reference_id_124",
+      "quantity": 1,
+      "vat": "19",
+      "amountDiscountPerUnitGross": "0.0000",
+      "amountPerUnitGross": "100.0000",
+      "title": "Custom print t-shirt",
+      "type": "goods",
+      "unit": "T-shirt",
+      "subTitle": "Your custom design on a t-shirt",
+      "imageUrl": "https://example.com/t-shirt.png"
+    }
+  ]
+}

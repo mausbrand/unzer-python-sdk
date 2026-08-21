@@ -1,0 +1,44 @@
+{
+  "id": "s-pay-123456",
+  "state": {
+    "id": 1,
+    "name": "completed"
+  },
+  "amount": {
+    "total": "100.0000",
+    "charged": "100.0000",
+    "canceled": "0.0000",
+    "remaining": "0.0000"
+  },
+  "currency": "EUR",
+  "orderId": "my_order_id_123",
+  "invoiceId": "",
+  "card3ds": "false",
+  "resources": {
+    "customerId": "s-cst-cd1e6a11c02a",
+    "paymentId": "s-pay-123456",
+    "basketId": "s-bsk-1",
+    "metadataId": "",
+    "payPageId": "",
+    "linkPayId": "",
+    "typeId": "s-crd-jbg2dvomayrn"
+  },
+  "transactions": [
+    {
+      "participantId": "",
+      "date": "2026-08-21 10:15:30",
+      "type": "authorize",
+      "status": "success",
+      "url": "https://api.unzer.com/v1/payments/s-pay-123456/authorize/s-aut-1",
+      "amount": "100.0000"
+    },
+    {
+      "participantId": "",
+      "date": "2026-08-21 10:15:32",
+      "type": "charge",
+      "status": "success",
+      "url": "https://api.unzer.com/v1/payments/s-pay-123456/charges/s-chg-1",
+      "amount": "100.0000"
+    }
+  ]
+}
