@@ -1,3 +1,5 @@
+import enum
+
 from .base import BaseModel
 
 # https://docs.unzer.com/reference/basic-integration-req/#allowlist-of-ip-addresses
@@ -9,20 +11,36 @@ IP_ADDRESS = {
 }
 
 
-class Events:
+class Events(enum.StrEnum):
+    """Webhook event names.
+
+    Mirrors ``WebhookEvents`` of the PHP SDK. Being a :class:`enum.StrEnum`, the
+    members compare equal to their string value, so ``event="charge.succeeded"``
+    keeps working.
+    """
+
     ALL = "all"
     AUTHORIZE = "authorize"
     AUTHORIZE_SUCCEEDED = "authorize.succeeded"
     AUTHORIZE_FAILED = "authorize.failed"
-    AUTHORIZE_PENDING = "authorize.pendin"
+    AUTHORIZE_PENDING = "authorize.pending"
     AUTHORIZE_EXPIRED = "authorize.expired"
     AUTHORIZE_CANCELED = "authorize.canceled"
+    AUTHORIZE_RESUMED = "authorize.resumed"
+    PREAUTHORIZE = "preauthorize"
+    PREAUTHORIZE_SUCCEEDED = "preauthorize.succeeded"
+    PREAUTHORIZE_FAILED = "preauthorize.failed"
+    PREAUTHORIZE_PENDING = "preauthorize.pending"
+    PREAUTHORIZE_EXPIRED = "preauthorize.expired"
+    PREAUTHORIZE_CANCELED = "preauthorize.canceled"
+    PREAUTHORIZE_RESUMED = "preauthorize.resumed"
     CHARGE = "charge"
     CHARGE_SUCCEEDED = "charge.succeeded"
     CHARGE_FAILED = "charge.failed"
-    CHARGE_PENDING = "charge.pendin"
+    CHARGE_PENDING = "charge.pending"
     CHARGE_EXPIRED = "charge.expired"
     CHARGE_CANCELED = "charge.canceled"
+    CHARGE_RESUMED = "charge.resumed"
     CHARGEBACK = "chargeback"
     TYPES = "types"
     CUSTOMER = "customer"
@@ -83,10 +101,13 @@ class Webhook(BaseModel):
             value = [value]
         if not isinstance(value, list):
             raise TypeError("Event must be a str or list of str. Got %r" % type(value))
+        events = []
         for val in value:
-            if val not in vars(Events).values():
-                raise TypeError("Invalid value %r for event" % value)
-        self._event = value
+            try:
+                events.append(Events(val))
+            except ValueError:
+                raise TypeError(f"Invalid value {val!r} for event") from None
+        self._event = events
 
     def serialize(self):
         return {
