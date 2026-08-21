@@ -17,8 +17,8 @@ class Wero(PaymentType):
 
     def __init__(
             self,
-            key: str = None,
-            walletId: str = None,
+            key: str | None = None,
+            walletId: str | None = None,
             **kwargs,
     ):
         """Create a new Wero paymentType resource.

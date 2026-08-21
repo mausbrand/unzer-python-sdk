@@ -61,8 +61,8 @@ class UnzerClient:
             public_key: str,
             sandbox: bool = False,
             language: str = "en",
-            client_ip: str = None,
-            timeout: int = None,
+            client_ip: str | None = None,
+            timeout: int | None = None,
     ):
         """Create a new client for the unzer-api.
 
@@ -100,8 +100,8 @@ class UnzerClient:
             operation: str,
             method: HttpMethod,
             payload: t.Any = None,
-            additional_headers: dict[str, str] = None,
-            api_version: str = None,
+            additional_headers: dict[str, str] | None = None,
+            api_version: str | None = None,
     ) -> t.Any:
         """Perform a request to the unzer-api.
 
@@ -377,7 +377,7 @@ class UnzerClient:
         )
         return self.getBasket(data["id"], api_version=basket.apiVersion)
 
-    def getBasket(self, basketId, api_version: str = None):
+    def getBasket(self, basketId, api_version: str | None = None):
         """Fetch a basket.
 
         :param basketId: basket's id (key)
@@ -419,11 +419,11 @@ class UnzerClient:
             amount: float,
             currency: str,
             country: str,
-            customerType: str = None,
-            orderId: str = None,
-            startDateOfPurchase: str = None,
-            endDateOfPurchase: str = None,
-            nominalInterest: str = None,
+            customerType: str | None = None,
+            orderId: str | None = None,
+            startDateOfPurchase: str | None = None,
+            endDateOfPurchase: str | None = None,
+            nominalInterest: str | None = None,
     ) -> InstallmentPlans:
         """Fetch the available installment plans for a purchase.
 
@@ -467,7 +467,7 @@ class UnzerClient:
     def riskCheckPaylaterInstallment(
             self,
             payment: PaymentRequest,
-            client_ip: str = None,
+            client_ip: str | None = None,
     ) -> RiskCheckResponse:
         """Perform a risk check for an installment payment.
 
@@ -588,7 +588,7 @@ class UnzerClient:
             self,
             type_: str,
             payment: PaymentRequest,
-            headers: dict[str, str] = None,
+            headers: dict[str, str] | None = None,
     ) -> PaymentResponse:
         """Internal helper for authorize and charge calls
         """

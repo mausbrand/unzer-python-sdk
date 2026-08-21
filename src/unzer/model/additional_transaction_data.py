@@ -12,9 +12,9 @@ logger = logging.getLogger("unzer-sdk").getChild(__name__)
 class CardTransactionData(BaseModel):
     def __init__(
             self,
-            recurrenceType: t.Literal["scheduled", "unscheduled", "oneclick"] = None,
-            liability: t.Literal["merchant", "issuer"] = None,
-            exemptionType: str = None,
+            recurrenceType: t.Literal["scheduled", "unscheduled", "oneclick"] | None = None,
+            liability: t.Literal["merchant", "issuer"] | None = None,
+            exemptionType: str | None = None,
             **kwargs,
     ):
         """
@@ -51,9 +51,9 @@ class CardTransactionData(BaseModel):
 class ShippingTransactionData(BaseModel):
     def __init__(
             self,
-            deliveryTrackingId: str = None,
-            deliveryService: str = None,
-            returnTrackingId: str = None,
+            deliveryTrackingId: str | None = None,
+            deliveryService: str | None = None,
+            returnTrackingId: str | None = None,
             **kwargs,
     ):
         """
@@ -109,13 +109,13 @@ class RegistrationLevel(enum.IntEnum):
 class RiskData(BaseModel):
     def __init__(
             self,
-            confirmedAmount: float = None,
-            confirmedOrders: int = None,
+            confirmedAmount: float | None = None,
+            confirmedOrders: int | None = None,
             customerGroup: CustomerGroup = None,
-            customerId: str = None,
-            registrationDate: dt | date = None,
+            customerId: str | None = None,
+            registrationDate: dt | date | None = None,
             registrationLevel: RegistrationLevel = None,
-            threatMetrixId: str = None,
+            threatMetrixId: str | None = None,
             **kwargs
     ):
         """
@@ -159,7 +159,7 @@ class RiskData(BaseModel):
 class PaypalData(BaseModel):
     def __init__(
             self,
-            checkoutType: t.Literal["EXPRESS"] = None,
+            checkoutType: t.Literal["EXPRESS"] | None = None,
             **kwargs
     ):
         """

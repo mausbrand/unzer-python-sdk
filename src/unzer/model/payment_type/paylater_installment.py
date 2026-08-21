@@ -28,12 +28,12 @@ class PaylaterInstallment(PaymentType):
 
     def __init__(
             self,
-            key: str = None,
-            inquiryId: str = None,
-            numberOfRates: int = None,
-            iban: str = None,
-            country: str = None,
-            holder: str = None,
+            key: str | None = None,
+            inquiryId: str | None = None,
+            numberOfRates: int | None = None,
+            iban: str | None = None,
+            country: str | None = None,
+            holder: str | None = None,
             **kwargs,
     ):
         """Create a new Paylater Installment paymentType resource.

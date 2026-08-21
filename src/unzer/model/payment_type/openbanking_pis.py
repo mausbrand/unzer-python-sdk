@@ -26,8 +26,8 @@ class OpenbankingPis(PaymentType):
 
     def __init__(
             self,
-            key: str = None,
-            ibanCountry: str = None,
+            key: str | None = None,
+            ibanCountry: str | None = None,
             **kwargs,
     ):
         """Create a new Direct Bank Transfer paymentType resource.

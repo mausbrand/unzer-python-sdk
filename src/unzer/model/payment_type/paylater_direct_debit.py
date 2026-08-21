@@ -21,10 +21,10 @@ class PaylaterDirectDebit(PaymentType):
 
     def __init__(
             self,
-            key: str = None,
-            iban: str = None,
-            holder: str = None,
-            country: str = None,
+            key: str | None = None,
+            iban: str | None = None,
+            holder: str | None = None,
+            country: str | None = None,
             **kwargs,
     ):
         """Create a new Paylater Direct Debit paymentType resource.

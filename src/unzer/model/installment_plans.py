@@ -10,8 +10,8 @@ class InstallmentRate(BaseModel):
 
     def __init__(
             self,
-            date: datetime.date = None,
-            rate: float = None,
+            date: datetime.date | None = None,
+            rate: float | None = None,
             **kwargs,
     ):
         """Create a new InstallmentRate.
@@ -39,14 +39,14 @@ class InstallmentPlan(BaseModel):
 
     def __init__(
             self,
-            numberOfRates: int = None,
-            totalAmount: float = None,
-            nominalInterestRate: float = None,
-            effectiveInterestRate: float = None,
-            interestAmount: float = None,
-            minimumInstallmentFee: float = None,
-            secciUrl: str = None,
-            installmentRates: list[InstallmentRate] = None,
+            numberOfRates: int | None = None,
+            totalAmount: float | None = None,
+            nominalInterestRate: float | None = None,
+            effectiveInterestRate: float | None = None,
+            interestAmount: float | None = None,
+            minimumInstallmentFee: float | None = None,
+            secciUrl: str | None = None,
+            installmentRates: list[InstallmentRate] | None = None,
             **kwargs,
     ):
         """Create a new InstallmentPlan.
@@ -106,15 +106,15 @@ class InstallmentPlans(BaseModel):
 
     def __init__(
             self,
-            inquiryId: str = None,
-            amount: float = None,
-            currency: str = None,
-            expiresAt: datetime.datetime = None,
-            plans: list[InstallmentPlan] = None,
-            isSuccess: bool = None,
-            isPending: bool = None,
-            isResumed: bool = None,
-            isError: bool = None,
+            inquiryId: str | None = None,
+            amount: float | None = None,
+            currency: str | None = None,
+            expiresAt: datetime.datetime | None = None,
+            plans: list[InstallmentPlan] | None = None,
+            isSuccess: bool | None = None,
+            isPending: bool | None = None,
+            isResumed: bool | None = None,
+            isError: bool | None = None,
             **kwargs,
     ):
         """Create a new InstallmentPlans.

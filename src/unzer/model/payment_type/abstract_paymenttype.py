@@ -45,7 +45,7 @@ class PaymentType(BaseModel):
 
     def __init__(
             self,
-            key: str = None,
+            key: str | None = None,
             **kwargs
     ):
         """Create a new paymentType ressource.

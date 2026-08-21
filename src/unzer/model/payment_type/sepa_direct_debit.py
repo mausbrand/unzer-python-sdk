@@ -22,10 +22,10 @@ class SepaDirectDebit(PaymentType):
 
     def __init__(
             self,
-            key: str = None,
-            iban: str = None,
-            bic: str = None,
-            holder: str = None,
+            key: str | None = None,
+            iban: str | None = None,
+            bic: str | None = None,
+            holder: str | None = None,
             **kwargs,
     ):
         """Create a new SEPA Direct Debit paymentType resource.
