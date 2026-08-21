@@ -5,7 +5,6 @@ from types import NoneType
 from urllib.parse import urlencode
 
 import requests
-from urllib3.exceptions import TimeoutError
 
 from . import __version__
 from .model import *
@@ -30,7 +29,21 @@ class UnzerClient:
     """Default API version, used unless a request asks for another one."""
 
     retryDelays = (1, 2, 4, 8)
-    """Delays in seconds between the retries of a failed request."""
+    """Delays in seconds between the retries of a failed request.
+
+    Only applies to the methods in :attr:`retryableMethods`.
+    """
+
+    retryableMethods = ("GET", "HEAD")
+    """HTTP methods that may be retried after a timeout or a server error.
+
+    Deliberately excludes POST, PUT and DELETE. A timed out POST may well have been
+    carried out by the API with only the response getting lost, so repeating it can
+    charge a customer twice -- and the Unzer API offers no idempotency key to guard
+    against that (there is none in either of its OpenAPI specs). A failed write is
+    therefore raised to the caller, who can look the payment up by ``orderId`` and
+    decide.
+    """
 
     timeout = 30
     """Timeout in seconds of a single request.
@@ -55,7 +68,14 @@ class UnzerClient:
 
         :param private_key: The private key of the keypair.
         :param public_key: The public key of the keypair.
-        :param sandbox: (optional) Use the sandbox environment.
+        :param sandbox: (optional) Mark this client as working on a sandbox account.
+
+            This does **not** change the endpoint: whether a request hits the
+            sandbox or production is decided by the key alone (``s-`` versus ``p-``
+            prefix), and ``api.unzer.com`` serves both. The flag is kept because
+            consumers need to know which mode they are in -- among other things the
+            redirect URLs Unzer returns differ (``sbx-payment.unzer.com`` versus
+            ``payment.unzer.com``).
         :param language: (optional) Language for translations of customer messages.
         :param client_ip: (optional) IP address of the customer.
             Sent as ``CLIENTIP`` header with every request.
@@ -135,7 +155,9 @@ class UnzerClient:
             or after last retry failed.
         """
         r = None
-        for idx, delay in enumerate((0,) + self.retryDelays):
+        retryable = method.upper() in self.retryableMethods
+        delays = (0,) + (self.retryDelays if retryable else ())
+        for idx, delay in enumerate(delays):
             logger.debug("Perform try no. %d (delay: %d)", idx, delay)
             time.sleep(delay)
             logger.debug("%s %s", method, url)
@@ -151,8 +173,11 @@ class UnzerClient:
                     verify=True,
                     timeout=self.timeout,
                 )
-            except (TimeoutError, requests.exceptions.ReadTimeout):
-                logger.exception("Caught TimeoutError")
+            except (requests.exceptions.Timeout, requests.exceptions.ConnectionError):
+                # Timeout covers both ConnectTimeout and ReadTimeout.
+                logger.exception("Request failed on the transport level")
+                if not retryable:
+                    raise
                 continue
             if 200 <= r.status_code <= 201:
                 logger.debug("Response[%s %s]: %r", r.status_code, r.reason, r.json())
@@ -160,6 +185,8 @@ class UnzerClient:
             elif 500 <= r.status_code < 600:
                 logger.debug("Server error")
                 logger.debug("Response[%s %s]: %r", r.status_code, r.reason, r.text)
+                if not retryable:
+                    break
                 continue
             else:
                 logger.debug("Client error")
@@ -494,7 +521,7 @@ class UnzerClient:
             raise TypeError("Expected a PaymentPage object. Got %r" % type(paymentPage))
         paymentPage.validateBeforeRequest()
         data = self.request(
-            "paypage/%s" % paymentPage.action,
+            f"paypage/{paymentPage.action.value}",
             "POST",
             paymentPage.serialize(),
         )
@@ -687,7 +714,7 @@ class UnzerClient:
             webhooks = [data]  # got exactly one webhook, data is the webhook itself
         else:
             webhooks = data["events"]  # list of webhooks wrapped in events property
-        return map(Webhook.fromDict, webhooks)
+        return [Webhook.fromDict(webhook) for webhook in webhooks]
 
     def deleteWebhook(self, webhookOrId):
         """Delete a specific webhook.
