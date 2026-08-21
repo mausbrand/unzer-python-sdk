@@ -1,8 +1,8 @@
 import datetime
 import typing as t
 
-from .base import BaseModel, JSONValue
 from ..utils import parseBool, parseDateTime
+from .base import BaseModel, JSONValue
 
 
 class RiskCheckResponse(BaseModel):
@@ -13,13 +13,13 @@ class RiskCheckResponse(BaseModel):
 
     def __init__(
             self,
-            key: str = None,
-            url: str = None,
-            timestamp: datetime.datetime = None,
-            isSuccess: bool = None,
-            isPending: bool = None,
-            isResumed: bool = None,
-            isError: bool = None,
+            key: str | None = None,
+            url: str | None = None,
+            timestamp: datetime.datetime | None = None,
+            isSuccess: bool | None = None,
+            isPending: bool | None = None,
+            isResumed: bool | None = None,
+            isError: bool | None = None,
             **kwargs,
     ):
         """Create a new RiskCheckResponse.

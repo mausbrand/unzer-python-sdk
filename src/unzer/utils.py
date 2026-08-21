@@ -12,9 +12,9 @@ def parseDateTime(value):
         return value
     if "-" in value:  # ISO Date
         return datetime.datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
-    elif "." in value:  # European Date
+    if "." in value:  # European Date
         return datetime.datetime.strptime(value, "%d.%m.%Y %H:%M:%S")
-    raise TypeError("Invalid date format of %r" % value)
+    raise TypeError(f"Invalid date format of {value!r}")
 
 
 def parseDate(value):

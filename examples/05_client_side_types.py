@@ -18,7 +18,7 @@ import sys
 
 from _common import build_client
 
-from unzer.model import Card, Klarna, PaymentRequest, PaymentType
+from unzer.model import PaymentRequest, PaymentType
 
 
 def charge_existing_type(client, payment_type: PaymentType, amount: float):

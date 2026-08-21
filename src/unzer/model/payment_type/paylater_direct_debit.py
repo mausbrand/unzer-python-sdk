@@ -2,6 +2,7 @@ import typing as t
 
 from unzer.model.base import JSONValue
 from unzer.model.payment import PaymentMethodTypes, PaymentTypes
+
 from .abstract_paymenttype import PaymentType
 
 
@@ -16,14 +17,14 @@ class PaylaterDirectDebit(PaymentType):
     method = PaymentTypes.PAYLATER_DIRECT_DEBIT
     method_name = PaymentMethodTypes.DIRECT_DEBIT_SECURED
 
-    REQUIRED_ATTRIBUTES = ["iban", "holder"]
+    REQUIRED_ATTRIBUTES: t.ClassVar[list[str]] = ["iban", "holder"]
 
     def __init__(
             self,
-            key: str = None,
-            iban: str = None,
-            holder: str = None,
-            country: str = None,
+            key: str | None = None,
+            iban: str | None = None,
+            holder: str | None = None,
+            country: str | None = None,
             **kwargs,
     ):
         """Create a new Paylater Direct Debit paymentType resource.

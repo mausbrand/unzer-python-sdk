@@ -44,6 +44,7 @@ testing = [
 dev = [
     "build",
     "pycodestyle",
+    "ruff",
     "twine>=6",
 ]
 
@@ -76,3 +77,35 @@ markers = [
 [tool.coverage.run]
 branch = true
 source = ["src/unzer"]
+
+[tool.ruff]
+line-length = 120
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",   # pycodestyle, same as the tox.ini config
+    "F",        # pyflakes: undefined names, unused imports
+    "I",        # import sorting
+    "UP",       # outdated syntax for the supported Python versions
+    "B",        # likely bugs (flake8-bugbear)
+    "C4",       # comprehensions
+    "SIM",      # simplifiable constructs
+    "PIE",      # misc. lint
+    "RET",      # return statements
+    "PTH",      # prefer pathlib over os.path
+    "RUF",      # ruff's own rules
+]
+ignore = [
+    # Deliberate deviations, see AGENTS.md:
+    "N",        # naming — the public API mirrors the camelCase of the Unzer payload
+    "F403",     # `from .model import *` in client.py
+    "F405",     # and the names it brings in
+    "RUF002",   # em dashes and typographic quotes in docstrings are wanted
+    "E226",     # missing whitespace around arithmetic operator, waived since forever
+    "RUF022",   # `__all__` is grouped by module on purpose, not sorted alphabetically
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests import inside functions on purpose, to keep each case readable on its own.
+"tests/*" = ["PLC0415"]

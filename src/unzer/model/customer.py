@@ -99,7 +99,7 @@ class Customer(BaseModel):
         if not value:
             value = Salutation.UNKNOWN
         elif value not in {Salutation.MR, Salutation.MRS, Salutation.UNKNOWN}:
-            raise TypeError("Invalid salutation %r" % value)
+            raise TypeError(f"Invalid salutation {value!r}")
         self._salutation = value
 
     @property
@@ -116,9 +116,9 @@ class Customer(BaseModel):
             elif "." in value:  # European Date
                 value = datetime.datetime.strptime(value, "%d.%m.%Y")
             else:
-                raise TypeError("Invalid date format of %r" % value)
+                raise TypeError(f"Invalid date format of {value!r}")
         elif not isinstance(value, (datetime.datetime, datetime.date)):
-            raise TypeError("Invalid value %r" % value)
+            raise TypeError(f"Invalid value {value!r}")
         self._birthDate = value
 
     @property

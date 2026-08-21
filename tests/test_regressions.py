@@ -142,7 +142,7 @@ class TestUnknownPaymentTypePlaceholder:
         with AttributeError: 'str' object has no attribute 'value'."""
         cls = PaymentType.construct(PaymentTypes.GIROPAY)
         with pytest.raises(NotImplementedError, match="no implementation"):
-            cls.method_name.value
+            _ = cls.method_name.value
 
     def test_placeholder_class_has_a_usable_name(self):
         """Was "Paymenttypes.Giropay"."""
@@ -247,6 +247,17 @@ class TestKeypairWithSeveralConfigurations:
         ]})
         from unzer.model import Eps
         assert Eps(client=client).get_configuration()["type"] == "EPS"
+
+    def test_missing_client_raises_runtime_error(self):
+        """A payment type built without a client cannot read its configuration.
+
+        That is a programming error, not an I/O problem — it used to raise
+        `IOError`, which ruff normalised to its alias `OSError` before this became
+        a `RuntimeError`.
+        """
+        from unzer.model import Card
+        with pytest.raises(RuntimeError, match="without a client"):
+            Card().get_configuration()
 
     @responses.activate
     def test_unconfigured_type_raises_lookup_error(self, client):
@@ -431,6 +442,7 @@ class TestAmountRounding:
         """12.3 - 10.0 - 2.3 is 8.88e-16, and json.dumps writes that in scientific
         notation -- which is not a number this API accepts."""
         import json
+
         from unzer.model import SepaDirectDebit
         residue = 12.3 - 10.0 - 2.3
         assert residue != 0, "precondition: this is the IEEE-754 residue"
@@ -486,6 +498,7 @@ class TestInstallmentPlansTimestamp:
 
     def test_milliseconds_are_parsed(self, fixture_json):
         import datetime
+
         from unzer.model import InstallmentPlans
         plans = InstallmentPlans.fromDict(fixture_json("installment_plans"))
         assert plans.expiresAt == datetime.datetime.fromtimestamp(1787349029.678)
@@ -493,6 +506,7 @@ class TestInstallmentPlansTimestamp:
     def test_seconds_are_still_parsed(self, fixture_json):
         """The reference shows seconds, so both units have to work."""
         import datetime
+
         from unzer.model import InstallmentPlans
         data = fixture_json("installment_plans") | {"expiresAt": "1735689599"}
         assert InstallmentPlans.fromDict(data).expiresAt == \
@@ -508,6 +522,7 @@ class TestInstallmentPlansTimestamp:
     ])
     def test_parse_timestamp_handles_both_units(self, value, seconds):
         import datetime
+
         from unzer.utils import parseTimestamp
         assert parseTimestamp(value) == datetime.datetime.fromtimestamp(seconds)
 

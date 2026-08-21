@@ -41,10 +41,7 @@ class Address(BaseModel):
 
     @property
     def name(self):
-        return "%s %s" % (
-            self.getString(self.firstname),
-            self.getString(self.lastname),
-        )
+        return f"{self.getString(self.firstname)} {self.getString(self.lastname)}"
 
     @name.setter
     def name(self, name):

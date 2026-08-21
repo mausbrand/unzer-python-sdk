@@ -1,6 +1,5 @@
 """Tests for the transport layer of :class:`unzer.UnzerClient`."""
 
-import json
 
 import pytest
 import requests

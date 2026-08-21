@@ -1,7 +1,8 @@
 import enum
 import logging
 import typing as t
-from datetime import date, datetime as dt
+from datetime import date
+from datetime import datetime as dt
 
 from unzer.model.base import BaseModel, JSONValue
 
@@ -11,9 +12,9 @@ logger = logging.getLogger("unzer-sdk").getChild(__name__)
 class CardTransactionData(BaseModel):
     def __init__(
             self,
-            recurrenceType: t.Literal["scheduled", "unscheduled", "oneclick"] = None,
-            liability: t.Literal["merchant", "issuer"] = None,
-            exemptionType: str = None,
+            recurrenceType: t.Literal["scheduled", "unscheduled", "oneclick"] | None = None,
+            liability: t.Literal["merchant", "issuer"] | None = None,
+            exemptionType: str | None = None,
             **kwargs,
     ):
         """
@@ -35,12 +36,11 @@ class CardTransactionData(BaseModel):
         self.exemptionType = exemptionType
 
     def serialize(self) -> dict[str, JSONValue]:
-        data = {
+        return {
             "recurrenceType": self.recurrenceType,
             "liability": self.liability,
             "exemptionType": self.exemptionType,
         }
-        return data
 
     @classmethod
     def fromDict(cls, data: dict[str, JSONValue]) -> t.Self:
@@ -50,9 +50,9 @@ class CardTransactionData(BaseModel):
 class ShippingTransactionData(BaseModel):
     def __init__(
             self,
-            deliveryTrackingId: str = None,
-            deliveryService: str = None,
-            returnTrackingId: str = None,
+            deliveryTrackingId: str | None = None,
+            deliveryService: str | None = None,
+            returnTrackingId: str | None = None,
             **kwargs,
     ):
         """
@@ -68,12 +68,11 @@ class ShippingTransactionData(BaseModel):
         self.returnTrackingId = returnTrackingId
 
     def serialize(self) -> dict[str, JSONValue]:
-        data = {
+        return {
             "deliveryTrackingId": self.deliveryTrackingId,
             "deliveryService": self.deliveryService,
             "returnTrackingId": self.returnTrackingId,
         }
-        return data
 
     @classmethod
     def fromDict(cls, data: dict[str, JSONValue]) -> t.Self:
@@ -108,13 +107,13 @@ class RegistrationLevel(enum.IntEnum):
 class RiskData(BaseModel):
     def __init__(
             self,
-            confirmedAmount: float = None,
-            confirmedOrders: int = None,
+            confirmedAmount: float | None = None,
+            confirmedOrders: int | None = None,
             customerGroup: CustomerGroup = None,
-            customerId: str = None,
-            registrationDate: dt | date = None,
+            customerId: str | None = None,
+            registrationDate: dt | date | None = None,
             registrationLevel: RegistrationLevel = None,
-            threatMetrixId: str = None,
+            threatMetrixId: str | None = None,
             **kwargs
     ):
         """
@@ -138,7 +137,7 @@ class RiskData(BaseModel):
         self.confirmedAmount = confirmedAmount
 
     def serialize(self) -> dict[str, JSONValue]:
-        data = {
+        return {
             "threatMetrixId": self.threatMetrixId,
             "registrationLevel": self.registrationLevel.value if self.registrationLevel is not None else None,
             "registrationDate": (self.registrationDate.strftime("%Y%m%d")
@@ -148,7 +147,6 @@ class RiskData(BaseModel):
             "confirmedOrders": self.confirmedOrders,
             "confirmedAmount": self.confirmedAmount,
         }
-        return data
 
     @classmethod
     def fromDict(cls, data: dict[str, JSONValue]) -> t.Self:
@@ -158,7 +156,7 @@ class RiskData(BaseModel):
 class PaypalData(BaseModel):
     def __init__(
             self,
-            checkoutType: t.Literal["EXPRESS"] = None,
+            checkoutType: t.Literal["EXPRESS"] | None = None,
             **kwargs
     ):
         """
@@ -171,10 +169,9 @@ class PaypalData(BaseModel):
         self.checkoutType = checkoutType
 
     def serialize(self) -> dict[str, JSONValue]:
-        data = {
+        return {
             "checkoutType": self.checkoutType,
         }
-        return data
 
     @classmethod
     def fromDict(cls, data: dict[str, JSONValue]) -> t.Self:
@@ -210,13 +207,12 @@ class AdditionalTransactionData(BaseModel):
         self.paypal = paypal
 
     def serialize(self) -> dict[str, JSONValue]:
-        data = {
+        return {
             "card": self.card.serialize() if self.card else None,
             "shipping": self.shipping.serialize() if self.shipping else None,
             "riskData": self.risk_data.serialize() if self.risk_data else None,
             "paypal": self.paypal.serialize() if self.paypal else None,
         }
-        return data
 
     @classmethod
     def fromDict(cls, data: dict[str, JSONValue]) -> t.Self:

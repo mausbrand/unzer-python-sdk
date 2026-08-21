@@ -58,7 +58,7 @@ class TestPaymentTypes:
         assert issubclass(cls, PaymentType)
         # The placeholder must not hand a bogus slug to the request builder.
         with pytest.raises(NotImplementedError):
-            cls.method_name.value
+            _ = cls.method_name.value
 
 
 class TestBasket:

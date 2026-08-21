@@ -2,6 +2,7 @@ import typing as t
 
 from unzer.model.base import JSONValue
 from unzer.model.payment import PaymentMethodTypes, PaymentTypes
+
 from .abstract_paymenttype import PaymentType
 
 
@@ -25,8 +26,8 @@ class OpenbankingPis(PaymentType):
 
     def __init__(
             self,
-            key: str = None,
-            ibanCountry: str = None,
+            key: str | None = None,
+            ibanCountry: str | None = None,
             **kwargs,
     ):
         """Create a new Direct Bank Transfer paymentType resource.

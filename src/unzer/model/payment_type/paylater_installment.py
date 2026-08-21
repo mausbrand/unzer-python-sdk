@@ -2,6 +2,7 @@ import typing as t
 
 from unzer.model.base import JSONValue
 from unzer.model.payment import PaymentMethodTypes, PaymentTypes
+
 from .abstract_paymenttype import PaymentType
 
 
@@ -23,16 +24,16 @@ class PaylaterInstallment(PaymentType):
 
     # The API reference marks only inquiryId and numberOfRates as required,
     # while the documentation claims country to be required too
-    REQUIRED_ATTRIBUTES = ["inquiryId", "numberOfRates"]
+    REQUIRED_ATTRIBUTES: t.ClassVar[list[str]] = ["inquiryId", "numberOfRates"]
 
     def __init__(
             self,
-            key: str = None,
-            inquiryId: str = None,
-            numberOfRates: int = None,
-            iban: str = None,
-            country: str = None,
-            holder: str = None,
+            key: str | None = None,
+            inquiryId: str | None = None,
+            numberOfRates: int | None = None,
+            iban: str | None = None,
+            country: str | None = None,
+            holder: str | None = None,
             **kwargs,
     ):
         """Create a new Paylater Installment paymentType resource.

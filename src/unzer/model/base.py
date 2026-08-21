@@ -1,9 +1,8 @@
 import abc
-
 import typing as t
 
 if t.TYPE_CHECKING:
-    from ..client import UnzerClient  # noqa # pylint: disable=unused-import
+    from ..client import UnzerClient  # pylint: disable=unused-import
 
 JSONValue: t.TypeAlias = str | int | float | bool | list["JSONValue"] | dict[str, "JSONValue"] | None
 
@@ -11,7 +10,7 @@ JSONValue: t.TypeAlias = str | int | float | bool | list["JSONValue"] | dict[str
 class BaseModel(abc.ABC):
     EMPTY_STRING = ""
 
-    REQUIRED_ATTRIBUTES = []
+    REQUIRED_ATTRIBUTES: t.ClassVar[list[str]] = []
 
     def __init__(
             self,
@@ -22,7 +21,7 @@ class BaseModel(abc.ABC):
         :param client: (optional) The client instance.
         """
         super().__init__()
-        self._client: "UnzerClient" = client
+        self._client: UnzerClient = client
 
     def getString(self, value):
         if value is None:
@@ -32,13 +31,11 @@ class BaseModel(abc.ABC):
     @abc.abstractmethod
     def serialize(self) -> dict[str, JSONValue]:
         """Serialize data from an object as dict for the request-payload."""
-        pass
 
     @classmethod
     @abc.abstractmethod
     def fromDict(cls, data: dict[str, JSONValue]) -> t.Self:
         """Unserialize data from a dict from a response to new object"""
-        pass
 
     def validateBeforeRequest(self) -> bool:
         """Validate the model.
@@ -49,14 +46,14 @@ class BaseModel(abc.ABC):
         """
         for attr in type(self).REQUIRED_ATTRIBUTES:  # use always the cls-attributes
             if not getattr(self, attr):
-                raise ValueError("%s misses the attribute *%s*." % (type(self).__name__, attr))
+                raise ValueError(f"{type(self).__name__} misses the attribute *{attr}*.")
         return True
 
     def __repr__(self) -> str:
-        return "%s.%s(%s)" % (
+        return "{}.{}({})".format(
             self.__class__.__module__,
             self.__class__.__name__,
-            ", ".join("%s=%r" % (k, v) for k, v in sorted(self))
+            ", ".join(f"{k}={v!r}" for k, v in sorted(self))
         )
 
     def asDict(self) -> dict[str, t.Any]:
@@ -74,5 +71,4 @@ class BaseModel(abc.ABC):
 
     def __iter__(self):
         """Yield the attributes of the model"""
-        for k, v in self.asDict().items():
-            yield k, v
+        yield from self.asDict().items()

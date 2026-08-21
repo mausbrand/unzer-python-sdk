@@ -2,6 +2,7 @@ import typing as t
 
 from unzer.model.base import JSONValue
 from unzer.model.payment import PaymentMethodTypes, PaymentTypes
+
 from .abstract_paymenttype import PaymentType
 
 
@@ -16,8 +17,8 @@ class Wero(PaymentType):
 
     def __init__(
             self,
-            key: str = None,
-            walletId: str = None,
+            key: str | None = None,
+            walletId: str | None = None,
             **kwargs,
     ):
         """Create a new Wero paymentType resource.
