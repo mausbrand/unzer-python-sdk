@@ -2,7 +2,7 @@ import datetime
 import typing as t
 
 from .base import BaseModel, JSONValue
-from ..utils import parseBool, parseDate, parseFloat
+from ..utils import parseBool, parseDate, parseFloat, parseTimestamp
 
 
 class InstallmentRate(BaseModel):
@@ -151,11 +151,9 @@ class InstallmentPlans(BaseModel):
         data = data.copy()
         data["inquiryId"] = data["id"]
         data["amount"] = parseFloat(data.get("amount"))
-        # Unzer sends the expiry as unix timestamp (as string)
-        if data.get("expiresAt"):
-            data["expiresAt"] = datetime.datetime.fromtimestamp(int(data["expiresAt"]))
-        else:
-            data["expiresAt"] = None
+        # Unzer sends the expiry as unix timestamp (as string), in milliseconds --
+        # the API reference shows seconds. parseTimestamp handles both.
+        data["expiresAt"] = parseTimestamp(data.get("expiresAt"))
         data["plans"] = [InstallmentPlan.fromDict(plan) for plan in data.get("plans") or []]
         for key in ("isSuccess", "isPending", "isResumed", "isError"):
             data[key] = parseBool(data[key]) if key in data else None
