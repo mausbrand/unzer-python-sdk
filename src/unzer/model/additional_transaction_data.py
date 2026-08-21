@@ -81,12 +81,26 @@ class ShippingTransactionData(BaseModel):
 
 
 class CustomerGroup(enum.StrEnum):
+    """Risk classification of a customer.
+
+    .. seealso:: https://github.com/unzerdev/php-sdk/blob/main/src/Constants/CustomerGroups.php
+    """
+
     TOP = "TOP"
     GOOD = "GOOD"
     NEUTRAL = "NEUTRAL"
 
 
 class RegistrationLevel(enum.IntEnum):
+    """Whether the customer has an account with the merchant.
+
+    The source declares these as the strings ``"0"`` and ``"1"``; an
+    :class:`enum.IntEnum` is used here because the API accepts both and the
+    numbers read better at the call site.
+
+    .. seealso:: https://github.com/unzerdev/php-sdk/blob/main/src/Constants/CustomerRegistrationLevel.php
+    """
+
     GUEST = 0
     REGISTERED = 1
 

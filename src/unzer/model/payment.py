@@ -16,6 +16,11 @@ logger = logging.getLogger("unzer-sdk").getChild(__name__)
 
 
 class TransactionStatus(enum.Enum):
+    """Status of a single transaction inside a payment.
+
+    .. seealso:: https://github.com/unzerdev/php-sdk/blob/main/src/Constants/TransactionStatus.php
+    """
+
     SUCCESS = "success"
     PENDING = "pending"
     ERROR = "error"
@@ -25,11 +30,12 @@ class TransactionStatus(enum.Enum):
 class Action(enum.Enum):
     """Transaction type of a transaction inside a payment.
 
-    Mirrors ``TransactionTypes`` of the PHP SDK. Note that a payment lists every
-    transaction it has, so anything but ``authorize`` and ``charge`` shows up here
-    as soon as a payment was cancelled, shipped or paid out -- even though this SDK
-    cannot yet create those. Keep this complete: a missing member makes
-    :meth:`UnzerClient.getPayment` raise for the whole payment.
+    Note that a payment lists every transaction it has, so anything but ``authorize``
+    and ``charge`` shows up here as soon as a payment was cancelled, shipped or paid
+    out -- even though this SDK cannot yet create those. Keep this complete: a
+    missing member makes :meth:`UnzerClient.getPayment` raise for the whole payment.
+
+    .. seealso:: https://github.com/unzerdev/php-sdk/blob/main/src/Constants/TransactionTypes.php
     """
 
     AUTHORIZE = "authorize"
@@ -40,9 +46,15 @@ class Action(enum.Enum):
     SHIPMENT = "shipment"
     PAYOUT = "payout"
     CHARGEBACK = "chargeback"
+    SCA = "strong_customer_authentication"
 
 
 class PaymentState(enum.Enum):
+    """Overall state of a payment.
+
+    .. seealso:: https://github.com/unzerdev/php-sdk/blob/main/src/Constants/PaymentState.php
+    """
+
     PENDING = 0
     COMPLETED = 1
     CANCELED = 2
@@ -58,7 +70,14 @@ class PaymentTypes(enum.Enum):
 
     Used as short-name in type-ids like ``s-crd-abc456def789``
 
-    source: https://github.com/unzerdev/java-sdk/blob/main/src/main/java/com/unzer/payment/paymenttypes/PaymentTypeEnum.java  # noqa: E501
+    .. seealso:: https://github.com/unzerdev/java-sdk/blob/main/src/main/java/com/unzer/payment/paymenttypes/PaymentTypeEnum.java  # noqa: E501
+
+    .. note::
+        The source has one member this enum deliberately does not:
+        ``UNKNOWN("unknown")``, which the Java SDK uses as a parsing fallback
+        (``.orElse(PaymentTypeEnum.UNKNOWN)``). Here an unrecognised short code
+        raises instead -- it means this SDK is behind the API, and a placeholder
+        would hide that. See :meth:`PaymentGetResponse.getPaymentTypeFromTypeId`.
     """
     CARD = "crd"
     CLICK_TO_PAY = "ctp"
@@ -102,7 +121,7 @@ class PaymentMethodTypes(enum.Enum):
 
     Used as name in URLs like ``types/<name>/``
 
-    source: https://github.com/unzerdev/integration-core/blob/master/src/BusinessLogic/Domain/PaymentMethod/Enums/PaymentMethodTypes.php  # noqa: E501
+    .. seealso:: https://github.com/unzerdev/integration-core/blob/master/src/BusinessLogic/Domain/PaymentMethod/Enums/PaymentMethodTypes.php  # noqa: E501
     """
     ALI_PAY = "alipay"
     APPLE_PAY = "applepay"

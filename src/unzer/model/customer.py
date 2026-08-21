@@ -5,6 +5,14 @@ from .base import BaseModel
 
 
 class Salutation:
+    """Salutation of a customer.
+
+    ``unknown`` is a real value here, not a placeholder: it is what the API answers
+    for a customer whose salutation is not known.
+
+    .. seealso:: https://github.com/unzerdev/php-sdk/blob/main/src/Constants/Salutations.php
+    """
+
     MR = "mr"
     MRS = "mrs"
     UNKNOWN = "unknown"

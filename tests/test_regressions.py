@@ -321,6 +321,7 @@ class TestTransactionTypesBeyondAuthorizeAndCharge:
         ("shipment", Action.SHIPMENT),
         ("payout", Action.PAYOUT),
         ("chargeback", Action.CHARGEBACK),
+        ("strong_customer_authentication", Action.SCA),
     ])
     def test_every_transaction_type_of_the_php_sdk_is_known(self, wire, expected):
         transaction = self._transaction(wire)
@@ -379,6 +380,16 @@ class TestUnknownEnumValuesRaise:
     def test_unknown_action_raises(self, value):
         with pytest.raises(ValueError):
             Action(value)
+
+    def test_action_covers_every_type_the_source_declares(self):
+        """Nine, not eight: TransactionTypes.php also has SCA. A missing member
+        makes getPayment() raise for the whole payment, so this list has to stay
+        complete — there is no fallback to absorb an omission."""
+        assert {a.value for a in Action} == {
+            "authorize", "preauthorize", "charge", "cancel-authorize",
+            "cancel-charge", "shipment", "payout", "chargeback",
+            "strong_customer_authentication",
+        }
 
     def test_unknown_transaction_type_in_a_response_raises(self):
         with pytest.raises(ValueError, match="brandnew"):

@@ -14,9 +14,10 @@ IP_ADDRESS = {
 class Events(enum.StrEnum):
     """Webhook event names.
 
-    Mirrors ``WebhookEvents`` of the PHP SDK. Being a :class:`enum.StrEnum`, the
-    members compare equal to their string value, so ``event="charge.succeeded"``
-    keeps working.
+    Being a :class:`enum.StrEnum`, the members compare equal to their string value,
+    so ``event="charge.succeeded"`` keeps working.
+
+    .. seealso:: https://github.com/unzerdev/php-sdk/blob/main/src/Constants/WebhookEvents.php
     """
 
     ALL = "all"
