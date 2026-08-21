@@ -119,9 +119,9 @@ class UnzerClient:
             (e.g. baskets for the Pay later payment methods).
         :return: The json-decoded response from the api.
         """
-        url = "%s/%s/%s" % (self.endpoint, api_version or self.apiVersion, operation)
+        url = f"{self.endpoint}/{api_version or self.apiVersion}/{operation}"
         headers = {
-            "user-agent": "unzer-python-sdk %s" % __version__,
+            "user-agent": f"unzer-python-sdk {__version__}",
             "content-type": "application/json; charset=UTF-8",
             "accept": "application/json",
             "accept-language": self.language,  # language for translation of customerMessage in errors
@@ -228,8 +228,10 @@ class UnzerClient:
 
         .. seealso::
 
-            - https://api.unzer.com/api-reference/index.html#tag/Keypair/operation/getAvailablePaymentMethodTypesWithTypeInformation  # noqa: E501
-            - https://docs.unzer.com/server-side-integration/direct-api-integration/manage-api-resources/api-check-key-configuration/  # noqa: E501
+            - `Keypair: getAvailablePaymentMethodTypesWithTypeInformation
+              <https://api.unzer.com/api-reference/index.html#tag/Keypair/operation/getAvailablePaymentMethodTypesWithTypeInformation>`_
+            - `Check the key configuration
+              <https://docs.unzer.com/server-side-integration/direct-api-integration/manage-api-resources/api-check-key-configuration/>`_
 
         :return: The fetched KeyPairTypesResponse
         """
@@ -245,9 +247,9 @@ class UnzerClient:
         :param errorId: The error id (e.g. p-err-abcdefghij1234567rstuvwyxyz)
         """
         if not isinstance(errorId, str):
-            raise TypeError("Expected a errorId of type str. Got %r" % type(errorId))
+            raise TypeError(f"Expected a errorId of type str. Got {type(errorId)!r}")
         return self.request(
-            "errors/%s" % errorId,
+            f"errors/{errorId}",
             "GET",
         )
 
@@ -260,7 +262,7 @@ class UnzerClient:
         :rtype: Customer
         """
         if not isinstance(customer, Customer):
-            raise TypeError("Expected a Customer object. Got %r" % type(customer))
+            raise TypeError(f"Expected a Customer object. Got {type(customer)!r}")
         if customer.key:
             raise TypeError("Customer has a id (key) set. "
                             "Call updateCustomer to update it or remove it to create a new one.")
@@ -282,11 +284,11 @@ class UnzerClient:
         :rtype: Customer
         """
         if not isinstance(customer, Customer):
-            raise TypeError("Expected a Customer object. Got %r" % type(customer))
+            raise TypeError(f"Expected a Customer object. Got {type(customer)!r}")
         if not customer.keyOrCustomerId:
             raise TypeError("Customer has no customerId oder key (id)")
         data = self.request(
-            "customers/%s" % customer.keyOrCustomerId,
+            f"customers/{customer.keyOrCustomerId}",
             "PUT",
             customer.serialize(),
         )
@@ -317,9 +319,9 @@ class UnzerClient:
         elif isinstance(customer, str):
             codeOrExternalId = customer
         else:
-            raise TypeError("Expected a Customer object or str. Got %r" % type(customer))
+            raise TypeError(f"Expected a Customer object or str. Got {type(customer)!r}")
         data = self.request(
-            "customers/%s" % codeOrExternalId,
+            f"customers/{codeOrExternalId}",
             "DELETE",
         )
         return data["id"]
@@ -333,7 +335,7 @@ class UnzerClient:
         :rtype: Customer
         """
         data = self.request(
-            "customers/%s" % codeOrExternalId,
+            f"customers/{codeOrExternalId}",
             "GET",
         )
         return Customer.fromDict(data)
@@ -347,7 +349,7 @@ class UnzerClient:
         :rtype: Basket
         """
         if not isinstance(basket, Basket):
-            raise TypeError("Expected a Basket object. Got %r" % type(basket))
+            raise TypeError(f"Expected a Basket object. Got {type(basket)!r}")
         data = self.request(
             "baskets",
             "POST",
@@ -366,11 +368,11 @@ class UnzerClient:
         :rtype: Basket
         """
         if not isinstance(basket, Basket):
-            raise TypeError("Expected a Basket object. Got %r" % type(basket))
+            raise TypeError(f"Expected a Basket object. Got {type(basket)!r}")
         if not basket.key:
             raise TypeError("Basket has no key (id)")
         data = self.request(
-            "baskets/%s" % basket.key,
+            f"baskets/{basket.key}",
             "PUT",
             basket.serialize(),
             api_version=basket.apiVersion,
@@ -388,7 +390,7 @@ class UnzerClient:
         :rtype: Basket
         """
         data = self.request(
-            "baskets/%s" % basketId,
+            f"baskets/{basketId}",
             "GET",
             api_version=api_version,
         )
@@ -405,10 +407,10 @@ class UnzerClient:
         :rtype: PaymentType
         """
         if not isinstance(paymentType, PaymentType):
-            raise TypeError("Expected a PaymentType object. Got %r" % type(paymentType))
+            raise TypeError(f"Expected a PaymentType object. Got {type(paymentType)!r}")
         paymentType.validateBeforeRequest()
         data = self.request(
-            "types/%s" % paymentType.method_name.value,
+            f"types/{paymentType.method_name.value}",
             "POST",
             paymentType.serialize(),
         )
@@ -432,7 +434,8 @@ class UnzerClient:
         response is required to create the
         :class:`~unzer.model.PaylaterInstallment` payment type.
 
-        .. seealso:: https://docs.unzer.com/payment-methods/installment/accept-unzer-installment-server-side-only-integration/  # noqa: E501
+        .. seealso:: `Accept Unzer Installment, server-side only
+            <https://docs.unzer.com/payment-methods/installment/accept-unzer-installment-server-side-only-integration/>`_
 
         :param amount: Total amount of the purchase.
         :param currency: ISO currency code of the transaction (``EUR`` or ``CHF``).
@@ -459,7 +462,7 @@ class UnzerClient:
             if value is not None:
                 query[key] = value
         data = self.request(
-            "types/%s/plans?%s" % (PaylaterInstallment.method_name.value, urlencode(query)),
+            f"types/{PaylaterInstallment.method_name.value}/plans?{urlencode(query)}",
             "GET",
         )
         return InstallmentPlans.fromDict(data)
@@ -484,7 +487,8 @@ class UnzerClient:
             but implemented in neither the PHP nor the Java SDK,
             so the payload could only be taken from the documentation.
 
-        .. seealso:: https://docs.unzer.com/payment-methods/installment/accept-unzer-installment-server-side-only-integration/  # noqa: E501
+        .. seealso:: `Accept Unzer Installment, server-side only
+            <https://docs.unzer.com/payment-methods/installment/accept-unzer-installment-server-side-only-integration/>`_
 
         :param payment: The PaymentRequest model of the intended payment.
         :param client_ip: (optional) IP address of the customer,
@@ -494,12 +498,12 @@ class UnzerClient:
         :raises ErrorResponse: If the risk check was declined.
         """
         if not isinstance(payment, PaymentRequest):
-            raise TypeError("Expected a PaymentRequest object. Got %r" % type(payment))
+            raise TypeError(f"Expected a PaymentRequest object. Got {type(payment)!r}")
         if not payment.paymentType or not payment.paymentType.key:
             raise ValueError("The paymentType must be created before the risk check")
         payment.validateBeforeRequest()
         data = self.request(
-            "types/%s/risk-check" % PaylaterInstallment.method_name.value,
+            f"types/{PaylaterInstallment.method_name.value}/risk-check",
             "POST",
             payment.serialize(),
             additional_headers={"CLIENTIP": client_ip} if client_ip else None,
@@ -517,7 +521,7 @@ class UnzerClient:
         :rtype: PaymentPageResponse
         """
         if not isinstance(paymentPage, PaymentPage) or isinstance(paymentPage, PaymentPageResponse):
-            raise TypeError("Expected a PaymentPage object. Got %r" % type(paymentPage))
+            raise TypeError(f"Expected a PaymentPage object. Got {type(paymentPage)!r}")
         paymentPage.validateBeforeRequest()
         data = self.request(
             f"paypage/{paymentPage.action.value}",
@@ -535,9 +539,9 @@ class UnzerClient:
         :rtype: PaymentPageResponse
         """
         if not isinstance(payPageId, str):
-            raise TypeError("Expected a payPageId of type str. Got %r" % type(payPageId))
+            raise TypeError(f"Expected a payPageId of type str. Got {type(payPageId)!r}")
         data = self.request(
-            "paypage/%s" % payPageId,
+            f"paypage/{payPageId}",
             "GET",
         )
         return PaymentPageResponse.fromDict(data)
@@ -551,9 +555,9 @@ class UnzerClient:
         :rtype: PaymentGetResponse
         """
         if not isinstance(codeOrOrderId, str):
-            raise TypeError("Expected a codeOrOrderId of type str. Got %r" % type(codeOrOrderId))
+            raise TypeError(f"Expected a codeOrOrderId of type str. Got {type(codeOrOrderId)!r}")
         data = self.request(
-            "payments/%s" % codeOrOrderId,
+            f"payments/{codeOrOrderId}",
             "GET",
         )
         return PaymentGetResponse.fromDict(data, self)
@@ -593,9 +597,9 @@ class UnzerClient:
         """Internal helper for authorize and charge calls
         """
         if type_ not in {"authorize", "charges"}:
-            raise ValueError("Invalid type %r" % type_)
+            raise ValueError(f"Invalid type {type_!r}")
         if not isinstance(payment, PaymentRequest):
-            raise TypeError("Expected a PaymentRequest object. Got %r" % type(PaymentRequest))
+            raise TypeError(f"Expected a PaymentRequest object. Got {type(PaymentRequest)!r}")
         if not payment.paymentType:
             raise ValueError("No paymentType set")
         if not payment.paymentType.key:
@@ -624,11 +628,11 @@ class UnzerClient:
         :rtype: PaymentResponse
         """
         if not isinstance(codeOrOrderId, str):
-            raise TypeError("Expected a codeOrOrderId of type str. Got %r" % type(codeOrOrderId))
+            raise TypeError(f"Expected a codeOrOrderId of type str. Got {type(codeOrOrderId)!r}")
         if not isinstance(txnCode, (str, NoneType)):
-            raise TypeError("Expected a txnCode of type str or None. Got %r" % type(txnCode))
+            raise TypeError(f"Expected a txnCode of type str or None. Got {type(txnCode)!r}")
         data = self.request(
-            "payments/%s/charges/%s" % (codeOrOrderId, txnCode or ""),
+            "payments/{}/charges/{}".format(codeOrOrderId, txnCode or ""),
             "GET",
         )
         return PaymentResponse.fromDict(data, self)
@@ -654,7 +658,7 @@ class UnzerClient:
         :rtype: Webhook
         """
         data = self.request(
-            "webhooks/%s" % webhookId,
+            f"webhooks/{webhookId}",
             "GET",
         )
         return Webhook.fromDict(data)
@@ -667,7 +671,7 @@ class UnzerClient:
         :rtype: list[Webhook]
         """
         if not isinstance(webhook, Webhook):
-            raise TypeError("Expected a Webhook object. Got %r" % type(webhook))
+            raise TypeError(f"Expected a Webhook object. Got {type(webhook)!r}")
         if webhook.webhookId:
             raise TypeError("Webhook has a id set. "
                             "Call updateWebhook to update it or remove the id to create a new one.")
@@ -689,13 +693,13 @@ class UnzerClient:
         :rtype: Webhook
         """
         if not isinstance(webhook, Webhook):
-            raise TypeError("Expected a Webhook object. Got %r" % type(webhook))
+            raise TypeError(f"Expected a Webhook object. Got {type(webhook)!r}")
         if not webhook.webhookId:
             raise ValueError("Webhook to update has no id")
         if not webhook.url:
             raise ValueError("Webhook to update has no url")
         data = self.request(
-            "webhooks/%s" % webhook.webhookId,
+            f"webhooks/{webhook.webhookId}",
             "PUT",
             {"url": webhook.url},
         )
@@ -709,10 +713,9 @@ class UnzerClient:
         :return: A list of Webhooks
         :rtype: list[Webhook]
         """
-        if "events" not in data:
-            webhooks = [data]  # got exactly one webhook, data is the webhook itself
-        else:
-            webhooks = data["events"]  # list of webhooks wrapped in events property
+        # A single webhook comes back as the object itself, several are wrapped
+        # in an `events` property.
+        webhooks = data.get("events", [data])
         return [Webhook.fromDict(webhook) for webhook in webhooks]
 
     def deleteWebhook(self, webhookOrId):
@@ -726,7 +729,7 @@ class UnzerClient:
         if isinstance(webhookOrId, Webhook):
             webhookOrId = webhookOrId.webhookId
         data = self.request(
-            "webhooks/%s" % webhookOrId,
+            f"webhooks/{webhookOrId}",
             "DELETE",
         )
         return data["id"]

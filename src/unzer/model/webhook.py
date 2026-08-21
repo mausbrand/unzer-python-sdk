@@ -1,4 +1,5 @@
 import enum
+import typing as t
 
 from .base import BaseModel
 
@@ -66,7 +67,7 @@ class Events(enum.StrEnum):
 
 
 class Webhook(BaseModel):
-    REQUIRED_ATTRIBUTES = [
+    REQUIRED_ATTRIBUTES: t.ClassVar[list[str]] = [
         "event",
         "url"
     ]
@@ -101,7 +102,7 @@ class Webhook(BaseModel):
         if isinstance(value, str):
             value = [value]
         if not isinstance(value, list):
-            raise TypeError("Event must be a str or list of str. Got %r" % type(value))
+            raise TypeError(f"Event must be a str or list of str. Got {type(value)!r}")
         events = []
         for val in value:
             try:

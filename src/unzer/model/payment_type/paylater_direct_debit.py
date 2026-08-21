@@ -17,7 +17,7 @@ class PaylaterDirectDebit(PaymentType):
     method = PaymentTypes.PAYLATER_DIRECT_DEBIT
     method_name = PaymentMethodTypes.DIRECT_DEBIT_SECURED
 
-    REQUIRED_ATTRIBUTES = ["iban", "holder"]
+    REQUIRED_ATTRIBUTES: t.ClassVar[list[str]] = ["iban", "holder"]
 
     def __init__(
             self,

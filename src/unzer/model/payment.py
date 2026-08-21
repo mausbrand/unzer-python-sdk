@@ -69,7 +69,8 @@ class PaymentTypes(enum.Enum):
 
     Used as short-name in type-ids like ``s-crd-abc456def789``
 
-    .. seealso:: https://github.com/unzerdev/java-sdk/blob/main/src/main/java/com/unzer/payment/paymenttypes/PaymentTypeEnum.java  # noqa: E501
+    .. seealso:: `PaymentTypeEnum.java
+        <https://github.com/unzerdev/java-sdk/blob/main/src/main/java/com/unzer/payment/paymenttypes/PaymentTypeEnum.java>`_
 
     The official SDKs disagree on the exact set, so both were compared. Three
     deliberate differences:
@@ -135,7 +136,8 @@ class PaymentMethodTypes(enum.Enum):
 
     Used as name in URLs like ``types/<name>/``
 
-    .. seealso:: https://github.com/unzerdev/integration-core/blob/master/src/BusinessLogic/Domain/PaymentMethod/Enums/PaymentMethodTypes.php  # noqa: E501
+    .. seealso:: `PaymentMethodTypes.php
+        <https://github.com/unzerdev/integration-core/blob/master/src/BusinessLogic/Domain/PaymentMethod/Enums/PaymentMethodTypes.php>`_
     """
     ALI_PAY = "alipay"
     APPLE_PAY = "applepay"
@@ -254,7 +256,7 @@ class PaymentGetResponse(BaseModel):
         # if state not in vars(PaymentState).values():
         #     raise TypeError("Invalid state %r" % state)
         if not isinstance(card3ds, (bool, NoneType)):
-            raise TypeError("Invalid value %r for card3ds. Must be a boolean or None." % card3ds)
+            raise TypeError(f"Invalid value {card3ds!r} for card3ds. Must be a boolean or None.")
         self.paymentId = paymentId  # type:str
         self.paymentType = paymentType  # type:PaymentTypes
         self.state = state  # type:PaymentState
@@ -426,7 +428,7 @@ class PaymentTransaction(BaseModel):
 
 
 class PaymentRequest(BaseModel):
-    REQUIRED_ATTRIBUTES = ["paymentType"]
+    REQUIRED_ATTRIBUTES: t.ClassVar[list[str]] = ["paymentType"]
 
     def __init__(
             self,
@@ -486,7 +488,7 @@ class PaymentRequest(BaseModel):
         """
         super().__init__(**kwargs)
         if not isinstance(card3ds, (bool, NoneType)):
-            raise TypeError("Invalid value %r for card3ds. Must be a boolean or None." % card3ds)
+            raise TypeError(f"Invalid value {card3ds!r} for card3ds. Must be a boolean or None.")
         self.paymentType = paymentType  # type:PaymentType
         self.paymentId = paymentId  # type:str
         self.amount = amount  # type:float
@@ -780,8 +782,9 @@ class PaymentResponseMetadata(BaseModel):
     def fromDict(cls, data):
         data = data.copy()
         # Nobody, really nobody starts identifier with a digit. Unzer: here you have the 3dsEci flag
-        data["threeDsEci"] = data["3dsEci"] if "3dsEci" in data else None
+        data["threeDsEci"] = data.get("3dsEci")
         return cls(**data)
 
 
-from unzer.model.payment_type.abstract_paymenttype import PaymentType  # noqa: Avoid circular imports
+# Imported at the end of the module to avoid a circular import.
+from unzer.model.payment_type.abstract_paymenttype import PaymentType  # noqa: E402

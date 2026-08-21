@@ -9,7 +9,7 @@ class Bancontact(PaymentType):
     method = PaymentTypes.BANCONTACT
     method_name = PaymentMethodTypes.BANCONTACT
 
-    REQUIRED_ATTRIBUTES = ["holder"]
+    REQUIRED_ATTRIBUTES: t.ClassVar[list[str]] = ["holder"]
 
     def __init__(
             self,

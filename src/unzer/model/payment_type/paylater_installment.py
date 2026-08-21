@@ -24,7 +24,7 @@ class PaylaterInstallment(PaymentType):
 
     # The API reference marks only inquiryId and numberOfRates as required,
     # while the documentation claims country to be required too
-    REQUIRED_ATTRIBUTES = ["inquiryId", "numberOfRates"]
+    REQUIRED_ATTRIBUTES: t.ClassVar[list[str]] = ["inquiryId", "numberOfRates"]
 
     def __init__(
             self,

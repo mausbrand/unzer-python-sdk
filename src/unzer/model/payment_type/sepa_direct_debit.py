@@ -18,7 +18,7 @@ class SepaDirectDebit(PaymentType):
 
     # The API reference marks no field as required, but the PHP SDK
     # takes the iban as the only mandatory constructor argument
-    REQUIRED_ATTRIBUTES = ["iban"]
+    REQUIRED_ATTRIBUTES: t.ClassVar[list[str]] = ["iban"]
 
     def __init__(
             self,

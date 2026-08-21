@@ -1,3 +1,4 @@
+import typing as t
 from types import NoneType
 
 from ..utils import parseBool, roundAmount
@@ -6,7 +7,7 @@ from .payment import Action
 
 
 class PaymentPage(BaseModel):
-    REQUIRED_ATTRIBUTES = [
+    REQUIRED_ATTRIBUTES: t.ClassVar[list[str]] = [
         "action",
         "amount",
         "currency",
@@ -141,7 +142,7 @@ class PaymentPage(BaseModel):
         self.basketId = basketId  # type:str
 
     def serialize(self):
-        data = {
+        return {
             "amount": roundAmount(self.amount),
             "currency": self.currency,
             "invoiceId": self.invoiceId,
@@ -167,7 +168,6 @@ class PaymentPage(BaseModel):
                 "metadataId": self.metadataId,
             },
         }
-        return data
 
     @classmethod
     def fromDict(cls, data):

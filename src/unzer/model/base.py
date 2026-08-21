@@ -10,7 +10,7 @@ JSONValue: t.TypeAlias = str | int | float | bool | list["JSONValue"] | dict[str
 class BaseModel(abc.ABC):
     EMPTY_STRING = ""
 
-    REQUIRED_ATTRIBUTES = []
+    REQUIRED_ATTRIBUTES: t.ClassVar[list[str]] = []
 
     def __init__(
             self,
@@ -46,14 +46,14 @@ class BaseModel(abc.ABC):
         """
         for attr in type(self).REQUIRED_ATTRIBUTES:  # use always the cls-attributes
             if not getattr(self, attr):
-                raise ValueError("%s misses the attribute *%s*." % (type(self).__name__, attr))
+                raise ValueError(f"{type(self).__name__} misses the attribute *{attr}*.")
         return True
 
     def __repr__(self) -> str:
-        return "%s.%s(%s)" % (
+        return "{}.{}({})".format(
             self.__class__.__module__,
             self.__class__.__name__,
-            ", ".join("%s=%r" % (k, v) for k, v in sorted(self))
+            ", ".join(f"{k}={v!r}" for k, v in sorted(self))
         )
 
     def asDict(self) -> dict[str, t.Any]:
@@ -71,5 +71,4 @@ class BaseModel(abc.ABC):
 
     def __iter__(self):
         """Yield the attributes of the model"""
-        for k, v in self.asDict().items():
-            yield k, v
+        yield from self.asDict().items()

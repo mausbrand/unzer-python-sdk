@@ -13,15 +13,13 @@ class Error:
             logger.warning("Error got additional unhandled data: %r", kwargs)
 
     def __str__(self):
-        return "%s %s: %s" % (self.__class__.__name__, self.code, self.merchantMessage)
+        return f"{self.__class__.__name__} {self.code}: {self.merchantMessage}"
 
     def __repr__(self):
-        return "%s.%s(code=%r, merchantMessage=%r, customerMessage=%r)" % (
-            self.__class__.__module__,
-            self.__class__.__name__,
-            self.code,
-            self.merchantMessage,
-            self.customerMessage,
+        return (
+            f"{self.__class__.__module__}.{self.__class__.__name__}("
+            f"code={self.code!r}, merchantMessage={self.merchantMessage!r}, "
+            f"customerMessage={self.customerMessage!r})"
         )
 
 
@@ -73,11 +71,8 @@ class ErrorResponse(Exception):
         )
 
     def __repr__(self):
-        return "%s.%s(url=%r, errorId=%r, traceId=%r, errors=%r)" % (
-            self.__class__.__module__,
-            self.__class__.__name__,
-            self.url,
-            self.errorId,
-            self.traceId,
-            self.errors,
+        return (
+            f"{self.__class__.__module__}.{self.__class__.__name__}("
+            f"url={self.url!r}, errorId={self.errorId!r}, "
+            f"traceId={self.traceId!r}, errors={self.errors!r})"
         )

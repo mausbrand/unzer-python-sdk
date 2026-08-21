@@ -36,12 +36,11 @@ class CardTransactionData(BaseModel):
         self.exemptionType = exemptionType
 
     def serialize(self) -> dict[str, JSONValue]:
-        data = {
+        return {
             "recurrenceType": self.recurrenceType,
             "liability": self.liability,
             "exemptionType": self.exemptionType,
         }
-        return data
 
     @classmethod
     def fromDict(cls, data: dict[str, JSONValue]) -> t.Self:
@@ -69,12 +68,11 @@ class ShippingTransactionData(BaseModel):
         self.returnTrackingId = returnTrackingId
 
     def serialize(self) -> dict[str, JSONValue]:
-        data = {
+        return {
             "deliveryTrackingId": self.deliveryTrackingId,
             "deliveryService": self.deliveryService,
             "returnTrackingId": self.returnTrackingId,
         }
-        return data
 
     @classmethod
     def fromDict(cls, data: dict[str, JSONValue]) -> t.Self:
@@ -139,7 +137,7 @@ class RiskData(BaseModel):
         self.confirmedAmount = confirmedAmount
 
     def serialize(self) -> dict[str, JSONValue]:
-        data = {
+        return {
             "threatMetrixId": self.threatMetrixId,
             "registrationLevel": self.registrationLevel.value if self.registrationLevel is not None else None,
             "registrationDate": (self.registrationDate.strftime("%Y%m%d")
@@ -149,7 +147,6 @@ class RiskData(BaseModel):
             "confirmedOrders": self.confirmedOrders,
             "confirmedAmount": self.confirmedAmount,
         }
-        return data
 
     @classmethod
     def fromDict(cls, data: dict[str, JSONValue]) -> t.Self:
@@ -172,10 +169,9 @@ class PaypalData(BaseModel):
         self.checkoutType = checkoutType
 
     def serialize(self) -> dict[str, JSONValue]:
-        data = {
+        return {
             "checkoutType": self.checkoutType,
         }
-        return data
 
     @classmethod
     def fromDict(cls, data: dict[str, JSONValue]) -> t.Self:
@@ -211,13 +207,12 @@ class AdditionalTransactionData(BaseModel):
         self.paypal = paypal
 
     def serialize(self) -> dict[str, JSONValue]:
-        data = {
+        return {
             "card": self.card.serialize() if self.card else None,
             "shipping": self.shipping.serialize() if self.shipping else None,
             "riskData": self.risk_data.serialize() if self.risk_data else None,
             "paypal": self.paypal.serialize() if self.paypal else None,
         }
-        return data
 
     @classmethod
     def fromDict(cls, data: dict[str, JSONValue]) -> t.Self:

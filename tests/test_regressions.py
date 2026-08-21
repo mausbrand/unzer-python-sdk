@@ -142,7 +142,7 @@ class TestUnknownPaymentTypePlaceholder:
         with AttributeError: 'str' object has no attribute 'value'."""
         cls = PaymentType.construct(PaymentTypes.GIROPAY)
         with pytest.raises(NotImplementedError, match="no implementation"):
-            cls.method_name.value
+            _ = cls.method_name.value
 
     def test_placeholder_class_has_a_usable_name(self):
         """Was "Paymenttypes.Giropay"."""
