@@ -56,8 +56,15 @@ drive-by version bumps, no unrelated reformatting.
 ```bash
 uv sync --extra testing          # or: pip install -e ".[testing]"
 uv run pytest                    # unit tests, mocked, no network
+uv run ruff check .              # linting; the config lives in pyproject.toml
 uv run pycodestyle src/ tests/   # the CI checks the full tree, not just the diff
 ```
+
+ruff catches what pycodestyle structurally cannot — unused imports, outdated syntax,
+implicit Optional, likely bugs. Where this project deviates from a rule on purpose, the
+`ignore` list in `pyproject.toml` says which rule and why; add to it with a reason rather
+than sprinkling `# noqa`. And note that a `# noqa` inside a docstring is just prose: it
+does nothing, and one of them hid six over-long lines in this repository for months.
 
 Unit tests mock HTTP with [responses](https://pypi.org/project/responses/) and read their
 payloads from `tests/fixtures/`. **Build fixtures from real captured responses**, never by

@@ -28,7 +28,14 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install -U pycodestyle
+          python -m pip install -U pycodestyle ruff
+
+      # ruff sees what pycodestyle structurally cannot: unused imports,
+      # outdated syntax, implicit Optional, likely bugs. Configured in
+      # pyproject.toml, including the deviations this project makes on purpose.
+      - name: run ruff
+        run: |
+          ruff check --output-format=github .
 
       # The diff check only ever sees the current change. A violation that slips
       # through once is never reported again, so the whole tree is checked too.
