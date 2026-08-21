@@ -10,6 +10,13 @@ logger = logging.getLogger("unzer-sdk").getChild(__name__)
 
 
 class CardTransactionData(BaseModel):
+    """Card-specific transaction data.
+
+    :attr:`recurrenceType` marks a payment as part of a series, which affects both
+    the fees and where the liability sits. :attr:`exemptionType` asks for an
+    exemption from strong customer authentication.
+    """
+
     def __init__(
             self,
             recurrenceType: t.Literal["scheduled", "unscheduled", "oneclick"] | None = None,
@@ -48,6 +55,8 @@ class CardTransactionData(BaseModel):
 
 
 class ShippingTransactionData(BaseModel):
+    """Shipping details, used by the Pay later methods for their risk checks."""
+
     def __init__(
             self,
             deliveryTrackingId: str | None = None,
@@ -105,6 +114,13 @@ class RegistrationLevel(enum.IntEnum):
 
 
 class RiskData(BaseModel):
+    """What the merchant knows about the customer, for Unzer's fraud checks.
+
+    All optional, and all of it improves the acceptance rate of the Pay later
+    methods: how long the customer has had an account, how many orders they have
+    completed, which risk group they are in.
+    """
+
     def __init__(
             self,
             confirmedAmount: float | None = None,
@@ -154,6 +170,8 @@ class RiskData(BaseModel):
 
 
 class PaypalData(BaseModel):
+    """PayPal-specific transaction data."""
+
     def __init__(
             self,
             checkoutType: t.Literal["EXPRESS"] | None = None,
@@ -179,6 +197,17 @@ class PaypalData(BaseModel):
 
 
 class AdditionalTransactionData(BaseModel):
+    """Extra data sent alongside a payment.
+
+    Optional for most methods and required for some: card payments need it for
+    recurrence and exemption handling, and the risk data feeds Unzer's fraud
+    checks. Request-only -- the API returns these fields in a shape this model
+    does not read back.
+
+    The API knows more sub-objects than this covers (``paylater``,
+    ``onlineTransfer``, and the terms and privacy URLs some methods require).
+    """
+
     def __init__(
             self,
             card: CardTransactionData = None,

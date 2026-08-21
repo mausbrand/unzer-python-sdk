@@ -19,6 +19,15 @@ class Salutation:
 
 
 class Customer(BaseModel):
+    """A customer resource.
+
+    Identified either by the resource id assigned by Unzer (:attr:`key`) or by an
+    id of your own (:attr:`customerId`), which has to be unique per keypair.
+    :attr:`keyOrCustomerId` returns whichever is set.
+
+    The Pay later payment methods require a customer with a billing address and a
+    date of birth for their credit check.
+    """
 
     def __init__(
             self,
@@ -41,9 +50,9 @@ class Customer(BaseModel):
 
         :param key: (optional) (original: id) Customer's generated code by Unzer's Payment
         :type key: str
-        :param firstname: Customer's lastname
+        :param firstname: Customer's first name
         :type firstname: str
-        :param lastname: Customer's firstname
+        :param lastname: Customer's last name
         :type lastname: str
         :param salutation: (optional) Must be either 'mr', 'mrs' or 'unknown'
         :type salutation: str | Salutation
@@ -87,15 +96,28 @@ class Customer(BaseModel):
         self.companyData = companyData  # type: CompanyInfo
 
     @property
-    def keyOrCustomerId(self):
+    def keyOrCustomerId(self) -> str | None:
+        """The id to address this customer by, preferring the one Unzer assigned.
+
+        Both work in the URL of a customer resource: the resource id from Unzer
+        and the merchant's own ``customerId``.
+        """
         return self.key or self.customerId
 
     @property
-    def salutation(self):
+    def salutation(self) -> str:
+        """Salutation of the customer, one of ``mr``, ``mrs`` or ``unknown``."""
         return self._salutation
 
     @salutation.setter
-    def salutation(self, value):
+    def salutation(self, value: str | None) -> None:
+        """Set the salutation, defaulting an empty value to ``unknown``.
+
+        ``unknown`` is a real value of the API, not a placeholder -- it says no
+        salutation is known for this customer.
+
+        :raises TypeError: For anything but ``mr``, ``mrs`` and ``unknown``.
+        """
         if not value:
             value = Salutation.UNKNOWN
         elif value not in {Salutation.MR, Salutation.MRS, Salutation.UNKNOWN}:
@@ -103,11 +125,20 @@ class Customer(BaseModel):
         self._salutation = value
 
     @property
-    def birthDate(self):
+    def birthDate(self) -> "datetime.datetime | datetime.date | None":
+        """Date of birth, required by the Pay later methods for their credit check."""
         return self._birthDate
 
     @birthDate.setter
-    def birthDate(self, value):
+    def birthDate(self, value: str | datetime.date | datetime.datetime | None) -> None:
+        """Set the date of birth, accepting both formats the API documents.
+
+        ``1990-01-24`` and ``24.01.1990`` are both parsed; a
+        :class:`~datetime.date` or :class:`~datetime.datetime` is taken as is.
+        Serialisation always writes the ISO form.
+
+        :raises TypeError: For a string in neither format, or an unusable type.
+        """
         if not value:
             value = None
         elif isinstance(value, str):
@@ -122,21 +153,23 @@ class Customer(BaseModel):
         self._birthDate = value
 
     @property
-    def phone(self):
+    def phone(self) -> str | None:
+        """Landline number. An empty value is normalised to ``None``."""
         return self._phone
 
     @phone.setter
-    def phone(self, value):
+    def phone(self, value: str | None) -> None:
         if not value:
             value = None
         self._phone = value
 
     @property
-    def mobile(self):
+    def mobile(self) -> str | None:
+        """Mobile number. An empty value is normalised to ``None``."""
         return self._mobile
 
     @mobile.setter
-    def mobile(self, value):
+    def mobile(self, value: str | None) -> None:
         if not value:
             value = None
         self._mobile = value

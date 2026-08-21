@@ -1,3 +1,9 @@
+"""One class per payment method.
+
+Seven of them take data from the server, the rest are created in the browser and
+deliberately carry no fields. Which is which, and why, is in
+``docs/payment-methods.md``.
+"""
 from .abstract_paymenttype import PaymentType
 from .alipay import Alipay
 from .applepay import Applepay

@@ -1,3 +1,9 @@
+"""Payments, their transactions, and the enums describing both.
+
+A payment is the umbrella over one order: its state, its amounts, and the list of
+transactions it accumulated. Note that the list contains every transaction the
+payment has, including kinds this SDK cannot create.
+"""
 import enum
 import logging
 import re
@@ -181,6 +187,19 @@ paymentUrlRe = re.compile(
 
 
 class PaymentGetResponse(BaseModel):
+    """A payment, as returned by :meth:`~unzer.UnzerClient.getPayment`.
+
+    The payment is the umbrella over everything that happened to one order: its
+    :attr:`state`, the amounts, the ids of the resources involved, and every
+    :class:`PaymentTransaction` it holds. That list is the reason
+    :class:`Action` has to know transaction types this SDK cannot create -- a
+    payment that was cancelled elsewhere still reads back here.
+
+    :attr:`amountTotal` is the authorised amount minus cancellations,
+    :attr:`amountCharged` what was actually captured, and
+    :attr:`amountRemaining` the difference. Treat anything but
+    :attr:`~PaymentState.COMPLETED` as not paid.
+    """
 
     def __init__(
             self,
@@ -345,6 +364,16 @@ class PaymentGetResponse(BaseModel):
             ) from None
 
     def charge(self, amount: float) -> "PaymentResponse":
+        """Capture an amount on this payment.
+
+        For payment methods that are authorised first and captured later -- Klarna
+        and the Pay later methods, typically on shipment. Requires the model to
+        have been read through a client, since it performs a request of its own.
+
+        :param amount: The amount to capture. Can be less than the authorised
+            amount; the rest stays open.
+        :return: The transaction that was created.
+        """
         req_kwargs = self.__dict__.copy()
         req_kwargs["paymentType"] = PaymentType.construct(self.paymentType)(self.typeId)
         req_kwargs["amount"] = amount
@@ -353,6 +382,14 @@ class PaymentGetResponse(BaseModel):
 
 
 class PaymentTransaction(BaseModel):
+    """One transaction within a payment.
+
+    :attr:`action` says what kind it is and :attr:`status` how it went. The ids
+    are parsed out of the transaction's URL, because the API does not return them
+    as separate fields -- which is why :attr:`url` is required for this model to
+    be readable at all.
+    """
+
     def __init__(
             self,
             paymentId=None,
@@ -428,6 +465,17 @@ class PaymentTransaction(BaseModel):
 
 
 class PaymentRequest(BaseModel):
+    """The payload of an authorize or charge call.
+
+    Request-only; use :class:`PaymentResponse` for what comes back. The payment
+    type is the one required field -- if it has no ``key`` yet, the client creates
+    it as part of the call.
+
+    :attr:`returnUrl` is required for every payment method that sends the customer
+    away, which is most of them, and for the Pay later methods it is required
+    outright because their verification flow redirects.
+    """
+
     REQUIRED_ATTRIBUTES: t.ClassVar[list[str]] = ["paymentType"]
 
     def __init__(
@@ -532,6 +580,17 @@ class PaymentRequest(BaseModel):
 
 
 class PaymentResponse(BaseModel):
+    """The result of an authorize or charge call.
+
+    Three flags, of which exactly one is set: :attr:`isSuccess`,
+    :attr:`isPending`, :attr:`isError`. Pending is not a failure -- it means the
+    customer has to confirm something at :attr:`redirectUrl`, after which the
+    outcome has to be fetched with :meth:`~unzer.UnzerClient.getPayment`.
+
+    :attr:`processing` carries the reference numbers to quote in support cases,
+    and for prepayment or invoice the bank details the customer has to transfer to.
+    """
+
     def __init__(
             self,
             transactionId=None,
@@ -680,6 +739,14 @@ class PaymentResponse(BaseModel):
         return cls(**data, client=client)
 
     def charge(self, amount: float) -> "PaymentResponse":
+        """Capture an amount on the payment this response belongs to.
+
+        Same as :meth:`PaymentGetResponse.charge`, so that a capture can follow
+        straight on from an authorization without fetching the payment first.
+
+        :param amount: The amount to capture.
+        :return: The transaction that was created.
+        """
         req_kwargs = self.__dict__.copy()
         paymentTypeName = PaymentGetResponse.getPaymentTypeFromTypeId(self.typeId)
         req_kwargs["paymentType"] = PaymentType.construct(paymentTypeName)(self.typeId)
@@ -689,6 +756,17 @@ class PaymentResponse(BaseModel):
 
 
 class PaymentResponseMetadata(BaseModel):
+    """The ``processing`` block of a payment response.
+
+    Which of these fields are filled depends entirely on the payment method:
+    :attr:`uniqueId`, :attr:`shortId` and :attr:`traceId` are always there, the
+    bank details only for the methods that need them, and they can be missing
+    while a verification is still outstanding.
+
+    :attr:`shortId` is the reference a customer can read out over the phone;
+    :attr:`traceId` is the one Unzer support asks for.
+    """
+
     def __init__(
             self,
             creatorId=None,

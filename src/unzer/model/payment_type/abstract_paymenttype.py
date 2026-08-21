@@ -20,6 +20,7 @@ class _UnknownMethodName:
 
     @property
     def value(self) -> str:
+        """Always raises: an unimplemented payment type has no resource path."""
         raise NotImplementedError(
             "This payment type has no implementation in this SDK, so its resource "
             "path is unknown. It can be used to read existing payments, but not to "
@@ -31,6 +32,20 @@ class _UnknownMethodName:
 
 
 class PaymentType(BaseModel):
+    """Base class of every payment method.
+
+    A payment type is a resource at Unzer, and its id (``s-crd-...``) is what a
+    payment refers to. Two names identify the method, and they differ:
+    :attr:`method` is the three-letter short code inside that id, while
+    :attr:`method_name` is the slug in the ``types/`` path.
+
+    Which of the two ways a type comes into being decides whether its subclass
+    carries fields at all -- server-side for seven of them, in the browser for the
+    rest, whose classes are deliberately empty.
+
+    .. seealso:: ../../../docs/payment-methods.md
+    """
+
     @property
     @abc.abstractmethod
     def method(self) -> "PaymentTypes":
@@ -66,12 +81,23 @@ class PaymentType(BaseModel):
 
     @classmethod
     def get_subclasses(cls) -> t.Iterator[type[t.Self]]:
+        """Yield every payment type class, including those of subclasses."""
         for subclass in cls.__subclasses__():
             yield from subclass.get_subclasses()
             yield subclass
 
     @classmethod
     def construct(cls, method: "PaymentTypes") -> type["PaymentType"]:
+        """Find the class implementing a payment method.
+
+        For a method this SDK does not implement -- a discontinued or deprecated
+        one -- a placeholder class is built, so that existing payments still read
+        back. That placeholder cannot create a new payment type: asking it for its
+        resource path raises.
+
+        :param method: The short code of the method, as it appears in a type id.
+        :return: The class, not an instance.
+        """
         for subclass in PaymentType.get_subclasses():
             if subclass.method == method:
                 return subclass
@@ -86,12 +112,15 @@ class PaymentType(BaseModel):
         return sub_cls  # noqa
 
     def get_configuration(self) -> dict:
-        if self._client is None:
-            raise RuntimeError(
-                f"{type(self).__name__} was created without a client, so it cannot "
-                f"read its keypair configuration. Pass client= to the constructor, "
-                f"or use the instance the client returned."
-            )
+        """Provide the keypair configuration for this payment type.
+
+        Returns the first entry when the keypair holds several, which it can --
+        see :meth:`get_configurations`. Prefer passing a brand to
+        :meth:`get_channel_id` over relying on the order here.
+
+        :raises LookupError: If the payment type is not configured at all.
+        :raises RuntimeError: If this payment type was created without a client.
+        """
         configurations = self.get_configurations()
         if len(configurations) > 1:
             logger.warning(

@@ -1,11 +1,24 @@
+"""Conversions between the wire format and Python types.
+
+The API is inconsistent about how it encodes values -- amounts arrive as
+strings, dates in two different formats, timestamps in a unit its own reference
+gets wrong -- so these helpers exist to keep that out of the models.
+"""
 import datetime
 
 
-def parseBool(value):
+def parseBool(value: object) -> bool:
+    """Read a boolean the API sent as the string ``"true"`` or ``"false"``."""
     return str(value).lower() == "true"
 
 
-def parseDateTime(value):
+def parseDateTime(value: str | datetime.datetime | None) -> datetime.datetime | None:
+    """Parse a timestamp in either of the two formats the API uses.
+
+    ``2026-08-21 10:15:32`` and ``21.08.2026 10:15:32`` are both accepted.
+
+    :raises TypeError: If the string matches neither format.
+    """
     if not value:
         return None
     if isinstance(value, datetime.datetime):

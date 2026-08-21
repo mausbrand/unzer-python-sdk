@@ -6,6 +6,14 @@ from .abstract_paymenttype import PaymentType
 
 
 class Bancontact(PaymentType):
+    """Bancontact.
+
+    Takes an optional card holder; everything else the customer enters at the
+    redirect.
+
+    .. seealso:: ``docs/payment-methods.md``
+    """
+
     method = PaymentTypes.BANCONTACT
     method_name = PaymentMethodTypes.BANCONTACT
 
