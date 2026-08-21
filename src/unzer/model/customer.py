@@ -138,19 +138,22 @@ class Customer(BaseModel):
         if isinstance(birthDate, (datetime.datetime, datetime.date)):
             birthDate = birthDate.strftime("%Y-%m-%d")
 
-        billingAddress = self.billingAddress
-        if billingAddress is None:
-            billingAddress = self.EMPTY_STRING
-        else:
-            assert isinstance(billingAddress, Address)
-            billingAddress = billingAddress.serialize()
-
-        shippingAddress = self.shippingAddress
-        if shippingAddress is None:
-            shippingAddress = self.EMPTY_STRING
-        else:
-            assert isinstance(shippingAddress, Address)
-            shippingAddress = shippingAddress.serialize()
+        # An empty string is rejected by the API with API.410.300.007
+        # ("HTTP message not readable") because the field is an object, not a
+        # string. null is accepted, so missing addresses are sent as None.
+        addresses = {}
+        for name in ("billingAddress", "shippingAddress"):
+            address = getattr(self, name)
+            if address is None:
+                addresses[name] = None
+            elif isinstance(address, Address):
+                addresses[name] = address.serialize()
+            else:
+                raise TypeError(
+                    f"Expected an Address object for {name}. Got {type(address)!r}"
+                )
+        billingAddress = addresses["billingAddress"]
+        shippingAddress = addresses["shippingAddress"]
 
         return {
             "lastname": self.lastname,
