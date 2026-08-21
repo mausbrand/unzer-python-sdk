@@ -1,0 +1,12 @@
+{
+  "id": "s-err-9e1b0d5a7c34",
+  "url": "https://api.unzer.com/v1/payments/s-pay-123456/charges",
+  "timestamp": "2026-08-21 10:15:32",
+  "errors": [
+    {
+      "code": "API.320.200.145",
+      "merchantMessage": "Basket is already in use.",
+      "customerMessage": "There was a problem with your order. Please try again."
+    }
+  ]
+}

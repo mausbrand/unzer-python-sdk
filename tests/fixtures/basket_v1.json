@@ -1,0 +1,26 @@
+{
+  "id": "s-bsk-1",
+  "amountTotalGross": "100.0000",
+  "amountTotalDiscount": "0.0000",
+  "amountTotalVat": "15.9700",
+  "currencyCode": "EUR",
+  "orderId": "my_order_id_123",
+  "note": "",
+  "basketItems": [
+    {
+      "basketItemReferenceId": "my_basket_reference_id_123",
+      "unit": "T-shirt",
+      "quantity": 1,
+      "amountDiscount": 0,
+      "vat": 19,
+      "amountGross": 100,
+      "amountVat": 15.97,
+      "amountPerUnit": 100,
+      "amountNet": 84.03,
+      "title": "Custom print t-shirt",
+      "subTitle": "Your custom design on a t-shirt",
+      "imageUrl": "https://example.com/t-shirt.png",
+      "type": "goods"
+    }
+  ]
+}

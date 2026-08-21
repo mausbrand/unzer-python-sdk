@@ -1,0 +1,28 @@
+{
+  "id": "s-cst-cd1e6a11c02a",
+  "lastname": "Weissmann",
+  "firstname": "Manuel",
+  "salutation": "mr",
+  "company": "",
+  "customerId": "my-customer-123",
+  "birthDate": "1990-01-24",
+  "email": "manuel.weissmann@example.com",
+  "phone": "0049123456789",
+  "mobile": "",
+  "billingAddress": {
+    "name": "Manuel Weissmann",
+    "street": "Vangerowstraße 18",
+    "state": "DE-BW",
+    "zip": "69115",
+    "city": "Heidelberg",
+    "country": "DE"
+  },
+  "shippingAddress": {
+    "name": "Manuel Weissmann",
+    "street": "Vangerowstraße 18",
+    "state": "DE-BW",
+    "zip": "69115",
+    "city": "Heidelberg",
+    "country": "DE"
+  }
+}

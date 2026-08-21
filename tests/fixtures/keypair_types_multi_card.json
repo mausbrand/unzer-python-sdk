@@ -1,0 +1,61 @@
+{
+  "paymentTypes": [
+    {
+      "type": "card",
+      "3ds": true,
+      "allowCreditTransaction": false,
+      "allowCustomerTypes": "B2C",
+      "supports": [
+        {
+          "brands": ["MASTER", "VISA"],
+          "channel": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "countries": [],
+          "currency": ["EUR"],
+          "pmpId": "ccpmp"
+        }
+      ]
+    },
+    {
+      "type": "card",
+      "3ds": true,
+      "allowCreditTransaction": false,
+      "allowCustomerTypes": "B2C",
+      "supports": [
+        {
+          "brands": ["AMEX"],
+          "channel": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "countries": [],
+          "currency": ["EUR", "USD"]
+        }
+      ]
+    },
+    {
+      "type": "EPS",
+      "3ds": false,
+      "allowCreditTransaction": false,
+      "allowCustomerTypes": "B2C",
+      "supports": [
+        {
+          "brands": ["EPS"],
+          "channel": "cccccccccccccccccccccccccccccccc",
+          "countries": ["AT"],
+          "currency": ["EUR"]
+        }
+      ]
+    },
+    {
+      "type": "paylater-invoice",
+      "3ds": false,
+      "allowCreditTransaction": false,
+      "allowCustomerTypes": "B2B,B2C",
+      "supports": [
+        {
+          "brands": [],
+          "channel": "dddddddddddddddddddddddddddddddd",
+          "countries": [],
+          "currency": ["EUR"]
+        }
+      ]
+    }
+  ]
+}

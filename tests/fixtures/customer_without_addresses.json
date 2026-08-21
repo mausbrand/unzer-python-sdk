@@ -1,0 +1,14 @@
+{
+  "id": "s-cst-8e6b1f0a4c73",
+  "lastname": "Doe",
+  "firstname": "Jane",
+  "salutation": "unknown",
+  "company": "",
+  "customerId": "",
+  "birthDate": "",
+  "email": "jane.doe@example.com",
+  "phone": "",
+  "mobile": "",
+  "billingAddress": "",
+  "shippingAddress": ""
+}

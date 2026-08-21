@@ -1,0 +1,35 @@
+{
+  "id": "Tx-usqn9ug8bbt",
+  "amount": "100.0000",
+  "currency": "EUR",
+  "expiresAt": "1787349029678",
+  "isSuccess": true,
+  "isPending": false,
+  "isResumed": false,
+  "isError": false,
+  "plans": [
+    {
+      "numberOfRates": 3,
+      "totalAmount": "103.00",
+      "nominalInterestRate": 3.56,
+      "effectiveInterestRate": 3.78,
+      "interestAmount": "3.00",
+      "minimumInstallmentFee": "0.00",
+      "secciUrl": "https://api.unzer.com/v1/types/paylater-installment/secci/Tx-usqn9ug8bbt",
+      "installmentRates": [
+        {
+          "date": "2026-09-21",
+          "rate": "34.34"
+        },
+        {
+          "date": "2026-10-21",
+          "rate": "34.33"
+        },
+        {
+          "date": "2026-11-21",
+          "rate": "34.33"
+        }
+      ]
+    }
+  ]
+}
