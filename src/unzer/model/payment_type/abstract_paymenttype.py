@@ -35,13 +35,11 @@ class PaymentType(BaseModel):
     @abc.abstractmethod
     def method(self) -> "PaymentTypes":
         """Hold the type."""
-        pass
 
     @property
     @abc.abstractmethod
     def method_name(self) -> "PaymentMethodTypes":
         """Hold the full payment name."""
-        pass
 
     # TODO: Rename method and method_name (Unzer himself has no clear concept or consistent naming for this either)
 
@@ -73,7 +71,7 @@ class PaymentType(BaseModel):
             yield subclass
 
     @classmethod
-    def construct(cls, method: "PaymentTypes") -> t.Type["PaymentType"]:
+    def construct(cls, method: "PaymentTypes") -> type["PaymentType"]:
         for subclass in PaymentType.get_subclasses():
             if subclass.method == method:
                 return subclass
@@ -89,7 +87,7 @@ class PaymentType(BaseModel):
 
     def get_configuration(self) -> dict:
         if self._client is None:
-            raise IOError(f"PaymentType {type(self).__name__} was not initialized with client instance")
+            raise OSError(f"PaymentType {type(self).__name__} was not initialized with client instance")
         configurations = self.get_configurations()
         if len(configurations) > 1:
             logger.warning(
@@ -109,7 +107,7 @@ class PaymentType(BaseModel):
         :raises LookupError: If the payment type is not configured at all.
         """
         if self._client is None:
-            raise IOError(f"PaymentType {type(self).__name__} was not initialized with client instance")
+            raise OSError(f"PaymentType {type(self).__name__} was not initialized with client instance")
         key_pair_types = self._client.getKeyPairTypes()
         logger.debug(f"key_pair_types: {key_pair_types!r}")
         # Compared case-insensitive: Unzer is not consistent about the casing of the

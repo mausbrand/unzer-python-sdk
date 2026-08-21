@@ -1,13 +1,12 @@
-import datetime
 import enum
 import logging
 import re
 import typing as t
 from types import NoneType
 
+from ..utils import parseBool, parseDateTime, roundAmount
 from .additional_transaction_data import AdditionalTransactionData
 from .base import BaseModel
-from ..utils import parseBool, parseDateTime, roundAmount
 
 if t.TYPE_CHECKING:
     from ..client import UnzerClient

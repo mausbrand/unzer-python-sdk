@@ -1,8 +1,8 @@
 import datetime
 import typing as t
 
-from .base import BaseModel, JSONValue
 from ..utils import parseBool, parseDate, parseFloat, parseTimestamp
+from .base import BaseModel, JSONValue
 
 
 class InstallmentRate(BaseModel):

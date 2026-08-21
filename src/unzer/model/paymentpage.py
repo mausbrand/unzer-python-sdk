@@ -1,8 +1,8 @@
 from types import NoneType
 
+from ..utils import parseBool, roundAmount
 from .base import BaseModel
 from .payment import Action
-from ..utils import parseBool, roundAmount
 
 
 class PaymentPage(BaseModel):

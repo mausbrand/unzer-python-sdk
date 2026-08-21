@@ -86,7 +86,7 @@ class UnzerClient:
         :param timeout: (optional) Timeout in seconds of a single request,
             overrides :attr:`timeout`.
         """
-        super(UnzerClient, self).__init__()
+        super().__init__()
         self.private_key = private_key
         self.public_key = public_key
         self.sandbox = sandbox
@@ -182,19 +182,18 @@ class UnzerClient:
             if 200 <= r.status_code <= 201:
                 logger.debug("Response[%s %s]: %r", r.status_code, r.reason, r.json())
                 return r.json()
-            elif 500 <= r.status_code < 600:
+            if 500 <= r.status_code < 600:
                 logger.debug("Server error")
                 logger.debug("Response[%s %s]: %r", r.status_code, r.reason, r.text)
                 if not retryable:
                     break
                 continue
-            else:
-                logger.debug("Client error")
-                logger.debug("Response[%s %s]: %r", r.status_code, r.reason, r.text)
-                errorResponse = ErrorResponse.fromDict(r.json())
-                errorResponse.statusCode = r.status_code
-                errorResponse.srcResponse = r
-                raise errorResponse
+            logger.debug("Client error")
+            logger.debug("Response[%s %s]: %r", r.status_code, r.reason, r.text)
+            errorResponse = ErrorResponse.fromDict(r.json())
+            errorResponse.statusCode = r.status_code
+            errorResponse.srcResponse = r
+            raise errorResponse
 
         logger.error("All request attempts failed")
         if r is not None:

@@ -1,8 +1,8 @@
 import datetime
 import typing as t
 
-from .base import BaseModel, JSONValue
 from ..utils import parseBool, parseDateTime
+from .base import BaseModel, JSONValue
 
 
 class RiskCheckResponse(BaseModel):

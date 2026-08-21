@@ -1,8 +1,6 @@
 import datetime
 import logging
 
-import requests
-
 logger = logging.getLogger("unzer-sdk").getChild(__name__)
 
 
@@ -44,7 +42,7 @@ class ErrorResponse(Exception):
             **kwargs
 
     ):
-        super(ErrorResponse, self).__init__(message)
+        super().__init__(message)
         if errors is None:
             errors = []
         self.timestamp = timestamp  # type: str

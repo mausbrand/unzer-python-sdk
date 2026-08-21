@@ -1,7 +1,7 @@
 import typing as t
 
-from .base import BaseModel, JSONValue
 from ..utils import parseFloat
+from .base import BaseModel, JSONValue
 
 
 class BasketItem(BaseModel):

@@ -1,9 +1,8 @@
 import abc
-
 import typing as t
 
 if t.TYPE_CHECKING:
-    from ..client import UnzerClient  # noqa # pylint: disable=unused-import
+    from ..client import UnzerClient  # pylint: disable=unused-import
 
 JSONValue: t.TypeAlias = str | int | float | bool | list["JSONValue"] | dict[str, "JSONValue"] | None
 
@@ -22,7 +21,7 @@ class BaseModel(abc.ABC):
         :param client: (optional) The client instance.
         """
         super().__init__()
-        self._client: "UnzerClient" = client
+        self._client: UnzerClient = client
 
     def getString(self, value):
         if value is None:
@@ -32,13 +31,11 @@ class BaseModel(abc.ABC):
     @abc.abstractmethod
     def serialize(self) -> dict[str, JSONValue]:
         """Serialize data from an object as dict for the request-payload."""
-        pass
 
     @classmethod
     @abc.abstractmethod
     def fromDict(cls, data: dict[str, JSONValue]) -> t.Self:
         """Unserialize data from a dict from a response to new object"""
-        pass
 
     def validateBeforeRequest(self) -> bool:
         """Validate the model.
