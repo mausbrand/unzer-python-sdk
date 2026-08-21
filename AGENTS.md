@@ -169,12 +169,18 @@ Do not make an enum tolerant via `_missing_` either. That applies to caller inpu
 a typo in our own code silently turns into a placeholder — which is how
 `PaymentPage(action="nonsense")` stopped failing once.
 
-Which makes completeness the actual requirement: `Action` declares all eight transaction types
+Which makes completeness the actual requirement: `Action` declares all nine transaction types
 of the API — `authorize`, `preauthorize`, `charge`, `cancel-authorize`, `cancel-charge`,
-`shipment`, `payout`, `chargeback` — even though this SDK can only create two of them. A
-payment lists every transaction it holds, so knowing only those two made `getPayment()` raise
-for every payment that had ever been cancelled, shipped or paid out. If Unzer adds a ninth,
-that is a release of this SDK, not a fallback.
+`shipment`, `payout`, `chargeback`, `strong_customer_authentication` — even though this SDK can
+only create two of them. A payment lists every transaction it holds, so knowing only those two
+made `getPayment()` raise for every payment that had ever been cancelled, shipped or paid out.
+If Unzer adds a tenth, that is a release of this SDK, not a fallback.
+
+Every enum carries a `.. seealso::` link to the file it mirrors, so completeness is checkable
+against the source instead of being a matter of memory. Where this SDK deliberately deviates
+from its source, the docstring says so and why — `PaymentTypes` drops the `UNKNOWN` member that
+the Java SDK uses as a parsing fallback. Deviating silently is how `Action` came to be missing
+a type in the first place.
 
 **Amounts are rounded to four decimals on serialisation** (`unzer.utils.roundAmount`). The API
 takes `Decimal{10,4}`, and float arithmetic does not cooperate: `12.3 - 10.0 - 2.3` is
