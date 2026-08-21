@@ -2,6 +2,13 @@ from .base import BaseModel
 
 
 class Address(BaseModel):
+    """A billing or shipping address.
+
+    The wire format has a single ``name`` field, which this model splits into
+    :attr:`firstname` and :attr:`lastname` and joins again on serialisation. Note
+    that it calls the postcode ``zip``, while the attribute is :attr:`zipCode`.
+    """
+
     def __init__(
             self,
             firstname,
@@ -15,9 +22,10 @@ class Address(BaseModel):
     ):
         """Create a new Address.
 
-        :param firstname: (optional) Address firstname (+lastname: max. 81 chars). Required in case of billing address.
+        :param firstname: Address first name. Together with the last name at most
+            81 characters, because the wire format joins them into one ``name``.
         :type firstname: str
-        :param lastname: (optional)  Address lastname (+firstname: max. 81 chars). Required in case of billing address.
+        :param lastname: Address last name, see above.
         :type lastname: str
         :param street: (optional) Address street (max. 50 chars). Required in case of billing address.
         :type street: str
@@ -40,11 +48,17 @@ class Address(BaseModel):
         self.country = country  # type: str
 
     @property
-    def name(self):
+    def name(self) -> str:
+        """First and last name joined, which is how the API expects an address."""
         return f"{self.getString(self.firstname)} {self.getString(self.lastname)}"
 
     @name.setter
-    def name(self, name):
+    def name(self, name: str) -> None:
+        """Split a name on the first space; everything after it is the last name.
+
+        A name without a space becomes the first name and leaves the last name
+        unset, which is the best that can be done without guessing.
+        """
         try:
             self.firstname, self.lastname = name.split(" ", 1)
         except ValueError:

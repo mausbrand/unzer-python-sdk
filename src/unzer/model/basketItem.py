@@ -5,6 +5,13 @@ from .base import BaseModel, JSONValue
 
 
 class BasketItem(BaseModel):
+    """A single line item of a :class:`~unzer.model.Basket`.
+
+    Follows the same two schemas as the basket around it, and on its own: the
+    field set decides which one, so do not mix them within one basket. See
+    :class:`~unzer.model.Basket`.
+    """
+
     def __init__(
             self,
             basketItemReferenceId=None,

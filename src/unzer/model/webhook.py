@@ -67,6 +67,19 @@ class Events(enum.StrEnum):
 
 
 class Webhook(BaseModel):
+    """A webhook registration.
+
+    One registration per event: passing several events to :attr:`event` makes the
+    API create one webhook each, which is why the create and list calls return a
+    list. Only the URL of an existing webhook can be changed, never its event.
+
+    Unzer does **not** sign its notifications. Verify them by checking the source
+    address against Unzer's IP allowlist and by fetching the resource from the
+    ``retrieveUrl`` the notification names -- never trust its body.
+
+    .. seealso:: https://docs.unzer.com/server-side-integration/api-basics/notifications/
+    """
+
     REQUIRED_ATTRIBUTES: t.ClassVar[list[str]] = [
         "event",
         "url"
@@ -94,11 +107,19 @@ class Webhook(BaseModel):
         self.url = url
 
     @property
-    def event(self):
+    def event(self) -> list[Events]:
+        """The events this webhook is registered for, always as a list."""
         return self._event
 
     @event.setter
-    def event(self, value):
+    def event(self, value: str | list[str]) -> None:
+        """Set one event or several, always storing a list.
+
+        A single event is wrapped, so the create call can treat both the same way
+        -- the API takes a list and answers with one webhook per event.
+
+        :raises TypeError: If a value is not a known event.
+        """
         if isinstance(value, str):
             value = [value]
         if not isinstance(value, list):

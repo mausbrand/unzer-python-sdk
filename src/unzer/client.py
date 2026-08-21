@@ -1,3 +1,4 @@
+"""The HTTP client and every API call this SDK supports."""
 import logging
 import time
 import typing as t
@@ -22,6 +23,19 @@ HttpMethod = t.Literal["GET", "POST", "PUT", "PATCH", "DELETE"]
 
 
 class UnzerClient:
+    """Client for the Unzer payment API.
+
+    One instance per keypair. The methods map closely onto the API's resources,
+    so a name here can be traced back to the API reference without a translation
+    table -- which is why they are camelCase.
+
+    Requests are performed synchronously with :mod:`requests`. Errors from the API
+    raise :exc:`~unzer.model.ErrorResponse`; failures below HTTP raise the
+    exceptions of :mod:`requests` itself.
+
+    .. seealso:: https://docs.unzer.com/server-side-integration/api-basics/
+    """
+
     endpoint = "https://api.unzer.com"
     """Base URL of the API, without the version segment."""
 
@@ -296,6 +310,17 @@ class UnzerClient:
         return self.getCustomer(data["id"])
 
     def createOrUpdateCustomer(self, customer):
+        """Create the customer, or update the existing one with the same id.
+
+        Convenience for the common case where it does not matter which of the two
+        it is. Relies on the API answering ``API.410.200.010`` for a ``customerId``
+        that is already taken, and falls back to :meth:`updateCustomer` then.
+
+        :param customer: Customer object, with ``customerId`` set.
+        :type customer: Customer
+        :return: The created or updated customer.
+        :rtype: Customer
+        """
         try:
             return self.createCustomer(customer)
         except ErrorResponse as er:

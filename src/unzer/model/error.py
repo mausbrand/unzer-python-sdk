@@ -5,6 +5,15 @@ logger = logging.getLogger("unzer-sdk").getChild(__name__)
 
 
 class Error:
+    """A single error entry of an API response.
+
+    The API answers with a list of these. :attr:`merchantMessage` is the one worth
+    logging; :attr:`customerMessage` is meant to be shown to the customer and is
+    translated according to the language the client was built with.
+
+    .. seealso:: https://docs.unzer.com/server-side-integration/api-basics/error-handling/
+    """
+
     def __init__(self, code, merchantMessage, customerMessage, **kwargs):
         self.code = code
         self.merchantMessage = merchantMessage
@@ -24,6 +33,17 @@ class Error:
 
 
 class ErrorResponse(Exception):
+    """Raised when the API reports an error.
+
+    Carries the whole payload: the individual :attr:`errors`, the
+    :attr:`errorId` (``s-err-...``, which Unzer support can resolve), the
+    :attr:`traceId` and the HTTP :attr:`statusCode`. :attr:`srcResponse` holds the
+    raw :class:`requests.Response`.
+
+    Note that the API can report an error **with a 2xx status code** -- a payload
+    carrying ``isError`` raises just the same.
+    """
+
     def __init__(
             self,
             message,

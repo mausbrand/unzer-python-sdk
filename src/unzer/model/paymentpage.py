@@ -7,6 +7,20 @@ from .payment import Action
 
 
 class PaymentPage(BaseModel):
+    """A hosted or embedded payment page.
+
+    Unzer hosts the page, the customer picks a payment method there, and no card
+    data reaches your server. The shortest complete flow, and the only one that
+    works for every payment method without a frontend integration of your own.
+
+    :attr:`action` decides whether the payment is charged straight away or only
+    authorised.
+
+    .. note::
+        This is the v1 payment page, which the OpenAPI spec tags as deprecated in
+        favour of a v2 on its own host. v1 still works; v2 is not implemented here.
+    """
+
     REQUIRED_ATTRIBUTES: t.ClassVar[list[str]] = [
         "action",
         "amount",
@@ -175,6 +189,13 @@ class PaymentPage(BaseModel):
 
 
 class PaymentPageResponse(PaymentPage):
+    """The payment page as the API returns it.
+
+    Adds the fields only the response has -- most importantly
+    :attr:`redirectUrl`, where the customer has to be sent, and
+    :attr:`paymentId`, which is how the payment is looked up afterwards.
+    """
+
     def __init__(
             self,
             payPageId=None,

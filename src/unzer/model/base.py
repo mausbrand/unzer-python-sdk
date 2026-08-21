@@ -1,3 +1,4 @@
+"""The base class every resource model derives from."""
 import abc
 import typing as t
 
@@ -8,6 +9,20 @@ JSONValue: t.TypeAlias = str | int | float | bool | list["JSONValue"] | dict[str
 
 
 class BaseModel(abc.ABC):
+    """Base class for every resource model.
+
+    A model is a plain Python object mirroring one API resource. It converts in
+    both directions: :meth:`serialize` builds the request payload,
+    :meth:`fromDict` reads a response. Response-only models raise
+    :exc:`NotImplementedError` from :meth:`serialize`, and request-only models do
+    the same from :meth:`fromDict`.
+
+    Subclasses list the attributes the API insists on in
+    :attr:`REQUIRED_ATTRIBUTES`, which :meth:`validateBeforeRequest` checks before
+    a request goes out -- catching a missing field here saves a round trip and
+    gives a clearer error than the API's.
+    """
+
     EMPTY_STRING = ""
 
     REQUIRED_ATTRIBUTES: t.ClassVar[list[str]] = []
@@ -23,7 +38,13 @@ class BaseModel(abc.ABC):
         super().__init__()
         self._client: UnzerClient = client
 
-    def getString(self, value):
+    def getString(self, value: object) -> object:
+        """Turn ``None`` into an empty string for fields the API wants as text.
+
+        Only for string fields: an object field rejects an empty string. Sending
+        ``billingAddress: ""`` for a missing address made the API answer
+        ``400 API.410.300.007``.
+        """
         if value is None:
             return self.EMPTY_STRING
         return value
