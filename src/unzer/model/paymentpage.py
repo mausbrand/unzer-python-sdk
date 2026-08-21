@@ -1,6 +1,8 @@
+from types import NoneType
+
 from .base import BaseModel
 from .payment import Action
-from ..utils import parseBool
+from ..utils import parseBool, roundAmount
 
 
 class PaymentPage(BaseModel):
@@ -41,7 +43,8 @@ class PaymentPage(BaseModel):
         """Create a new PaymentPage.
 
         Payment attributes:
-        :param action: (required) Action for this paypage. Charge or authorize.
+        :param action: (required) Action for this paypage: charge or authorize.
+            Accepts the enum member or its name in any casing.
         :type action: str | Action
         :param amount: (required) The transaction amount.
         :type amount: float
@@ -99,10 +102,20 @@ class PaymentPage(BaseModel):
             additionalAttributes = {}
         if css is None:
             css = {}
-        if action not in {Action.CHARGE, Action.AUTHORIZE}:
-            raise TypeError("Invalid action %r" % action)
-        if not isinstance(card3ds, bool):
-            raise TypeError("Invalid value %r for card3ds. Must be a boolean." % card3ds)
+        # The API answers with the upper case name ("CHARGE"), while the request
+        # path needs the lower case value ("charge"), so accept both spellings
+        # and keep the enum member internally.
+        if isinstance(action, str):
+            try:
+                action = Action(action.lower())
+            except ValueError:
+                raise TypeError(f"Invalid action {action!r}") from None
+        elif not isinstance(action, Action):
+            raise TypeError(f"Invalid action {action!r}")
+        if not isinstance(card3ds, (bool, NoneType)):
+            raise TypeError(
+                f"Invalid value {card3ds!r} for card3ds. Must be a boolean or None."
+            )
         self.amount = amount  # type:float
         self.currency = currency  # type:str
         self.returnUrl = returnUrl  # type:str
@@ -122,14 +135,14 @@ class PaymentPage(BaseModel):
         self.card3ds = card3ds  # type:bool
         self.additionalAttributes = additionalAttributes  # type:dict[str, str]
         self.excludeTypes = excludeTypes  # type:list[str]
-        self.action = action  # type:str
+        self.action = action  # type:Action
         self.customerId = customerId  # type:str
         self.metadataId = metadataId  # type:str
         self.basketId = basketId  # type:str
 
     def serialize(self):
         data = {
-            "amount": self.amount,
+            "amount": roundAmount(self.amount),
             "currency": self.currency,
             "invoiceId": self.invoiceId,
             "orderId": self.orderId,
@@ -212,5 +225,5 @@ class PaymentPageResponse(PaymentPage):
         data["card3ds"] = parseBool(data["card3ds"])
         data["shippingAddressRequired"] = parseBool(data["shippingAddressRequired"])
         data["billingAddressRequired"] = parseBool(data["billingAddressRequired"])
-        data["action"] = data["action"].lower()  # must be equivalent to enum *Action*
+        # action is converted to the Action enum by __init__
         return cls(**data)
