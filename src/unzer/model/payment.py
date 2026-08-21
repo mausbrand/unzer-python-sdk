@@ -7,24 +7,54 @@ from types import NoneType
 
 from .additional_transaction_data import AdditionalTransactionData
 from .base import BaseModel
-from ..utils import parseBool, parseDateTime
+from ..utils import parseBool, parseDateTime, roundAmount
 
 if t.TYPE_CHECKING:
     from ..client import UnzerClient
 
+logger = logging.getLogger("unzer-sdk").getChild(__name__)
+
 
 class TransactionStatus(enum.Enum):
+    """Status of a single transaction inside a payment.
+
+    .. seealso:: https://github.com/unzerdev/php-sdk/blob/main/src/Constants/TransactionStatus.php
+    """
+
     SUCCESS = "success"
     PENDING = "pending"
     ERROR = "error"
+    RESUMED = "resumed"
 
 
 class Action(enum.Enum):
-    CHARGE = "charge"
+    """Transaction type of a transaction inside a payment.
+
+    Note that a payment lists every transaction it has, so anything but ``authorize``
+    and ``charge`` shows up here as soon as a payment was cancelled, shipped or paid
+    out -- even though this SDK cannot yet create those. Keep this complete: a
+    missing member makes :meth:`UnzerClient.getPayment` raise for the whole payment.
+
+    .. seealso:: https://github.com/unzerdev/php-sdk/blob/main/src/Constants/TransactionTypes.php
+    """
+
     AUTHORIZE = "authorize"
+    PREAUTHORIZE = "preauthorize"
+    CHARGE = "charge"
+    REVERSAL = "cancel-authorize"
+    REFUND = "cancel-charge"
+    SHIPMENT = "shipment"
+    PAYOUT = "payout"
+    CHARGEBACK = "chargeback"
+    SCA = "strong_customer_authentication"
 
 
 class PaymentState(enum.Enum):
+    """Overall state of a payment.
+
+    .. seealso:: https://github.com/unzerdev/php-sdk/blob/main/src/Constants/PaymentState.php
+    """
+
     PENDING = 0
     COMPLETED = 1
     CANCELED = 2
@@ -40,7 +70,29 @@ class PaymentTypes(enum.Enum):
 
     Used as short-name in type-ids like ``s-crd-abc456def789``
 
-    source: https://github.com/unzerdev/java-sdk/blob/main/src/main/java/com/unzer/payment/paymenttypes/PaymentTypeEnum.java  # noqa: E501
+    .. seealso:: https://github.com/unzerdev/java-sdk/blob/main/src/main/java/com/unzer/payment/paymenttypes/PaymentTypeEnum.java  # noqa: E501
+
+    The official SDKs disagree on the exact set, so both were compared. Three
+    deliberate differences:
+
+    ``UNKNOWN("unknown")``
+        Exists in the Java SDK, which uses it as a parsing fallback
+        (``.orElse(PaymentTypeEnum.UNKNOWN)``), and not in the PHP SDK
+        (``Constants/IdStrings.php``). Left out here: an unrecognised short code
+        means this SDK is behind the API, and a placeholder would hide that.
+        See :meth:`PaymentGetResponse.getPaymentTypeFromTypeId`.
+
+    ``ppg`` (payment page)
+        The PHP SDK counts the payment page among the payment types. It is a
+        resource of its own here, and the API never puts a ``s-ppg-`` id into
+        ``resources.typeId`` -- it belongs to ``resources.payPageId``, verified
+        against the sandbox. See :class:`unzer.model.PaymentPage`.
+
+    ``ctp`` (Click to Pay)
+        Present here, and a constant but not a payment type in the PHP SDK.
+        The method is live -- sandbox accounts have it enabled.
+
+    .. seealso:: https://github.com/unzerdev/php-sdk/blob/main/src/Constants/IdStrings.php
     """
     CARD = "crd"
     CLICK_TO_PAY = "ctp"
@@ -76,7 +128,6 @@ class PaymentTypes(enum.Enum):
     TWINT = "twt"
     OPEN_BANKING = "obp"
     WERO = "wro"
-    UNKNOWN = "unknown"
 
 
 class PaymentMethodTypes(enum.Enum):
@@ -85,7 +136,7 @@ class PaymentMethodTypes(enum.Enum):
 
     Used as name in URLs like ``types/<name>/``
 
-    source: https://github.com/unzerdev/integration-core/blob/master/src/BusinessLogic/Domain/PaymentMethod/Enums/PaymentMethodTypes.php  # noqa: E501
+    .. seealso:: https://github.com/unzerdev/integration-core/blob/master/src/BusinessLogic/Domain/PaymentMethod/Enums/PaymentMethodTypes.php  # noqa: E501
     """
     ALI_PAY = "alipay"
     APPLE_PAY = "applepay"
@@ -117,10 +168,14 @@ class PaymentMethodTypes(enum.Enum):
 # TODO: Combine PaymentMethodTypes and PaymentTypes in a dataclass to have their mapping too?
 
 paymentUrlRe = re.compile(
-    r"^https://api.unzer.com/v1/"
+    # Host and version are not pinned: the endpoint is configurable, and some
+    # resources answer on a newer version than the one that was requested.
+    r"^https://[\w.-]+/v\d+/"
     r"(?P<operation>[a-z]+)/(?P<paymentId>[\w-]+)"  # payments/{codeOrOrderId}
-    r"((/(?P<subOperation>[a-z]+)/(?P<subCode>[\w-]+))?"  # /[charges|authorize|shipments|payouts]/{txnCode|chargeCode}
-    r"(/(?P<subSubOperation>[a-z]+)/(?P<subSubCode>[\w-]+))?)?"  # /chargebacks/{chargeBackCode} | /cancels/{cancelCode}
+    # /[charges|authorize|shipments|payouts]/{txnCode|chargeCode}
+    r"((/(?P<subOperation>[a-z-]+)/(?P<subCode>[\w-]+))?"
+    # /chargebacks/{code} | /cancels/{code} | /due-date-extensions/{code}
+    r"(/(?P<subSubOperation>[a-z-]+)/(?P<subSubCode>[\w-]+))?)?"
 )
 
 
@@ -263,15 +318,30 @@ class PaymentGetResponse(BaseModel):
         return transactions
 
     @staticmethod
-    def getPaymentTypeFromTypeId(typeId) -> PaymentTypes:
+    def getPaymentTypeFromTypeId(typeId: str) -> PaymentTypes:
+        """Derive the payment type from a type id such as ``s-crd-abc456def789``.
+
+        A type id is built from the environment, the short code and a random part.
+        An id this SDK cannot read raises: a placeholder return value would only
+        move the problem into the caller, and ``unknown`` is a real value in this
+        API elsewhere (see :class:`~unzer.model.customer.Salutation`), so it could
+        not be told apart from one.
+
+        :param typeId: The id of a payment type resource.
+        :raises ValueError: If the id is malformed or names an unknown type.
+        """
         if not typeId:
-            raise ValueError("Invalid typeId %r" % typeId)  # TODO: or return PaymentTypes.UNKNOWN?
-        paymentType = typeId.split("-")[1].lower()
+            raise ValueError(f"Invalid typeId {typeId!r}")
+        parts = typeId.split("-")
+        if len(parts) < 3:
+            raise ValueError(f"Invalid typeId {typeId!r}: expected the form s-crd-xxx")
         try:
-            paymentType = PaymentTypes(paymentType)
+            return PaymentTypes(parts[1].lower())
         except ValueError:
-            raise ValueError("Invalid type %r" % typeId)  # TODO: or return PaymentTypes.UNKNOWN?
-        return paymentType
+            raise ValueError(
+                f"Unknown payment type {parts[1]!r} in typeId {typeId!r}. If Unzer "
+                f"added a type, it has to be added to PaymentTypes."
+            ) from None
 
     def charge(self, amount: float) -> "PaymentResponse":
         req_kwargs = self.__dict__.copy()
@@ -303,7 +373,6 @@ class PaymentTransaction(BaseModel):
         :type participantId: str
         :param date: (optional)
         :type date: datetime.datetime
-        :param String:
         :param action: (optional)
         :type action: Action
         :param status: (optional)
@@ -329,19 +398,26 @@ class PaymentTransaction(BaseModel):
     @classmethod
     def fromDict(cls, data):
         data = data.copy()
-        data["status"] = data["status"].lower()  # must be equivalent to enum *TransactionStatus*
-        data["action"] = data["type"].lower()  # must be equivalent to enum *Action*
+        # A value the enums do not know means this SDK is behind the API, which is a
+        # defect worth seeing. It raises rather than degrading into a placeholder.
+        data["status"] = TransactionStatus(data["status"].lower())
+        data["action"] = Action(data["type"].lower())
         data["date"] = parseDateTime(data["date"])
         data["amount"] = float(data["amount"])
         # And now some ugly parsing of the url, because Unzer provide no suitable parameters
         # url-example: https://api.unzer.com/v1/payments/s-pay-123456/charges/s-chg-1
         # url-example: https://api.unzer.com/v1/payments/s-pay-123456/charges/s-chg-1/cancels/s-cnl-1
-        assert data["url"], data["url"]
+        if not data.get("url"):
+            raise ValueError("Transaction has no url to derive its ids from")
         match = re.match(paymentUrlRe, data["url"])
-        assert match, "Cannot match %r" % data["url"]
+        if not match:
+            raise ValueError(f"Cannot parse transaction url {data['url']!r}")
         matchDict = match.groupdict()
-        logging.debug("matchDict: %r for url %r", matchDict, data["url"])
-        assert matchDict["operation"] == "payments", "Operation %r not matching" % matchDict["operation"]
+        logger.debug(f"matchDict: {matchDict!r} for url {data['url']!r}")
+        if matchDict["operation"] != "payments":
+            raise ValueError(
+                f"Unexpected operation {matchDict['operation']!r} in transaction url"
+            )
         data["paymentId"] = matchDict["paymentId"]
         data["subOperation"] = matchDict["subOperation"]
         data["subCode"] = data["transactionId"] = matchDict["subCode"]
@@ -430,7 +506,7 @@ class PaymentRequest(BaseModel):
 
     def serialize(self):
         data = {
-            "amount": self.amount,
+            "amount": roundAmount(self.amount),
             "currency": self.currency,
             "returnUrl": self.returnUrl,
             "card3ds": self.card3ds,

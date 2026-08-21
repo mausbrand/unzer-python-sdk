@@ -2,7 +2,7 @@ import typing as t
 
 from .base import BaseModel, JSONValue
 from .basketItem import BasketItem
-from ..utils import parseFloat
+from ..utils import parseFloat, roundAmount
 
 
 class Basket(BaseModel):
@@ -89,12 +89,12 @@ class Basket(BaseModel):
             "basketItems": [bi.serialize() for bi in self.basketItems],
         }
         if self.isV3():
-            data["totalValueGross"] = self.totalValueGross
+            data["totalValueGross"] = roundAmount(self.totalValueGross)
         else:
             data |= {
-                "amountTotalGross": self.amountTotalGross,
-                "amountTotalVat": self.amountTotalVat,
-                "amountTotalDiscount": self.amountTotalDiscount,
+                "amountTotalGross": roundAmount(self.amountTotalGross),
+                "amountTotalVat": roundAmount(self.amountTotalVat),
+                "amountTotalDiscount": roundAmount(self.amountTotalDiscount),
             }
         return data
 
