@@ -1,6 +1,6 @@
-import datetime
 import logging
 import typing as t
+from datetime import datetime as dt
 
 from ..utils import parseDateTime
 
@@ -116,7 +116,7 @@ class ErrorResponse(Exception):
         )
 
     @staticmethod
-    def _parseTimestamp(value: str | datetime.datetime | None) -> datetime.datetime | None:
+    def _parseTimestamp(value: str | dt | None) -> dt | None:
         """Read the error timestamp, tolerating a format the SDK does not know.
 
         The API is known to use two formats and has been seen with others; losing the
