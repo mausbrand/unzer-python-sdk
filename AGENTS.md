@@ -49,7 +49,7 @@ had been believed:
 | The installment plans response is documented with seconds throughout | Mixed: `expiresAt` in ms, transaction dates as `YYYY-MM-DD HH:MM:SS` strings, rate dates as `YYYY-MM-DD` |
 | One response uses one type per boolean | `card3ds` is a bool while `billingAddressRequired` is the string `"false"` — same response |
 | A discount can be sent as its own negative basket item (a `voucher` line) | Both schemas reject negative item amounts — `API.600.200.131`, plus `API.600.410.018` on v1. A discount belongs in `amountDiscount` (v1) or `amountDiscountPerUnitGross` (v3), positive |
-| The basket endpoint checks its own arithmetic | Only v3 does, to the cent (`API.600.410.062`). v1 accepts items that contradict `amountTotalGross`, and a charge does not compare the basket to the payment amount either |
+| The basket endpoint checks its own arithmetic | Only v3 does, to the cent (`API.600.410.062`). v1 accepts items that contradict `amountTotalGross`, and a charge does not compare the basket to the payment amount either — measured with Prepayment: amounts of 817.02, 726.24, 907.80 and 1.00 are all accepted against the same basket worth 817.02 |
 | Any `returnUrl` the API accepts is fine for local development | A gateway in front of the API refuses `localhost`, `127.0.0.1` and private IPs with a **403 and an nginx HTML page** — the API never sees the request. Hostnames that merely *resolve* to 127.0.0.1 (`lvh.me`, `localtest.me`, `127-0-0-1.nip.io`) pass, so the block is on the string, not the resolved address |
 
 ### How to verify
@@ -199,10 +199,12 @@ documentation is not reliable here:
 
 | Method | Verified in practice | What the docs claim |
 |---|---|---|
-| `paylater-installment` | v3 | v3 |
-| `klarna` | **v1 works** — in production use via viur-shop | v2 |
+| `paylater-installment` | **both** — sandbox authorize succeeds on v1 and on v3 | v3 |
+| `klarna` | **both** — v1 in production use via viur-shop, v3 measured | v2 |
 | `paylater-invoice` | not verified | v2 |
 | everything else | v1 | v1 |
+
+**A basket can only be used once.** A second charge against the same `basketId` is refused with `API.330.200.152 "Resources: basket was used."`, so a retry after a failed authorize needs a new basket.
 
 **Discounts belong in a discount field, not in a negative line item.** The obvious
 shape — one item per article plus a `voucher` item carrying the negative discount, the
@@ -218,9 +220,12 @@ discount as a positive value instead:
 | `vat` per item | optional | mandatory (`API.600.410.052`) |
 
 So a discount that exceeds a single line has to be spread over several items in v3,
-while v1 swallows it. The v1 tolerance is not a licence: a charge does not compare the
-basket to the payment amount, but the methods that forward the basket to a partner
-system may. `tests/sandbox/test_live_api.py::TestBasket` holds all of this as
+while v1 swallows it. v3 names the offending line in `API.600.410.064` ("Basket item i1
+'amountDiscountPerUnitGross' does not equal to 'amountPerUnitGross'") — but only if the
+basket total stays positive; otherwise the negative total is refused first with the
+generic `API.600.200.131`, which says nothing about the item. The v1 tolerance is not a
+licence: a charge does not compare the basket to the payment amount, but the methods
+that forward the basket to a partner system may. `tests/sandbox/test_live_api.py::TestBasket` holds all of this as
 executable evidence.
 
 Basket v2 is not implemented (`Basket.apiVersion` only returns `v1` or `v3`), and so far

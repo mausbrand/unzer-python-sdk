@@ -47,7 +47,8 @@ class BasketItem(BaseModel):
         :param amountDiscount: (optional) (v1) Discount amount for the basket item
             (multiplied by the :attr:`quantity`) format: float
         :type amountDiscount: float
-        :param vat: (optional) Integer Vat value for the basket item in percent (0-100) format: int32
+        :param vat: (optional in v1, mandatory in v3 -- ``API.600.410.052``) Integer
+            Vat value for the basket item in percent (0-100) format: int32
         :type vat: int
         :param amountGross: (optional) (v1) Gross amount (= amountNet + amountVat) in the specified currency.
             Equals amountNet if vat value is 0 format: float
