@@ -48,6 +48,8 @@ had been believed:
 | `expiresAt` of the installment plans is a unix timestamp in seconds (`1735689599`, per the API reference) | It is **milliseconds** (13 digits). Reading it as seconds lands in the year 58608 and raises |
 | The installment plans response is documented with seconds throughout | Mixed: `expiresAt` in ms, transaction dates as `YYYY-MM-DD HH:MM:SS` strings, rate dates as `YYYY-MM-DD` |
 | One response uses one type per boolean | `card3ds` is a bool while `billingAddressRequired` is the string `"false"` — same response |
+| A discount can be sent as its own negative basket item (a `voucher` line) | Both schemas reject negative item amounts — `API.600.200.131`, plus `API.600.410.018` on v1. A discount belongs in `amountDiscount` (v1) or `amountDiscountPerUnitGross` (v3), positive |
+| The basket endpoint checks its own arithmetic | Only v3 does, to the cent (`API.600.410.062`). v1 accepts items that contradict `amountTotalGross`, and a charge does not compare the basket to the payment amount either |
 
 ### How to verify
 
@@ -200,6 +202,25 @@ documentation is not reliable here:
 | `klarna` | **v1 works** — in production use via viur-shop | v2 |
 | `paylater-invoice` | not verified | v2 |
 | everything else | v1 | v1 |
+
+**Discounts belong in a discount field, not in a negative line item.** The obvious
+shape — one item per article plus a `voucher` item carrying the negative discount, the
+grosses adding up to the order total — is refused by both schemas
+(`API.600.200.131 "Amount … has to be positive"`, and `API.600.410.018` on v1). Send the
+discount as a positive value instead:
+
+| | v1 | v3 |
+|---|---|---|
+| Field | `amountDiscount`, per line | `amountDiscountPerUnitGross`, **per unit** |
+| Item amount | `amountGross` stays the pre-discount gross; the API stores both untouched | `amountPerUnitGross` minus the discount must stay positive |
+| Total | not checked at all | `totalValueGross == sum((amountPerUnitGross - amountDiscountPerUnitGross) * quantity)`, exact to the cent (`API.600.410.062`) |
+| `vat` per item | optional | mandatory (`API.600.410.052`) |
+
+So a discount that exceeds a single line has to be spread over several items in v3,
+while v1 swallows it. The v1 tolerance is not a licence: a charge does not compare the
+basket to the payment amount, but the methods that forward the basket to a partner
+system may. `tests/sandbox/test_live_api.py::TestBasket` holds all of this as
+executable evidence.
 
 Basket v2 is not implemented (`Basket.apiVersion` only returns `v1` or `v3`), and so far
 nothing has needed it. v2 and v3 share one schema, so if a method ever does require v2, the v3

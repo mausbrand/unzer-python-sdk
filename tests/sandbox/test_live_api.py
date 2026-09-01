@@ -187,6 +187,42 @@ class TestCustomer:
 
 
 class TestBasket:
+    """Baskets, and how a discount has to be expressed in each of the two schemas.
+
+    Both schemas reject line items with negative amounts, so a discount cannot be sent
+    as its own negative "voucher" item -- it belongs in the positive discount field of
+    the item it reduces (``amountDiscount`` in v1, ``amountDiscountPerUnitGross`` in
+    v3). What the schemas do not share is how much of the arithmetic the API checks: v3
+    reconciles the total to the cent, v1 checks nothing at all.
+
+    Note that a *charge* does not validate the basket against the payment amount
+    either -- a basket whose items sum to 907.80 is accepted for an amount of 1.00
+    (measured with iDEAL). That is not tested here, because it would create a payment
+    on the account for every run, and it says nothing about the payment methods that
+    hand the basket on to a partner system, which may well be stricter.
+    """
+
+    # 19 % VAT: 907.80 gross == 762.86 net + 144.94 VAT. A 10 % basket discount of
+    # 90.78 leaves a total of 817.02.
+    VAT_PERCENT = 19
+    GROSS = 907.80
+    NET = 762.86
+    VAT_AMOUNT = 144.94
+    DISCOUNT = 90.78
+    TOTAL = 817.02
+
+    def goods_v1(self, **overrides):
+        """A v1 line item, overridable per test."""
+        return BasketItem(
+            basketItemReferenceId="item-1", title="T-Shirt", quantity=1, kind="goods",
+            vat=self.VAT_PERCENT, amountPerUnit=self.NET, amountNet=self.NET,
+            amountVat=self.VAT_AMOUNT, amountGross=self.GROSS, **overrides)
+
+    def goods_v3(self, **overrides):
+        """A v3 line item, overridable per test."""
+        return BasketItem(
+            basketItemReferenceId="item-1", title="T-Shirt", quantity=1, kind="goods",
+            vat=self.VAT_PERCENT, amountPerUnitGross=self.GROSS, **overrides)
 
     def test_v1_basket(self, sandbox_client):
         basket = sandbox_client.createBasket(Basket(
@@ -194,7 +230,7 @@ class TestBasket:
             currencyCode="EUR", orderId="sdk-test-basket-v1",
             basketItems=[BasketItem(
                 title="T-Shirt", quantity=1, vat=19, amountGross=100.0, amountPerUnit=100.0,
-                amountNet=84.03, amountVat=15.97, basketItemReferenceId="item-1", type="goods")],
+                amountNet=84.03, amountVat=15.97, basketItemReferenceId="item-1", kind="goods")],
         ))
         assert basket.key
         assert not basket.isV3()
@@ -204,13 +240,171 @@ class TestBasket:
             totalValueGross=100.0, currencyCode="EUR", orderId="sdk-test-basket-v3",
             basketItems=[BasketItem(
                 title="T-Shirt", quantity=1, vat=19, amountPerUnitGross=100.0,
-                basketItemReferenceId="item-1", type="goods")],
+                basketItemReferenceId="item-1", kind="goods")],
         ))
         assert basket.key
         # v3 ids are UUIDs while v1 ids are short counters -- a cheap way to tell
         # which endpoint actually served the request.
         assert basket.isV3()
         assert len(basket.key) > len("s-bsk-999")
+
+    def test_v1_rejects_negative_item_amounts(self, sandbox_client):
+        """A discount as its own negative line item is refused, not merely discouraged.
+
+        This is the shape a consumer arrives at naturally -- one item per article, one
+        item for the voucher, the grosses adding up to the order total -- and it fails
+        for every basket that carries a discount.
+        """
+        with pytest.raises(ErrorResponse) as excinfo:
+            sandbox_client.createBasket(Basket(
+                amountTotalGross=self.TOTAL, currencyCode="EUR",
+                orderId="sdk-test-basket-v1-negative",
+                basketItems=[self.goods_v1(), BasketItem(
+                    basketItemReferenceId="discount-1", title="Voucher", quantity=1,
+                    kind="voucher", vat=0, amountPerUnit=-self.DISCOUNT,
+                    amountNet=-self.DISCOUNT, amountVat=0.0, amountGross=-self.DISCOUNT)],
+            ))
+        codes = {error.code for error in excinfo.value.errors}
+        assert "API.600.410.018" in codes, codes  # basket item has negative amount gross
+        assert "API.600.200.131" in codes, codes  # amount has to be positive
+
+    def test_v3_rejects_negative_item_amounts(self, sandbox_client):
+        """v3 refuses them as well, so the schema switch alone is no way around it."""
+        with pytest.raises(ErrorResponse) as excinfo:
+            sandbox_client.createBasket(Basket(
+                totalValueGross=self.TOTAL, currencyCode="EUR",
+                orderId="sdk-test-basket-v3-negative",
+                basketItems=[self.goods_v3(), BasketItem(
+                    basketItemReferenceId="discount-1", title="Voucher", quantity=1,
+                    kind="voucher", vat=0, amountPerUnitGross=-self.DISCOUNT)],
+            ))
+        assert "API.600.200.131" in {error.code for error in excinfo.value.errors}
+
+    def test_v1_discount_goes_into_amount_discount(self, sandbox_client):
+        """The v1 way: a positive ``amountDiscount`` on the item it reduces.
+
+        Reading the basket back shows that the API stores both values untouched --
+        ``amountGross`` stays the pre-discount gross, so the reduced value is
+        ``amountGross - amountDiscount`` and the caller owns that arithmetic.
+        """
+        basket = sandbox_client.createBasket(Basket(
+            amountTotalGross=self.TOTAL, amountTotalDiscount=self.DISCOUNT,
+            currencyCode="EUR", orderId="sdk-test-basket-v1-discount",
+            basketItems=[self.goods_v1(amountDiscount=self.DISCOUNT)],
+        ))
+        assert basket.key
+        stored = sandbox_client.getBasket(basket.key)
+        assert stored.amountTotalGross == self.TOTAL
+        assert stored.amountTotalDiscount == self.DISCOUNT
+        item = stored.basketItems[0]
+        assert item.amountDiscount == self.DISCOUNT
+        assert item.amountGross == self.GROSS, "the API does not subtract the discount"
+        assert item.kind == "goods", "the item type is sent as `type`, not as `kind`"
+
+    def test_v3_discount_goes_into_amount_discount_per_unit_gross(self, sandbox_client):
+        """The v3 way: a positive ``amountDiscountPerUnitGross``, per unit."""
+        basket = sandbox_client.createBasket(Basket(
+            totalValueGross=self.TOTAL, currencyCode="EUR",
+            orderId="sdk-test-basket-v3-discount",
+            basketItems=[self.goods_v3(amountDiscountPerUnitGross=self.DISCOUNT)],
+        ))
+        assert basket.key
+        assert basket.isV3()
+
+    def test_v3_multiplies_the_discount_by_the_quantity(self, sandbox_client):
+        """``amountDiscountPerUnitGross`` is per unit, not per line.
+
+        Three units at 100.00 with a per-unit discount of 10.00 reconcile against a
+        total of 270.00 -- if the discount counted once per line, the total would have
+        to be 290.00 and this call would fail.
+        """
+        basket = sandbox_client.createBasket(Basket(
+            totalValueGross=3 * (100.0 - 10.0), currencyCode="EUR",
+            orderId="sdk-test-basket-v3-quantity",
+            basketItems=[BasketItem(
+                basketItemReferenceId="item-1", title="T-Shirt", quantity=3, kind="goods",
+                vat=self.VAT_PERCENT, amountPerUnitGross=100.0,
+                amountDiscountPerUnitGross=10.0)],
+        ))
+        assert basket.key
+
+    def test_v3_reconciles_the_total_to_the_cent(self, sandbox_client):
+        """v3 enforces ``totalValueGross == sum((perUnit - discount) * quantity)``.
+
+        A single cent is enough to be refused, so a discount spread over several items
+        has to be rounded so that the parts add up exactly.
+        """
+        with pytest.raises(ErrorResponse) as excinfo:
+            sandbox_client.createBasket(Basket(
+                totalValueGross=self.TOTAL + 0.01, currencyCode="EUR",
+                orderId="sdk-test-basket-v3-off-by-a-cent",
+                basketItems=[self.goods_v3(amountDiscountPerUnitGross=self.DISCOUNT)],
+            ))
+        assert "API.600.410.062" in {error.code for error in excinfo.value.errors}
+
+    def test_v1_does_not_reconcile_the_total(self, sandbox_client):
+        """v1 accepts a basket whose items contradict its own total.
+
+        Documented as a warning, not as a licence: the value is passed on to the
+        payment method, and the ones that forward the basket to a partner system may
+        be stricter than the basket endpoint is.
+        """
+        basket = sandbox_client.createBasket(Basket(
+            amountTotalGross=1.00, currencyCode="EUR",
+            orderId="sdk-test-basket-v1-wrong-total", basketItems=[self.goods_v1()],
+        ))
+        assert basket.key
+        assert sandbox_client.getBasket(basket.key).amountTotalGross == 1.00
+
+    def test_v3_requires_vat_on_every_item(self, sandbox_client):
+        """``vat`` is mandatory in v3 -- the v1 endpoint takes items without it."""
+        with pytest.raises(ErrorResponse) as excinfo:
+            sandbox_client.createBasket(Basket(
+                totalValueGross=self.GROSS, currencyCode="EUR",
+                orderId="sdk-test-basket-v3-no-vat",
+                basketItems=[BasketItem(
+                    basketItemReferenceId="item-1", title="T-Shirt", quantity=1,
+                    kind="goods", amountPerUnitGross=self.GROSS)],
+            ))
+        assert "API.600.410.052" in {error.code for error in excinfo.value.errors}
+
+    def test_v1_takes_items_without_vat(self, sandbox_client):
+        """The counterpart: v1 accepts the same item without ``vat`` and stores 0."""
+        basket = sandbox_client.createBasket(Basket(
+            amountTotalGross=self.GROSS, currencyCode="EUR",
+            orderId="sdk-test-basket-v1-no-vat",
+            basketItems=[BasketItem(
+                basketItemReferenceId="item-1", title="T-Shirt", quantity=1, kind="goods",
+                amountPerUnit=self.NET, amountNet=self.NET, amountGross=self.GROSS)],
+        ))
+        assert sandbox_client.getBasket(basket.key).basketItems[0].vat == 0.0
+
+    def test_v3_discount_must_not_exceed_the_unit_price(self, sandbox_client):
+        """The per-item result must stay positive, which caps the discount per item.
+
+        A discount bigger than the item it sits on therefore has to be spread across
+        several items in v3.
+        """
+        with pytest.raises(ErrorResponse) as excinfo:
+            sandbox_client.createBasket(Basket(
+                totalValueGross=self.GROSS - 1000.0, currencyCode="EUR",
+                orderId="sdk-test-basket-v3-discount-too-large",
+                basketItems=[self.goods_v3(amountDiscountPerUnitGross=1000.0)],
+            ))
+        assert "API.600.200.131" in {error.code for error in excinfo.value.errors}
+
+    def test_v1_accepts_a_discount_larger_than_its_item(self, sandbox_client):
+        """v1 does not cap it, the counterpart to the v3 test above.
+
+        Another consequence of v1 checking nothing: the item is left at an effective
+        -92.20 and the endpoint still answers 201.
+        """
+        basket = sandbox_client.createBasket(Basket(
+            amountTotalGross=self.TOTAL, currencyCode="EUR",
+            orderId="sdk-test-basket-v1-discount-too-large",
+            basketItems=[self.goods_v1(amountDiscount=1000.0)],
+        ))
+        assert basket.key
 
 
 class TestPaymentPage:
