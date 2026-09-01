@@ -231,7 +231,7 @@ discount as a positive value instead:
 
 | | v1 | v3 |
 |---|---|---|
-| Field | `amountDiscount` — *unverified* whether per line or per unit; `basketItem.py` says per unit ("multiplied by the `quantity`"), and v1 reconciles nothing, so the basket endpoint cannot settle it | `amountDiscountPerUnitGross`, **per unit** |
+| Field | `amountDiscount` — per line or per unit is **undecidable, and so far inconsequential**: nothing measured reads the value back out (see below) | `amountDiscountPerUnitGross`, **per unit** |
 | Item amount | `amountGross` stays the pre-discount gross; the API stores both untouched | `amountPerUnitGross` minus the discount must stay positive |
 | Total | not checked at all | `totalValueGross == sum((amountPerUnitGross - amountDiscountPerUnitGross) * quantity)`, exact to the cent (`API.600.410.062`) |
 | `vat` per item | optional | mandatory (`API.600.410.052`) |
@@ -243,7 +243,25 @@ basket total stays positive; otherwise the negative total is refused first with 
 generic `API.600.200.131`, which says nothing about the item. The v1 tolerance is not a
 licence: a charge does not compare the basket to the payment amount, but the methods
 that forward the basket to a partner system may. `tests/sandbox/test_live_api.py::TestBasket` holds all of this as executable evidence,
-except the v1 per-line/per-unit question above, which no test can settle.
+except the v1 per-line/per-unit question above.
+
+**Nothing measured consumes `amountDiscount`.** The question was chased down the whole
+chain with an item of `quantity=3`, gross 300.00 and `amountDiscount=10.00`, where the
+two readings differ by 20.00:
+
+* the v1 basket endpoint stores it and reconciles nothing;
+* a charge does not compare the basket to the amount at all;
+* Klarna's checkout lists the item by title only and takes its total from the authorize
+  `amount` — 290.00 and 270.00 were both accepted and both displayed as sent;
+* Unzer's Hosted Payment Page renders the line as `3x T-Shirt € 300,00`, i.e. plain
+  `amountGross` with the discount nowhere, and its total likewise comes from the request,
+  not from the basket.
+
+So `amountDiscount` is stored and forwarded but not evaluated by anything reachable from
+here, and the per-line/per-unit distinction has no observable effect. Worth knowing for
+two reasons: the value cannot be used to make a basket "add up" for the customer, and a
+line reduced by a discount is shown at its **undiscounted** gross next to a lower total,
+with no label explaining the difference.
 
 Basket v2 is not implemented (`Basket.apiVersion` only returns `v1` or `v3`), and so far
 nothing has needed it. v2 and v3 share one schema, so if a method ever does require v2, the v3
