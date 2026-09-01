@@ -95,8 +95,60 @@ class TestErrorHandling:
         error = excinfo.value
         assert error.statusCode == 403
         assert not error.errors, "there is no error list to parse in an HTML body"
-        assert "403" in str(error) and "403 Forbidden" in str(error)
+        # Assert on the prefix, not on "403 Forbidden": that string also occurs twice
+        # inside the fixture body, so a message that dropped the status line entirely
+        # would still satisfy it.
+        assert str(error).startswith("HTTP 403 Forbidden with a non-JSON body:")
+        assert "<title>403 Forbidden</title>" in str(error), "the body is quoted"
         assert error.srcResponse is not None
+
+    # Raw JSON strings rather than `json=`, so the body is exactly what is written
+    # here -- `responses` turns `json=None` into an empty body, not into `null`.
+    @pytest.mark.parametrize("body", [
+        pytest.param('{"message": "Forbidden"}', id="gateway-envelope"),
+        pytest.param("null", id="null"),
+        pytest.param("[]", id="list"),
+        pytest.param('"Forbidden"', id="bare-string"),
+        pytest.param(
+            '{"timestamp": "2026-08-21 10:15:32", "url": "u", "errors": [{"code": "X"}]}',
+            id="incomplete-error-entry"),
+    ])
+    @responses.activate
+    def test_client_error_with_a_foreign_json_body(self, client, body):
+        """A 4xx carrying JSON that is not this API's error envelope.
+
+        An API gateway or WAF in front of the API answers in its own shape --
+        ``{"message": "Forbidden"}`` is the canonical one. ``ErrorResponse.fromDict``
+        indexes ``timestamp``/``url``/``errors`` and builds ``Error`` from required
+        positionals, so these used to escape as a bare ``KeyError``/``TypeError``
+        from inside the SDK: the same failure the HTML case above was fixed for.
+        """
+        responses.add(responses.GET, f"{BASE}/payments/s-pay-1", body=body, status=403,
+                      content_type="application/json")
+        with pytest.raises(ErrorResponse) as excinfo:
+            client.getPayment("s-pay-1")
+        error = excinfo.value
+        assert error.statusCode == 403
+        assert str(error).startswith("HTTP 403 Forbidden with a body the error schema")
+
+    @responses.activate
+    def test_client_error_with_an_unparsable_timestamp(self, client):
+        """A well-formed error whose timestamp the SDK cannot read.
+
+        ``fromDict`` parses it with a single hard-coded format while the API is known
+        to use two, so this lands in the fallback and the error codes are lost. That
+        is a defect in ``fromDict``, not here -- pinned so the message at least does
+        not claim the body was not JSON.
+        """
+        responses.add(responses.GET, f"{BASE}/payments/s-pay-1", status=400, json={
+            "id": "s-err-1", "url": "u", "timestamp": "21.08.2026 10:15:32",
+            "errors": [{"code": "API.320.200.145", "merchantMessage": "m",
+                        "customerMessage": "c"}],
+        })
+        with pytest.raises(ErrorResponse) as excinfo:
+            client.getPayment("s-pay-1")
+        assert "non-JSON" not in str(excinfo.value), "the body was JSON"
+        assert str(excinfo.value).startswith("HTTP 400 Bad Request with a body the error schema")
 
     @responses.activate
     def test_error_response_keeps_the_source_response(self, client, fixture_json):

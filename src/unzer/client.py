@@ -204,17 +204,29 @@ class UnzerClient:
                 continue
             logger.debug("Client error")
             logger.debug("Response[%s %s]: %r", r.status_code, r.reason, r.text)
+            # Not every 4xx comes from the API itself, and a body the SDK cannot map
+            # onto its error model used to escape as a bare exception from inside
+            # `fromDict` -- hiding the status code and the body, so the caller could
+            # not tell a refused request from an SDK bug. The two causes are kept
+            # apart because they need different things done about them.
             try:
-                errorResponse = ErrorResponse.fromDict(r.json())
+                data = r.json()
             except ValueError:
-                # Not every 4xx comes from the API itself. A gateway in front of it
-                # answers with an HTML page, and parsing that as JSON used to raise a
-                # bare JSONDecodeError -- hiding both the status code and the body, so
-                # the caller could not tell a refused request from an SDK bug.
-                # Measured: a returnUrl pointing at localhost or a private IP is
-                # refused this way, with a 403 and an nginx error page.
+                # Measured: a gateway in front of the API refuses a returnUrl on
+                # localhost or a private IP with a 403 and an nginx HTML page.
                 errorResponse = ErrorResponse(
                     f"HTTP {r.status_code} {r.reason} with a non-JSON body: {r.text[:200]!r}")
+            else:
+                try:
+                    errorResponse = ErrorResponse.fromDict(data)
+                except (KeyError, TypeError, ValueError):
+                    # Valid JSON, but not this API's error envelope -- the shape an
+                    # API gateway or WAF sends (`{"message": "Forbidden"}`), and the
+                    # shape `fromDict` produces for a timestamp it cannot parse.
+                    logger.exception("Cannot read %r as an ErrorResponse", data)
+                    errorResponse = ErrorResponse(
+                        f"HTTP {r.status_code} {r.reason} with a body the error schema "
+                        f"does not fit: {r.text[:200]!r}")
             errorResponse.statusCode = r.status_code
             errorResponse.srcResponse = r
             raise errorResponse
