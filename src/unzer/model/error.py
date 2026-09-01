@@ -1,5 +1,6 @@
 import datetime
 import logging
+import typing as t
 
 from ..utils import parseDateTime
 
@@ -16,7 +17,13 @@ class Error:
     .. seealso:: https://docs.unzer.com/server-side-integration/api-basics/error-handling/
     """
 
-    def __init__(self, code=None, merchantMessage=None, customerMessage=None, **kwargs):
+    def __init__(
+            self,
+            code: str | None = None,
+            merchantMessage: str | None = None,
+            customerMessage: str | None = None,
+            **kwargs: t.Any,
+    ) -> None:
         self.code = code
         self.merchantMessage = merchantMessage
         self.customerMessage = customerMessage
@@ -79,7 +86,7 @@ class ErrorResponse(Exception):
             logger.warning("ErrorResponse got additional unhandled data: %r", kwargs)
 
     @classmethod
-    def fromDict(cls, data, message="Unzer Error"):
+    def fromDict(cls, data: t.Any, message: str = "Unzer Error") -> "ErrorResponse":
         """Build an ErrorResponse from a decoded API error body.
 
         Only ``errors`` is treated as required, because it is what identifies the
@@ -109,7 +116,7 @@ class ErrorResponse(Exception):
         )
 
     @staticmethod
-    def _parseTimestamp(value):
+    def _parseTimestamp(value: str | datetime.datetime | None) -> datetime.datetime | None:
         """Read the error timestamp, tolerating a format the SDK does not know.
 
         The API is known to use two formats and has been seen with others; losing the
