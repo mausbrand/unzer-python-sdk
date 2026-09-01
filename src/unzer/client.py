@@ -223,7 +223,7 @@ class UnzerClient:
                     # Valid JSON, but not this API's error envelope -- the shape an
                     # API gateway or WAF sends (`{"message": "Forbidden"}`), and the
                     # shape `fromDict` produces for a timestamp it cannot parse.
-                    logger.exception("Cannot read %r as an ErrorResponse", data)
+                    logger.exception(f"Cannot read {data!r} as an ErrorResponse")
                     errorResponse = ErrorResponse(
                         f"HTTP {r.status_code} {r.reason} with a body the error schema "
                         f"does not fit: {r.text[:200]!r}")
