@@ -1,6 +1,8 @@
 import datetime
 import logging
 
+from ..utils import parseDateTime
+
 logger = logging.getLogger("unzer-sdk").getChild(__name__)
 
 
@@ -14,7 +16,7 @@ class Error:
     .. seealso:: https://docs.unzer.com/server-side-integration/api-basics/error-handling/
     """
 
-    def __init__(self, code, merchantMessage, customerMessage, **kwargs):
+    def __init__(self, code=None, merchantMessage=None, customerMessage=None, **kwargs):
         self.code = code
         self.merchantMessage = merchantMessage
         self.customerMessage = customerMessage
@@ -78,17 +80,49 @@ class ErrorResponse(Exception):
 
     @classmethod
     def fromDict(cls, data, message="Unzer Error"):
+        """Build an ErrorResponse from a decoded API error body.
+
+        Only ``errors`` is treated as required, because it is what identifies the
+        body as this API's error envelope and it is the one part a caller acts on --
+        `UnzerClient.createOrUpdateCustomer` branches on ``errors[0].code``. Anything
+        else missing or unreadable costs that field alone, never the list: an error
+        that cannot be reported is worse than one reported without its timestamp.
+
+        :param data: The decoded body.
+        :param message: The exception message.
+        :raises ValueError: If ``data`` is not an error envelope, so the caller can
+            tell "the API refused this" from "something else answered".
+        :return: The error response.
+        """
+        if not isinstance(data, dict) or "errors" not in data:
+            raise ValueError(f"Not an API error envelope: {data!r}")
         return cls(
             message,
-            timestamp=datetime.datetime.strptime(data["timestamp"], "%Y-%m-%d %H:%M:%S"),
-            url=data["url"],
-            errors=[Error(**error) for error in data["errors"]],
+            timestamp=cls._parseTimestamp(data.get("timestamp")),
+            url=data.get("url"),
+            errors=[Error(**error) for error in data.get("errors") or []],
             errorId=data.get("id"),
             traceId=data.get("traceId"),
             isError=data.get("isError"),
             isPending=data.get("isPending"),
             isSuccess=data.get("isSuccess"),
         )
+
+    @staticmethod
+    def _parseTimestamp(value):
+        """Read the error timestamp, tolerating a format the SDK does not know.
+
+        The API is known to use two formats and has been seen with others; losing the
+        error codes over the one field nobody branches on is not a trade worth making.
+
+        :param value: The raw ``timestamp`` value.
+        :return: The parsed timestamp, or ``None`` if it cannot be read.
+        """
+        try:
+            return parseDateTime(value)
+        except (TypeError, ValueError):
+            logger.warning(f"Cannot parse the error timestamp {value!r}")
+            return None
 
     def __repr__(self):
         return (

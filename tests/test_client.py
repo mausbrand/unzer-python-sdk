@@ -109,9 +109,8 @@ class TestErrorHandling:
         pytest.param("null", id="null"),
         pytest.param("[]", id="list"),
         pytest.param('"Forbidden"', id="bare-string"),
-        pytest.param(
-            '{"timestamp": "2026-08-21 10:15:32", "url": "u", "errors": [{"code": "X"}]}',
-            id="incomplete-error-entry"),
+        pytest.param('{"timestamp": "2026-08-21 10:15:32", "url": "u"}',
+                     id="envelope-without-errors"),
     ])
     @responses.activate
     def test_client_error_with_a_foreign_json_body(self, client, body):
@@ -131,24 +130,49 @@ class TestErrorHandling:
         assert error.statusCode == 403
         assert str(error).startswith("HTTP 403 Forbidden with a body the error schema")
 
+    @pytest.mark.parametrize("timestamp", [
+        pytest.param("2026-08-21 10:15:32", id="iso"),
+        pytest.param("21.08.2026 10:15:32", id="european"),
+        pytest.param("2026-08-21T10:15:32", id="iso-with-t"),
+        pytest.param("2026-08-21 10:15:32.123", id="milliseconds"),
+        pytest.param(None, id="missing"),
+    ])
     @responses.activate
-    def test_client_error_with_an_unparsable_timestamp(self, client):
-        """A well-formed error whose timestamp the SDK cannot read.
+    def test_the_error_codes_survive_an_unreadable_timestamp(self, client, timestamp):
+        """The one field nobody branches on must not cost the ones they do.
 
-        ``fromDict`` parses it with a single hard-coded format while the API is known
-        to use two, so this lands in the fallback and the error codes are lost. That
-        is a defect in ``fromDict``, not here -- pinned so the message at least does
-        not claim the body was not JSON.
+        `createOrUpdateCustomer` decides on `errors[0].code`, so an error body whose
+        timestamp the SDK cannot read still has to arrive with its codes. Only the
+        first two formats parse; the rest leave `timestamp` at None.
         """
         responses.add(responses.GET, f"{BASE}/payments/s-pay-1", status=400, json={
-            "id": "s-err-1", "url": "u", "timestamp": "21.08.2026 10:15:32",
+            "id": "s-err-1", "url": "u", "timestamp": timestamp,
             "errors": [{"code": "API.320.200.145", "merchantMessage": "m",
                         "customerMessage": "c"}],
         })
         with pytest.raises(ErrorResponse) as excinfo:
             client.getPayment("s-pay-1")
-        assert "non-JSON" not in str(excinfo.value), "the body was JSON"
-        assert str(excinfo.value).startswith("HTTP 400 Bad Request with a body the error schema")
+        error = excinfo.value
+        assert [e.code for e in error.errors] == ["API.320.200.145"]
+        assert error.errorId == "s-err-1"
+        assert error.statusCode == 400
+
+    @responses.activate
+    def test_an_incomplete_error_entry_keeps_its_code(self, client):
+        """An entry missing `merchantMessage`/`customerMessage` used to raise TypeError.
+
+        `Error` tolerates *extra* keys with a warning, so refusing to build one over a
+        missing key was the wrong way round -- and it cost the whole list.
+        """
+        responses.add(responses.GET, f"{BASE}/payments/s-pay-1", status=400, json={
+            "id": "s-err-1", "url": "u", "timestamp": "2026-08-21 10:15:32",
+            "errors": [{"code": "API.320.200.145"}],
+        })
+        with pytest.raises(ErrorResponse) as excinfo:
+            client.getPayment("s-pay-1")
+        error = excinfo.value
+        assert [e.code for e in error.errors] == ["API.320.200.145"]
+        assert error.errors[0].merchantMessage is None
 
     @responses.activate
     def test_error_response_keeps_the_source_response(self, client, fixture_json):
