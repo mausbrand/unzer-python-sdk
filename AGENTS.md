@@ -214,7 +214,7 @@ discount as a positive value instead:
 
 | | v1 | v3 |
 |---|---|---|
-| Field | `amountDiscount`, per line | `amountDiscountPerUnitGross`, **per unit** |
+| Field | `amountDiscount` — *unverified* whether per line or per unit; `basketItem.py` says per unit ("multiplied by the `quantity`"), and v1 reconciles nothing, so the basket endpoint cannot settle it | `amountDiscountPerUnitGross`, **per unit** |
 | Item amount | `amountGross` stays the pre-discount gross; the API stores both untouched | `amountPerUnitGross` minus the discount must stay positive |
 | Total | not checked at all | `totalValueGross == sum((amountPerUnitGross - amountDiscountPerUnitGross) * quantity)`, exact to the cent (`API.600.410.062`) |
 | `vat` per item | optional | mandatory (`API.600.410.052`) |
