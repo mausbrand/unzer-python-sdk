@@ -196,10 +196,11 @@ class TestBasket:
     reconciles the total to the cent, v1 checks nothing at all.
 
     Note that a *charge* does not validate the basket against the payment amount
-    either -- a basket whose items sum to 907.80 is accepted for an amount of 1.00
-    (measured with iDEAL). That is not tested here, because it would create a payment
-    on the account for every run, and it says nothing about the payment methods that
-    hand the basket on to a partner system, which may well be stricter.
+    either -- measured with Prepayment against one basket worth 817.02, the amounts
+    817.02, 726.24, 907.80 and 1.00 were all accepted and booked at face value. That
+    is not tested here, because it would create a payment on the account for every
+    run, and it says nothing about the payment methods that hand the basket on to a
+    partner system, which may well be stricter.
     """
 
     # 19 % VAT: 907.80 gross == 762.86 net + 144.94 VAT. A 10 % basket discount of
@@ -384,14 +385,27 @@ class TestBasket:
 
         A discount bigger than the item it sits on therefore has to be spread across
         several items in v3.
+
+        A second, larger item keeps ``totalValueGross`` positive on purpose. With only
+        the over-discounted line the basket total is negative too, and the API answers
+        ``API.600.200.131`` "Amount has to be positive" -- which the negative total
+        alone explains, so such a basket cannot show that the *item* is what was
+        refused. Isolated like this the API names the item instead, in
+        ``API.600.410.064``: "Basket item i1 'amountDiscountPerUnitGross' does not
+        equal to 'amountPerUnitGross'".
         """
         with pytest.raises(ErrorResponse) as excinfo:
             sandbox_client.createBasket(Basket(
-                totalValueGross=self.GROSS - 1000.0, currencyCode="EUR",
+                totalValueGross=(self.GROSS - 1000.0) + 2000.0, currencyCode="EUR",
                 orderId="sdk-test-basket-v3-discount-too-large",
-                basketItems=[self.goods_v3(amountDiscountPerUnitGross=1000.0)],
+                basketItems=[
+                    self.goods_v3(amountDiscountPerUnitGross=1000.0),
+                    BasketItem(
+                        basketItemReferenceId="item-2", title="T-Shirt", quantity=1,
+                        kind="goods", vat=self.VAT_PERCENT, amountPerUnitGross=2000.0),
+                ],
             ))
-        assert "API.600.200.131" in {error.code for error in excinfo.value.errors}
+        assert "API.600.410.064" in {error.code for error in excinfo.value.errors}
 
     def test_v1_accepts_a_discount_larger_than_its_item(self, sandbox_client):
         """v1 does not cap it, the counterpart to the v3 test above.
