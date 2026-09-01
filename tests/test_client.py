@@ -78,6 +78,27 @@ class TestErrorHandling:
         assert error.errors[0].merchantMessage == "Basket is already in use."
 
     @responses.activate
+    def test_non_json_client_error_raises_error_response(self, client):
+        """A gateway in front of the API answers 4xx with an HTML page.
+
+        That used to surface as a bare JSONDecodeError from inside the SDK, which hid
+        the status code and the body and looked like an SDK bug. Measured against the
+        live gateway: a returnUrl pointing at localhost or a private IP is refused with
+        a 403 and an nginx error page.
+        """
+        html = ("<html>\r\n<head><title>403 Forbidden</title></head>\r\n"
+                "<body>\r\n<center><h1>403 Forbidden</h1></center>\r\n</body>\r\n</html>\r\n")
+        responses.add(responses.GET, f"{BASE}/payments/s-pay-1", body=html, status=403,
+                      content_type="text/html")
+        with pytest.raises(ErrorResponse) as excinfo:
+            client.getPayment("s-pay-1")
+        error = excinfo.value
+        assert error.statusCode == 403
+        assert not error.errors, "there is no error list to parse in an HTML body"
+        assert "403" in str(error) and "403 Forbidden" in str(error)
+        assert error.srcResponse is not None
+
+    @responses.activate
     def test_error_response_keeps_the_source_response(self, client, fixture_json):
         responses.add(responses.GET, f"{BASE}/payments/s-pay-1",
                       json=fixture_json("error_400"), status=400)

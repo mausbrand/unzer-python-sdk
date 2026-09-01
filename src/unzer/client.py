@@ -204,7 +204,17 @@ class UnzerClient:
                 continue
             logger.debug("Client error")
             logger.debug("Response[%s %s]: %r", r.status_code, r.reason, r.text)
-            errorResponse = ErrorResponse.fromDict(r.json())
+            try:
+                errorResponse = ErrorResponse.fromDict(r.json())
+            except ValueError:
+                # Not every 4xx comes from the API itself. A gateway in front of it
+                # answers with an HTML page, and parsing that as JSON used to raise a
+                # bare JSONDecodeError -- hiding both the status code and the body, so
+                # the caller could not tell a refused request from an SDK bug.
+                # Measured: a returnUrl pointing at localhost or a private IP is
+                # refused this way, with a 403 and an nginx error page.
+                errorResponse = ErrorResponse(
+                    f"HTTP {r.status_code} {r.reason} with a non-JSON body: {r.text[:200]!r}")
             errorResponse.statusCode = r.status_code
             errorResponse.srcResponse = r
             raise errorResponse

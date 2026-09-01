@@ -50,6 +50,7 @@ had been believed:
 | One response uses one type per boolean | `card3ds` is a bool while `billingAddressRequired` is the string `"false"` — same response |
 | A discount can be sent as its own negative basket item (a `voucher` line) | Both schemas reject negative item amounts — `API.600.200.131`, plus `API.600.410.018` on v1. A discount belongs in `amountDiscount` (v1) or `amountDiscountPerUnitGross` (v3), positive |
 | The basket endpoint checks its own arithmetic | Only v3 does, to the cent (`API.600.410.062`). v1 accepts items that contradict `amountTotalGross`, and a charge does not compare the basket to the payment amount either |
+| Any `returnUrl` the API accepts is fine for local development | A gateway in front of the API refuses `localhost`, `127.0.0.1` and private IPs with a **403 and an nginx HTML page** — the API never sees the request. Hostnames that merely *resolve* to 127.0.0.1 (`lvh.me`, `localtest.me`, `127-0-0-1.nip.io`) pass, so the block is on the string, not the resolved address |
 
 ### How to verify
 
@@ -325,5 +326,9 @@ minimal dicts.
   affects parsing.
 - Errors can arrive with a 2xx status code and an `errors` list in the body — Unzer documents
   this explicitly. Do not treat HTTP 200 as success without checking `isError`.
+- Not every 4xx body is JSON. The gateway in front of the API answers with an HTML page,
+  so `_request` builds an `ErrorResponse` from the status and the raw text instead of
+  parsing it — a bare `JSONDecodeError` from inside the SDK hides both and reads like an
+  SDK bug. The known trigger is a `returnUrl` on localhost or a private IP.
 - `logger.debug` output contains full request payloads, including IBANs and dates of birth.
   Do not add payload logging above DEBUG level.
