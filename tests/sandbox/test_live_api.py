@@ -9,11 +9,16 @@ the running API.
 
 **What cannot be tested here.** Several payment types are created client-side, by the
 Payment Page or the UI components: the browser collects the data and only the resulting
-``typeId`` reaches the backend. Creating such a type server-side yields an empty
-resource that the payment provider then rejects -- an attempt with Klarna returns
-``COR.800.400.160 "Validation error at partner system"``, which looks like an SDK bug
-but is not one. Affected: Card, Klarna, PayPal, Apple Pay, Google Pay, iDEAL,
-Click to Pay. Only types whose fields the SDK actually sends are exercised below.
+``typeId`` reaches the backend. Creating such a type server-side yields an empty resource,
+and skipping the browser step can make the provider reject it -- Klarna has been seen
+answering ``COR.800.400.160 "Validation error at partner system"``, which looks like an SDK
+bug but is not one. Affected: Card, Klarna, PayPal, Apple Pay, Google Pay, iDEAL,
+Click to Pay.
+
+Klarna is the one that was followed through: created server-side, authorized, and confirmed
+by the customer on the redirect page, the payment reports ``authorize: success``. It is
+still not driven here, because that step needs a browser and places a real order on every
+run. Only types whose fields the SDK actually sends are exercised below.
 
 **Sandbox accounts differ** in which methods they have enabled, so each test checks
 ``keypair/types`` first and skips what the account cannot do.

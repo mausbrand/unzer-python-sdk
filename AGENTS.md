@@ -128,11 +128,23 @@ the UI components; only the resulting `typeId` comes back to the backend, so a s
 `createPaymentType()` with an empty body never occurs in those flows. For `Card` it is doubly
 deliberate: accepting raw card data would make the integration PCI-DSS liable.
 
-This has a consequence for testing: **these types cannot be exercised server-side.** Creating
-one yields an empty resource that the provider rejects further down the flow — Klarna answers
-`COR.800.400.160 "Validation error at partner system"`, which looks like an SDK bug and is not
-one. The sandbox tests therefore only drive types whose fields the SDK actually sends (SEPA
-direct debit, EPS, the paylater types, Wero, Direct Bank Transfer).
+This has a consequence for testing, but a narrower one than previously written here.
+Creating such a type server-side yields an empty resource, and the provider may reject it
+further down the flow — Klarna has been seen answering `COR.800.400.160 "Validation error
+at partner system"`, which looks like an SDK bug and is not one.
+
+**Klarna, measured, does work server-side when the flow is completed.** A
+`createPaymentType(Klarna())` with an empty body, an `authorize` carrying `customerId`,
+`basketId` and a `returnUrl`, and the customer confirming on the Klarna page the returned
+`redirectUrl` leads to, ends with the payment reporting `authorize: success` for the full
+amount. So the empty resource is *filled in* by the redirect step, and what fails is
+skipping that step, not creating the type. The other affected types — Card, PayPal, Apple
+Pay, Google Pay, iDEAL, Click to Pay — were not re-measured; treat the blanket claim as
+unverified for them rather than as established.
+
+The sandbox tests still only drive types whose fields the SDK actually sends (SEPA direct
+debit, EPS, the paylater types, Wero, Direct Bank Transfer), because the redirect step needs
+a browser and would place a real order on every run.
 
 Do not add fields to these classes. Server-side fields belong only to types that are actually
 created server-side — Installment, SEPA Direct Debit, Direct Bank Transfer.
@@ -195,6 +207,11 @@ four decimals (`"5.5500"`).
 `0.30000000000000004` next to a basket total rounded to `0.3`. That is an inconsistency,
 not a design decision (#18), and it matters most where v3 reconciles the total against the
 items to the cent.
+
+It is not a theoretical hazard: building a three-unit line with `amountVat=15.97 * 3` is
+enough. The API refuses the basket outright with
+`API.600.200.133 "Amount 47.910000000000004 has more than 4 positions after the decimal
+point."` — so until #18 is fixed, a caller has to round every item amount itself.
 
 **`Basket` intentionally supports two incompatible schemas.** v1 uses `amountTotalGross`, v3
 uses `totalValueGross`; setting the latter switches the basket to the v3 endpoint. Do not
