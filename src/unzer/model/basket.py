@@ -13,9 +13,17 @@ class Basket(BaseModel):
     with gross amounts, otherwise the v1 endpoint with :attr:`amountTotalGross` is used.
     The basket items follow the same rule on their own
     (see :class:`unzer.model.BasketItem`), so don't mix the schemas within one basket.
+    Measured: a v3 item in a v1 basket is accepted with a 201 and every item amount
+    stored as ``0.0000``, silently, while a v1 item in a v3 basket is refused with
+    ``API.600.410.051``. A basket is also only readable through the schema it was
+    created with, ``API.600.410.024`` otherwise.
 
-    The Pay later payment methods (e.g. :class:`unzer.model.PaylaterInstallment`)
-    require the v3 schema.
+    Both schemas are accepted by every payment method measured so far -- a sandbox
+    authorize with Klarna and with :class:`unzer.model.PaylaterInstallment` succeeds
+    on either. The documentation claims the Pay later methods require v3; the API does
+    not enforce it. What does differ is validation: v3 reconciles
+    :attr:`totalValueGross` against the items to the cent (``API.600.410.062``),
+    v1 checks nothing at all.
 
     Note that the v2 and v3 endpoints share the same schema, so the newer v3 is used here.
     """

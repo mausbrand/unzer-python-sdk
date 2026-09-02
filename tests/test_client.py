@@ -78,6 +78,103 @@ class TestErrorHandling:
         assert error.errors[0].merchantMessage == "Basket is already in use."
 
     @responses.activate
+    def test_non_json_client_error_raises_error_response(self, client):
+        """A gateway in front of the API answers 4xx with an HTML page.
+
+        That used to surface as a bare JSONDecodeError from inside the SDK, which hid
+        the status code and the body and looked like an SDK bug. Measured against the
+        live gateway: a returnUrl pointing at localhost or a private IP is refused with
+        a 403 and an nginx error page.
+        """
+        html = ("<html>\r\n<head><title>403 Forbidden</title></head>\r\n"
+                "<body>\r\n<center><h1>403 Forbidden</h1></center>\r\n</body>\r\n</html>\r\n")
+        responses.add(responses.GET, f"{BASE}/payments/s-pay-1", body=html, status=403,
+                      content_type="text/html")
+        with pytest.raises(ErrorResponse) as excinfo:
+            client.getPayment("s-pay-1")
+        error = excinfo.value
+        assert error.statusCode == 403
+        assert not error.errors, "there is no error list to parse in an HTML body"
+        # Assert on the prefix, not on "403 Forbidden": that string also occurs twice
+        # inside the fixture body, so a message that dropped the status line entirely
+        # would still satisfy it.
+        assert str(error).startswith("HTTP 403 Forbidden with a non-JSON body:")
+        assert "<title>403 Forbidden</title>" in str(error), "the body is quoted"
+        assert error.srcResponse is not None
+
+    # Raw JSON strings rather than `json=`, so the body is exactly what is written
+    # here -- `responses` turns `json=None` into an empty body, not into `null`.
+    @pytest.mark.parametrize("body", [
+        pytest.param('{"message": "Forbidden"}', id="gateway-envelope"),
+        pytest.param("null", id="null"),
+        pytest.param("[]", id="list"),
+        pytest.param('"Forbidden"', id="bare-string"),
+        pytest.param('{"timestamp": "2026-08-21 10:15:32", "url": "u"}',
+                     id="envelope-without-errors"),
+    ])
+    @responses.activate
+    def test_client_error_with_a_foreign_json_body(self, client, body):
+        """A 4xx carrying JSON that is not this API's error envelope.
+
+        An API gateway or WAF in front of the API answers in its own shape --
+        ``{"message": "Forbidden"}`` is the canonical one. ``ErrorResponse.fromDict``
+        indexes ``timestamp``/``url``/``errors`` and builds ``Error`` from required
+        positionals, so these used to escape as a bare ``KeyError``/``TypeError``
+        from inside the SDK: the same failure the HTML case above was fixed for.
+        """
+        responses.add(responses.GET, f"{BASE}/payments/s-pay-1", body=body, status=403,
+                      content_type="application/json")
+        with pytest.raises(ErrorResponse) as excinfo:
+            client.getPayment("s-pay-1")
+        error = excinfo.value
+        assert error.statusCode == 403
+        assert str(error).startswith("HTTP 403 Forbidden with a body the error schema")
+
+    @pytest.mark.parametrize("timestamp", [
+        pytest.param("2026-08-21 10:15:32", id="iso"),
+        pytest.param("21.08.2026 10:15:32", id="european"),
+        pytest.param("2026-08-21T10:15:32", id="iso-with-t"),
+        pytest.param("2026-08-21 10:15:32.123", id="milliseconds"),
+        pytest.param(None, id="missing"),
+    ])
+    @responses.activate
+    def test_the_error_codes_survive_an_unreadable_timestamp(self, client, timestamp):
+        """The one field nobody branches on must not cost the ones they do.
+
+        `createOrUpdateCustomer` decides on `errors[0].code`, so an error body whose
+        timestamp the SDK cannot read still has to arrive with its codes. Only the
+        first two formats parse; the rest leave `timestamp` at None.
+        """
+        responses.add(responses.GET, f"{BASE}/payments/s-pay-1", status=400, json={
+            "id": "s-err-1", "url": "u", "timestamp": timestamp,
+            "errors": [{"code": "API.320.200.145", "merchantMessage": "m",
+                        "customerMessage": "c"}],
+        })
+        with pytest.raises(ErrorResponse) as excinfo:
+            client.getPayment("s-pay-1")
+        error = excinfo.value
+        assert [e.code for e in error.errors] == ["API.320.200.145"]
+        assert error.errorId == "s-err-1"
+        assert error.statusCode == 400
+
+    @responses.activate
+    def test_an_incomplete_error_entry_keeps_its_code(self, client):
+        """An entry missing `merchantMessage`/`customerMessage` used to raise TypeError.
+
+        `Error` tolerates *extra* keys with a warning, so refusing to build one over a
+        missing key was the wrong way round -- and it cost the whole list.
+        """
+        responses.add(responses.GET, f"{BASE}/payments/s-pay-1", status=400, json={
+            "id": "s-err-1", "url": "u", "timestamp": "2026-08-21 10:15:32",
+            "errors": [{"code": "API.320.200.145"}],
+        })
+        with pytest.raises(ErrorResponse) as excinfo:
+            client.getPayment("s-pay-1")
+        error = excinfo.value
+        assert [e.code for e in error.errors] == ["API.320.200.145"]
+        assert error.errors[0].merchantMessage is None
+
+    @responses.activate
     def test_error_response_keeps_the_source_response(self, client, fixture_json):
         responses.add(responses.GET, f"{BASE}/payments/s-pay-1",
                       json=fixture_json("error_400"), status=400)

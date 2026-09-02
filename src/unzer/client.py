@@ -204,7 +204,29 @@ class UnzerClient:
                 continue
             logger.debug("Client error")
             logger.debug("Response[%s %s]: %r", r.status_code, r.reason, r.text)
-            errorResponse = ErrorResponse.fromDict(r.json())
+            # Not every 4xx comes from the API itself, and a body the SDK cannot map
+            # onto its error model used to escape as a bare exception from inside
+            # `fromDict` -- hiding the status code and the body, so the caller could
+            # not tell a refused request from an SDK bug. The two causes are kept
+            # apart because they need different things done about them.
+            try:
+                data = r.json()
+            except ValueError:
+                # Measured: a gateway in front of the API refuses a returnUrl on
+                # localhost or a private IP with a 403 and an nginx HTML page.
+                errorResponse = ErrorResponse(
+                    f"HTTP {r.status_code} {r.reason} with a non-JSON body: {r.text[:200]!r}")
+            else:
+                try:
+                    errorResponse = ErrorResponse.fromDict(data)
+                except (KeyError, TypeError, ValueError):
+                    # Valid JSON, but not this API's error envelope -- the shape an
+                    # API gateway or WAF sends (`{"message": "Forbidden"}`), and the
+                    # shape `fromDict` produces for a timestamp it cannot parse.
+                    logger.exception(f"Cannot read {data!r} as an ErrorResponse")
+                    errorResponse = ErrorResponse(
+                        f"HTTP {r.status_code} {r.reason} with a body the error schema "
+                        f"does not fit: {r.text[:200]!r}")
             errorResponse.statusCode = r.status_code
             errorResponse.srcResponse = r
             raise errorResponse

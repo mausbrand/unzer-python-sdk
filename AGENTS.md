@@ -48,6 +48,9 @@ had been believed:
 | `expiresAt` of the installment plans is a unix timestamp in seconds (`1735689599`, per the API reference) | It is **milliseconds** (13 digits). Reading it as seconds lands in the year 58608 and raises |
 | The installment plans response is documented with seconds throughout | Mixed: `expiresAt` in ms, transaction dates as `YYYY-MM-DD HH:MM:SS` strings, rate dates as `YYYY-MM-DD` |
 | One response uses one type per boolean | `card3ds` is a bool while `billingAddressRequired` is the string `"false"` — same response |
+| A discount can be sent as its own negative basket item (a `voucher` line) | Both schemas reject negative item amounts — `API.600.200.131`, plus `API.600.410.018` on v1. A discount belongs in `amountDiscount` (v1) or `amountDiscountPerUnitGross` (v3), positive |
+| The basket endpoint checks its own arithmetic | Only v3 does, to the cent (`API.600.410.062`). v1 accepts items that contradict `amountTotalGross`, and a charge does not compare the basket to the payment amount either — measured with Prepayment: amounts of 817.02, 726.24, 907.80 and 1.00 are all accepted against the same basket worth 817.02 |
+| Any `returnUrl` the API accepts is fine for local development | A gateway in front of the API refuses `localhost`, `127.0.0.1` and private IPs with a **403 and an nginx HTML page** — the API never sees the request. Hostnames that merely *resolve* to 127.0.0.1 (`lvh.me`, `localtest.me`, `127-0-0-1.nip.io`) pass, so the block is on the string, not the resolved address |
 
 ### How to verify
 
@@ -182,24 +185,83 @@ from its source, the docstring says so and why — `PaymentTypes` drops the `UNK
 the Java SDK uses as a parsing fallback. Deviating silently is how `Action` came to be missing
 a type in the first place.
 
-**Amounts are rounded to four decimals on serialisation** (`unzer.utils.roundAmount`). The API
-takes `Decimal{10,4}`, and float arithmetic does not cooperate: `12.3 - 10.0 - 2.3` is
-`8.88e-16`, which `json.dumps` writes in scientific notation — not a number the API accepts.
-Amounts come back from the API as *strings* with four decimals (`"5.5500"`).
+**Basket-level amounts are rounded to four decimals on serialisation**
+(`unzer.utils.roundAmount`). The API takes `Decimal{10,4}`, and float arithmetic does not
+cooperate: `12.3 - 10.0 - 2.3` is `8.88e-16`, which `json.dumps` writes in scientific
+notation — not a number the API accepts. Amounts come back from the API as *strings* with
+four decimals (`"5.5500"`).
+
+`BasketItem.serialize` does **not** do this — measured, an item goes out as
+`0.30000000000000004` next to a basket total rounded to `0.3`. That is an inconsistency,
+not a design decision (#18), and it matters most where v3 reconciles the total against the
+items to the cent.
 
 **`Basket` intentionally supports two incompatible schemas.** v1 uses `amountTotalGross`, v3
 uses `totalValueGross`; setting the latter switches the basket to the v3 endpoint. Do not
 "clean this up" into one schema.
 
 Which version a payment method needs is a recurring source of confusion, and the
-documentation is not reliable here:
+documentation is not reliable here. Measured, the answer so far is that none of them
+*needs* a particular one — what the column records is which schemas were seen to work,
+not a requirement:
 
 | Method | Verified in practice | What the docs claim |
 |---|---|---|
-| `paylater-installment` | v3 | v3 |
-| `klarna` | **v1 works** — in production use via viur-shop | v2 |
+| `paylater-installment` | **both** — sandbox authorize succeeds on v1 and on v3 | v3 |
+| `klarna` | **both** — v1 in production use via viur-shop, v3 measured | v2 |
 | `paylater-invoice` | not verified | v2 |
 | everything else | v1 | v1 |
+
+**Do not mix the schemas within one basket** — and note that only one direction fails
+loudly. Measured: a v3 item in a v1 basket is accepted with a 201 and every item amount
+stored as `0.0000`, while the basket-level total survives, so the basket looks plausible
+and every line is worth nothing. A v1 item in a v3 basket is refused with
+`API.600.410.051`. `Basket.isV3()` and `BasketItem.isV3()` decide independently and
+nothing checks that they agree (#16). A basket is also only readable through the schema it
+was created with — `API.600.410.024` otherwise — and the ids differ visibly: v1 gives
+`s-bsk-72`, v3 a UUID.
+
+**A basket can only be used once.** A second charge against the same `basketId` is refused with `API.330.200.152 "Resources: basket was used."`, so a retry after a failed authorize needs a new basket.
+
+**Discounts belong in a discount field, not in a negative line item.** The obvious
+shape — one item per article plus a `voucher` item carrying the negative discount, the
+grosses adding up to the order total — is refused by both schemas
+(`API.600.200.131 "Amount … has to be positive"`, and `API.600.410.018` on v1). Send the
+discount as a positive value instead:
+
+| | v1 | v3 |
+|---|---|---|
+| Field | `amountDiscount` — per line or per unit is **undecidable, and so far inconsequential**: nothing measured reads the value back out (see below) | `amountDiscountPerUnitGross`, **per unit** |
+| Item amount | `amountGross` stays the pre-discount gross; the API stores both untouched | `amountPerUnitGross` minus the discount must stay positive |
+| Total | not checked at all | `totalValueGross == sum((amountPerUnitGross - amountDiscountPerUnitGross) * quantity)`, exact to the cent (`API.600.410.062`) |
+| `vat` per item | optional | mandatory (`API.600.410.052`) |
+
+So a discount that exceeds a single line has to be spread over several items in v3,
+while v1 swallows it. v3 names the offending line in `API.600.410.064` ("Basket item i1
+'amountDiscountPerUnitGross' does not equal to 'amountPerUnitGross'") — but only if the
+basket total stays positive; otherwise the negative total is refused first with the
+generic `API.600.200.131`, which says nothing about the item. The v1 tolerance is not a
+licence: a charge does not compare the basket to the payment amount, but the methods
+that forward the basket to a partner system may. `tests/sandbox/test_live_api.py::TestBasket` holds all of this as executable evidence,
+except the v1 per-line/per-unit question above.
+
+**Nothing measured consumes `amountDiscount`.** The question was chased down the whole
+chain with an item of `quantity=3`, gross 300.00 and `amountDiscount=10.00`, where the
+two readings differ by 20.00:
+
+* the v1 basket endpoint stores it and reconciles nothing;
+* a charge does not compare the basket to the amount at all;
+* Klarna's checkout lists the item by title only and takes its total from the authorize
+  `amount` — 290.00 and 270.00 were both accepted and both displayed as sent;
+* Unzer's Hosted Payment Page renders the line as `3x T-Shirt € 300,00`, i.e. plain
+  `amountGross` with the discount nowhere, and its total likewise comes from the request,
+  not from the basket.
+
+So `amountDiscount` is stored and forwarded but not evaluated by anything reachable from
+here, and the per-line/per-unit distinction has no observable effect. Worth knowing for
+two reasons: the value cannot be used to make a basket "add up" for the customer, and a
+line reduced by a discount is shown at its **undiscounted** gross next to a lower total,
+with no label explaining the difference.
 
 Basket v2 is not implemented (`Basket.apiVersion` only returns `v1` or `v3`), and so far
 nothing has needed it. v2 and v3 share one schema, so if a method ever does require v2, the v3
@@ -304,5 +366,9 @@ minimal dicts.
   affects parsing.
 - Errors can arrive with a 2xx status code and an `errors` list in the body — Unzer documents
   this explicitly. Do not treat HTTP 200 as success without checking `isError`.
+- Not every 4xx body is JSON. The gateway in front of the API answers with an HTML page,
+  so `_request` builds an `ErrorResponse` from the status and the raw text instead of
+  parsing it — a bare `JSONDecodeError` from inside the SDK hides both and reads like an
+  SDK bug. The known trigger is a `returnUrl` on localhost or a private IP.
 - `logger.debug` output contains full request payloads, including IBANs and dates of birth.
   Do not add payload logging above DEBUG level.
