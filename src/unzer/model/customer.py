@@ -2,6 +2,7 @@ import datetime
 
 from .address import Address
 from .base import BaseModel
+from ..utils import normalize_language
 
 
 class Salutation:
@@ -27,6 +28,7 @@ class Customer(BaseModel):
             shippingAddress=None,
             company=None,
             companyData=None,
+            language: str | None = None,
             **kwargs
     ):
         """Create a new Customer.
@@ -58,6 +60,11 @@ class Customer(BaseModel):
         :type shippingAddress: Address
         :param companyData: (optional)
         :type companyData: CompanyInfo
+        :param language: (optional) Customer's language as ISO 639-1 code (e.g. 'de').
+            Used by Unzer for customer facing texts and mails.
+            An uppercase code ('DE') is accepted and lowercased, a locale ('de-DE') is not:
+            the API takes the bare lowercase code only (measured against the sandbox,
+            everything else fails with HTTP 400 ``API.410.200.057`` *language is invalid.*).
         """
         super().__init__(**kwargs)
         if salutation is None:
@@ -77,6 +84,7 @@ class Customer(BaseModel):
         self.shippingAddress = shippingAddress  # type: Address
         self.company = company  # type: str
         self.companyData = companyData  # type: CompanyInfo
+        self.language = language
 
     @property
     def keyOrCustomerId(self):
@@ -133,6 +141,14 @@ class Customer(BaseModel):
             value = None
         self._mobile = value
 
+    @property
+    def language(self) -> str | None:
+        return self._language
+
+    @language.setter
+    def language(self, value: str | None) -> None:
+        self._language = normalize_language(value)
+
     def serialize(self):
         birthDate = self.birthDate
         if isinstance(birthDate, (datetime.datetime, datetime.date)):
@@ -163,6 +179,7 @@ class Customer(BaseModel):
             "email": self.getString(self.email),
             "phone": self.getString(self.phone),
             "mobile": self.getString(self.mobile),
+            "language": self.getString(self.language),
             "billingAddress": billingAddress,
             "shippingAddress": shippingAddress,
 
