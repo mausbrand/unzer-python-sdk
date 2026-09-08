@@ -1,8 +1,12 @@
 import datetime
+import typing as t
 
 from .address import Address
-from .base import BaseModel
-from ..utils import normalize_language
+from .base import BaseModel, JSONValue
+from ..utils import SENTINEL, Sentinel, normalize_language
+
+if t.TYPE_CHECKING:
+    from ..client import UnzerClient
 
 
 class Salutation:
@@ -28,7 +32,7 @@ class Customer(BaseModel):
             shippingAddress=None,
             company=None,
             companyData=None,
-            language: str | None = None,
+            language: str | None | Sentinel = SENTINEL,
             **kwargs
     ):
         """Create a new Customer.
@@ -60,11 +64,14 @@ class Customer(BaseModel):
         :type shippingAddress: Address
         :param companyData: (optional)
         :type companyData: CompanyInfo
-        :param language: (optional) Customer's language as ISO 639-1 code (e.g. 'de').
+        :param language: (optional) Customer's language as ISO 639-1 code (e.g. ``de``).
             Used by Unzer for customer facing texts and mails.
-            An uppercase code ('DE') is accepted and lowercased, a locale ('de-DE') is not:
+            An uppercase code (``DE``) is accepted and lowercased, a locale (``de-DE``) is not:
             the API takes the bare lowercase code only (measured against the sandbox,
             everything else fails with HTTP 400 ``API.410.200.057`` *language is invalid.*).
+            Left out, the customer takes the language of the client that sends it
+            (see :meth:`~unzer.client.UnzerClient.__init__`); pass ``None`` to keep
+            the field empty even then and let Unzer pick.
         """
         super().__init__(**kwargs)
         if salutation is None:
@@ -84,7 +91,12 @@ class Customer(BaseModel):
         self.shippingAddress = shippingAddress  # type: Address
         self.company = company  # type: str
         self.companyData = companyData  # type: CompanyInfo
-        self.language = language
+        if language is SENTINEL:
+            # Past the setter, which only takes a language code: the getter turns
+            # the sentinel into the language of the client, or None without one.
+            self._language = language
+        else:
+            self.language = language
 
     @property
     def keyOrCustomerId(self):
@@ -143,7 +155,18 @@ class Customer(BaseModel):
 
     @property
     def language(self) -> str | None:
-        return self._language
+        """The language of this customer, or the one of its client.
+
+        Only a customer that was never given a language falls back to the
+        client; ``None`` is an answer of its own and is kept.
+        """
+        if self._language is not SENTINEL:
+            return self._language
+        if self._client is None:
+            return None
+        # The client language is an accept-language value and may name a region
+        # ("de-DE"), while the customer resource takes the bare code.
+        return normalize_language((self._client.language or "").split("-", 1)[0])
 
     @language.setter
     def language(self, value: str | None) -> None:
@@ -197,9 +220,15 @@ class Customer(BaseModel):
         }
 
     @classmethod
-    def fromDict(cls, data):
+    def fromDict(cls, data: dict[str, JSONValue], client: "UnzerClient | None" = None) -> t.Self:
+        """Build a customer from an API response.
+
+        :param data: The customer resource as the API sent it.
+        :param client: (optional) The client that fetched it, attached to the
+            new customer -- see :meth:`~unzer.model.base.BaseModel.bind_client`.
+        """
         data = data.copy()
         data["key"] = data["id"]
         data["billingAddress"] = Address.fromDict(data["billingAddress"])
         data["shippingAddress"] = Address.fromDict(data["shippingAddress"])
-        return cls(**data)
+        return cls(**data, client=client)

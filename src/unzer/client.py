@@ -47,7 +47,7 @@ class UnzerClient:
             private_key: str,
             public_key: str,
             sandbox: bool = False,
-            language: str = "en",
+            language: str | None = None,
             client_ip: str = None,
             timeout: int = None,
     ):
@@ -56,7 +56,12 @@ class UnzerClient:
         :param private_key: The private key of the keypair.
         :param public_key: The public key of the keypair.
         :param sandbox: (optional) Use the sandbox environment.
-        :param language: (optional) Language for translations of customer messages.
+        :param language: (optional) Language of the texts Unzer writes for the
+            customer, as ISO 639-1 code, sent as ``accept-language`` header --
+            it translates the ``customerMessage`` of an error, for example.
+            It is also the language a :class:`~unzer.model.customer.Customer`
+            falls back to when it has none of its own.
+            Left out, the API applies its own default instead of one made up here.
         :param client_ip: (optional) IP address of the customer.
             Sent as ``CLIENTIP`` header with every request.
             Required by the Pay later payment methods (e.g. installment)
@@ -104,8 +109,12 @@ class UnzerClient:
             "user-agent": "unzer-python-sdk %s" % __version__,
             "content-type": "application/json; charset=UTF-8",
             "accept": "application/json",
-            "accept-language": self.language,  # language for translation of customerMessage in errors
         }
+        if self.language:
+            # Language of the texts meant for the customer, e.g. customerMessage in errors.
+            # Only sent when set: requests raises InvalidHeader on a None value, and an
+            # empty header is not the same as no header.
+            headers["accept-language"] = self.language
         if self.client_ip:
             headers["CLIENTIP"] = self.client_ip
         if additional_headers:
@@ -237,6 +246,7 @@ class UnzerClient:
         if customer.key:
             raise TypeError("Customer has a id (key) set. "
                             "Call updateCustomer to update it or remove it to create a new one.")
+        customer.bind_client(self)
         data = self.request(
             "customers",
             "POST",
@@ -258,6 +268,7 @@ class UnzerClient:
             raise TypeError("Expected a Customer object. Got %r" % type(customer))
         if not customer.keyOrCustomerId:
             raise TypeError("Customer has no customerId oder key (id)")
+        customer.bind_client(self)
         data = self.request(
             "customers/%s" % customer.keyOrCustomerId,
             "PUT",
@@ -309,7 +320,7 @@ class UnzerClient:
             "customers/%s" % codeOrExternalId,
             "GET",
         )
-        return Customer.fromDict(data)
+        return Customer.fromDict(data, client=self)
 
     def createBasket(self, basket):
         """Creating a basket
