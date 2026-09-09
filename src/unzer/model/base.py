@@ -24,6 +24,31 @@ class BaseModel(abc.ABC):
         super().__init__()
         self._client: "UnzerClient" = client
 
+    def bind_client(self, client: "UnzerClient") -> t.Self:
+        """Attach a client to this model, unless it already has one.
+
+        A model with a client can reach the API on its own (as
+        :meth:`~unzer.model.payment.PaymentResponse.charge` does) and can fall
+        back to the settings of that client (as the language of a
+        :class:`~unzer.model.customer.Customer` does). The client methods that
+        send or receive a model bind themselves to it, so the caller does not
+        have to pass the client twice.
+
+        An already attached client is kept: an object that was built for one
+        client must not silently start talking to another one.
+
+        This is a method and not a property on purpose -- :meth:`asDict`,
+        :meth:`__iter__` and :meth:`__repr__` skip the underscore attributes
+        but do include properties, and the client has no place in the data of
+        a model.
+
+        :param client: The client to attach.
+        :return: The model itself, to allow ``model.bind_client(self).serialize()``.
+        """
+        if self._client is None:
+            self._client = client
+        return self
+
     def getString(self, value):
         if value is None:
             return self.EMPTY_STRING
