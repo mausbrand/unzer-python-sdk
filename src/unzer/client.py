@@ -21,6 +21,9 @@ logger = logging.getLogger("unzer-sdk").getChild(__name__)
 
 HttpMethod = t.Literal["GET", "POST", "PUT", "PATCH", "DELETE"]
 
+LanguageSource: t.TypeAlias = str | t.Callable[[], str | None] | None
+"""A language code, or something that returns one when called."""
+
 
 class UnzerClient:
     endpoint = "https://api.unzer.com"
@@ -47,7 +50,7 @@ class UnzerClient:
             private_key: str,
             public_key: str,
             sandbox: bool = False,
-            language: str | None = None,
+            language: LanguageSource = None,
             client_ip: str = None,
             timeout: int = None,
     ):
@@ -61,6 +64,9 @@ class UnzerClient:
             it translates the ``customerMessage`` of an error, for example.
             It is also the language a :class:`~unzer.model.customer.Customer`
             falls back to when it has none of its own.
+            May be a callable, which is resolved on every read: a client that
+            lives longer than one request can name the language of the current
+            one that way -- see :attr:`language`.
             Left out, the API applies its own default instead of one made up here.
         :param client_ip: (optional) IP address of the customer.
             Sent as ``CLIENTIP`` header with every request.
@@ -79,6 +85,31 @@ class UnzerClient:
         self.client_ip = client_ip
         if timeout is not None:
             self.timeout = timeout
+
+    @property
+    def language(self) -> str | None:
+        """The language of the texts Unzer writes for the customer.
+
+        Resolved on every read, so a callable can name the language of the
+        request that is going on right now. That matters for a client that
+        outlives a single request -- a web application usually builds it once,
+        while the language changes from visitor to visitor:
+
+        .. code-block:: python
+
+            client = UnzerClient(..., language=lambda: current.language.get())
+
+        It reaches both the ``accept-language`` header of a request and the
+        :attr:`~unzer.model.customer.Customer.language` of a customer that has
+        none of its own, and both read it while the request is being built.
+        """
+        if callable(self._language):
+            return self._language()
+        return self._language
+
+    @language.setter
+    def language(self, value: LanguageSource) -> None:
+        self._language = value
 
     def request(
             self,
