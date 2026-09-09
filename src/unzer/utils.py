@@ -7,7 +7,13 @@ class Sentinel:
 
     An argument that defaults to ``None`` cannot tell "the caller said nothing"
     from "the caller said explicitly: no value". Where that difference matters,
-    default to :data:`SENTINEL` instead and compare with ``is``.
+    default to :data:`SENTINEL` instead and compare with ``is`` -- identity is
+    what carries the meaning.
+
+    Its ``repr`` is ``<SENTINEL>``, and it is falsy, so ``if not value`` treats
+    it like an empty value. Both match the ``Sentinel`` of viur-shop: the two
+    cannot share one definition (neither package may depend on the other), so
+    they at least behave the same.
     """
 
     __slots__ = ()
@@ -15,7 +21,10 @@ class Sentinel:
     def __repr__(self) -> str:
         # A bare object() would show as "<object object at 0x...>" in tracebacks
         # and reprs, which says nothing about what went wrong.
-        return "<sentinel>"
+        return "<SENTINEL>"
+
+    def __bool__(self) -> bool:
+        return False
 
 
 SENTINEL = Sentinel()

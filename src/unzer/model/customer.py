@@ -91,12 +91,7 @@ class Customer(BaseModel):
         self.shippingAddress = shippingAddress  # type: Address
         self.company = company  # type: str
         self.companyData = companyData  # type: CompanyInfo
-        if language is SENTINEL:
-            # Past the setter, which only takes a language code: the getter turns
-            # the sentinel into the language of the client, or None without one.
-            self._language = language
-        else:
-            self.language = language
+        self.language = language
 
     @property
     def keyOrCustomerId(self):
@@ -169,8 +164,11 @@ class Customer(BaseModel):
         return normalize_language((self._client.language or "").split("-", 1)[0])
 
     @language.setter
-    def language(self, value: str | None) -> None:
-        self._language = normalize_language(value)
+    def language(self, value: str | None | Sentinel) -> None:
+        # The sentinel is kept as it is: assigning it means "not given" again, and
+        # the getter turns it into the language of the client, or None without one.
+        # It must not reach normalize_language(), which reads it as an empty value.
+        self._language = value if value is SENTINEL else normalize_language(value)
 
     def serialize(self):
         birthDate = self.birthDate
