@@ -69,11 +69,9 @@ class UnzerClient:
             one that way -- see :attr:`language`.
             Left out, the API applies its own default instead of one made up here.
         :param client_ip: (optional) IP address of the customer.
-            Sent as ``CLIENTIP`` header with every request.
+            Sent as ``CLIENTIP`` and ``X-CLIENTIP`` header with every request.
             Required by the Pay later payment methods (e.g. installment)
             for their risk checks.
-            The API documentation names this header ``x-CLIENTIP``,
-            but both the PHP and the Java SDK send it as ``CLIENTIP``.
         :param timeout: (optional) Timeout in seconds of a single request,
             overrides :attr:`timeout`.
         """
@@ -147,7 +145,15 @@ class UnzerClient:
             # empty header is not the same as no header.
             headers["accept-language"] = self.language
         if self.client_ip:
+            # The API documentation names this header x-CLIENTIP, both the PHP and the Java SDK
+            # send it as CLIENTIP. Measured against the sandbox, only the latter has an effect:
+            # POST /v1/types/invoice echoes the address back as geoLocation.clientIp, which holds
+            # the value of CLIENTIP when that header is sent, and the socket address of the caller
+            # when only X-CLIENTIP is. Sent together with the same value, CLIENTIP wins and
+            # X-CLIENTIP changes nothing -- so the documented name costs an ignored header today
+            # and covers the day the API starts honouring it.
             headers["CLIENTIP"] = self.client_ip
+            headers["X-CLIENTIP"] = self.client_ip
         if additional_headers:
             headers |= additional_headers
         return self._request(
@@ -503,7 +509,7 @@ class UnzerClient:
 
         :param payment: The PaymentRequest model of the intended payment.
         :param client_ip: (optional) IP address of the customer,
-            sent as ``CLIENTIP`` header. Falls back to the client's
+            sent as ``CLIENTIP`` and ``X-CLIENTIP`` header. Falls back to the client's
             :attr:`client_ip`, which is required by this endpoint.
         :return: The result of the risk check
         :raises ErrorResponse: If the risk check was declined.
@@ -517,7 +523,9 @@ class UnzerClient:
             "types/%s/risk-check" % PaylaterInstallment.method_name.value,
             "POST",
             payment.serialize(),
-            additional_headers={"CLIENTIP": client_ip} if client_ip else None,
+            # Both names, as in request() -- additional_headers replaces per key, so setting only
+            # one of them would leave the other on the client's address.
+            additional_headers={"CLIENTIP": client_ip, "X-CLIENTIP": client_ip} if client_ip else None,
         )
         if data.get("isError"):
             raise ErrorResponse.fromDict(data)
