@@ -1,7 +1,12 @@
 import datetime
+import typing as t
 
+from ..utils import SENTINEL, Sentinel, normalize_language
 from .address import Address
-from .base import BaseModel
+from .base import BaseModel, JSONValue
+
+if t.TYPE_CHECKING:
+    from ..client import UnzerClient
 
 
 class Salutation:
@@ -44,6 +49,7 @@ class Customer(BaseModel):
             shippingAddress=None,
             company=None,
             companyData=None,
+            language: str | Sentinel | None = SENTINEL,
             **kwargs
     ):
         """Create a new Customer.
@@ -75,6 +81,14 @@ class Customer(BaseModel):
         :type shippingAddress: Address
         :param companyData: (optional)
         :type companyData: CompanyInfo
+        :param language: (optional) Customer's language as ISO 639-1 code (e.g. ``de``).
+            Used by Unzer for customer facing texts and mails.
+            An uppercase code (``DE``) is accepted and lowercased, a locale (``de-DE``) is not:
+            the API takes the bare lowercase code only (measured against the sandbox,
+            everything else fails with HTTP 400 ``API.410.200.057`` *language is invalid.*).
+            Left out, the customer takes the language of the client that sends it
+            (see :meth:`~unzer.client.UnzerClient.__init__`); pass ``None`` to keep
+            the field empty even then and let Unzer pick.
         """
         super().__init__(**kwargs)
         if salutation is None:
@@ -94,6 +108,7 @@ class Customer(BaseModel):
         self.shippingAddress = shippingAddress  # type: Address
         self.company = company  # type: str
         self.companyData = companyData  # type: CompanyInfo
+        self.language = language
 
     @property
     def keyOrCustomerId(self) -> str | None:
@@ -174,6 +189,28 @@ class Customer(BaseModel):
             value = None
         self._mobile = value
 
+    @property
+    def language(self) -> str | None:
+        """The language of this customer, or the one of its client.
+
+        Only a customer that was never given a language falls back to the
+        client; ``None`` is an answer of its own and is kept.
+        """
+        if self._language is not SENTINEL:
+            return self._language
+        if self._client is None:
+            return None
+        # The client language is an accept-language value and may name a region
+        # ("de-DE"), while the customer resource takes the bare code.
+        return normalize_language((self._client.language or "").split("-", 1)[0])
+
+    @language.setter
+    def language(self, value: str | Sentinel | None) -> None:
+        # The sentinel is kept as it is: assigning it means "not given" again, and
+        # the getter turns it into the language of the client, or None without one.
+        # It must not reach normalize_language(), which reads it as an empty value.
+        self._language = value if value is SENTINEL else normalize_language(value)
+
     def serialize(self):
         birthDate = self.birthDate
         if isinstance(birthDate, (datetime.datetime, datetime.date)):
@@ -207,6 +244,7 @@ class Customer(BaseModel):
             "email": self.getString(self.email),
             "phone": self.getString(self.phone),
             "mobile": self.getString(self.mobile),
+            "language": self.getString(self.language),
             "billingAddress": billingAddress,
             "shippingAddress": shippingAddress,
 
@@ -224,9 +262,15 @@ class Customer(BaseModel):
         }
 
     @classmethod
-    def fromDict(cls, data):
+    def fromDict(cls, data: dict[str, JSONValue], client: "UnzerClient | None" = None) -> t.Self:
+        """Build a customer from an API response.
+
+        :param data: The customer resource as the API sent it.
+        :param client: (optional) The client that fetched it, attached to the
+            new customer -- see :meth:`~unzer.model.base.BaseModel.bind_client`.
+        """
         data = data.copy()
         data["key"] = data["id"]
         data["billingAddress"] = Address.fromDict(data["billingAddress"])
         data["shippingAddress"] = Address.fromDict(data["shippingAddress"])
-        return cls(**data)
+        return cls(**data, client=client)
