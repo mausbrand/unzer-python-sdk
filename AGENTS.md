@@ -13,7 +13,7 @@ Unzer, so downstream users have no fallback. Treat breaking changes and half-wor
 accordingly.
 
 Known downstream consumer: [viur-shop](https://github.com/viur-framework/viur-shop) depends on
-`unzer~=1.5` and uses both the client and the model classes directly. Renaming public API
+`unzer` and uses both the client and the model classes directly. Renaming public API
 means coordinating a release there.
 
 ## Verify against the API. Nothing else is authoritative.
@@ -311,6 +311,11 @@ anything on the strength of a docs page.
 - Do not remove commented-out code, `TODO`/`ToDo` notes or debug helpers that you did not add
   yourself. If something looks obsolete, ask.
 - Executable `.py` and `.sh` files carry the `+x` bit, in git too.
+- Refactor code whenever you modify existing code. But ensure backward compatibility
+  (for example, changing internal variables from camelCase to snake_case is okay, 
+  but changing methods in this way is a breaking change).
+- Always write new code according to the syntax requirements listed above, 
+  even if the rest of the file uses an outdated coding style.
 
 ## Language
 
