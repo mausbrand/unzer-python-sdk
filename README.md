@@ -225,11 +225,22 @@ This README is the SDK documentation. For the API itself, see Unzer's own:
 
 ## Development
 
+The project is set up for [uv](https://docs.astral.sh/uv/). `uv sync` creates `.venv` and
+installs the package together with the extras declared in `pyproject.toml`; `uv run` then runs a
+command inside that environment, so there is no activation step. Plain `pip` works just as well —
+the equivalent is given for the first step.
+
 ```bash
-uv sync --extra testing          # or: pip install -e ".[testing]"
-uv run pytest                    # unit tests, no network
-uv run pycodestyle src/ tests/
+uv sync --extra testing --extra dev    # or: pip install -e ".[testing,dev]"
+uv run pytest                          # unit tests, mocked, no network
+uv run ruff check .                    # linting; configured in pyproject.toml
+uv run pycodestyle src/ tests/         # the CI checks the full tree, not just the diff
 ```
+
+`testing` brings pytest and the HTTP mock, `dev` adds ruff, pycodestyle, build and twine. The
+`uv.lock` that `uv sync` writes is git-ignored on purpose: a library has to keep working against
+a range of dependency versions, and the CI installs fresh on each supported Python rather than
+replaying a lock file.
 
 The sandbox tests are opt-in and need a sandbox key:
 

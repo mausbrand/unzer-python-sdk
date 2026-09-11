@@ -91,6 +91,12 @@ ipython_config.py
 #   install all needed dependencies.
 #Pipfile.lock
 
+# uv
+#   Not committed on purpose: this is a library, so it has to keep working against a range of
+#   dependency versions. The CI installs fresh on every supported Python instead of replaying
+#   a lock file.
+uv.lock
+
 # PEP 582; used by e.g. github.com/David-OConnor/pyflow
 __pypackages__/
 
