@@ -191,11 +191,11 @@ implemented.
 
 ## What the SDK covers
 
-| | |
-|---|---|
-| Resources | customers, baskets (v1 and v3), payment types, payment pages, webhooks, keypair |
-| Transactions | `authorize`, `charge` |
-| Extras | installment plans, installment risk check, additional transaction data |
+| Category     | Covered                                                                         |
+|--------------|---------------------------------------------------------------------------------|
+| Resources    | customers, baskets (v1 and v3), payment types, payment pages, webhooks, keypair |
+| Transactions | `authorize`, `charge`                                                           |
+| Extras       | installment plans, installment risk check, additional transaction data          |
 
 **Not implemented yet:** cancellations and refunds, shipments, payouts, recurring payments,
 the metadata resource, chargeback retrieval, and Payment Page v2 / LinkPay. A payment that was
