@@ -20,7 +20,7 @@ if t.TYPE_CHECKING:
 logger = logging.getLogger("unzer-sdk").getChild(__name__)
 
 
-class TransactionStatus(enum.Enum):
+class TransactionStatus(enum.StrEnum):
     """Status of a single transaction inside a payment.
 
     .. seealso:: https://github.com/unzerdev/php-sdk/blob/main/src/Constants/TransactionStatus.php
@@ -32,7 +32,7 @@ class TransactionStatus(enum.Enum):
     RESUMED = "resumed"
 
 
-class Action(enum.Enum):
+class Action(enum.StrEnum):
     """Transaction type of a transaction inside a payment.
 
     Note that a payment lists every transaction it has, so anything but ``authorize``
@@ -54,7 +54,7 @@ class Action(enum.Enum):
     SCA = "strong_customer_authentication"
 
 
-class PaymentState(enum.Enum):
+class PaymentState(enum.IntEnum):
     """Overall state of a payment.
 
     .. seealso:: https://github.com/unzerdev/php-sdk/blob/main/src/Constants/PaymentState.php
@@ -69,7 +69,7 @@ class PaymentState(enum.Enum):
     CREATE = 6
 
 
-class PaymentTypes(enum.Enum):
+class PaymentTypes(enum.StrEnum):
     """
     Supported payment types
 
@@ -136,7 +136,7 @@ class PaymentTypes(enum.Enum):
     WERO = "wro"
 
 
-class PaymentMethodTypes(enum.Enum):
+class PaymentMethodTypes(enum.StrEnum):
     """
     Full name of supported payment types
 
