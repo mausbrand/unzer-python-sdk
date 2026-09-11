@@ -5,6 +5,8 @@ names what went wrong. Verified against the sandbox where the API was involved -
 see AGENTS.md on why the API, and not the documentation, is the reference.
 """
 
+import json
+
 import pytest
 import requests
 import responses
@@ -15,9 +17,12 @@ from unzer.model import (
     Customer,
     Events,
     PaymentGetResponse,
+    PaymentMethodTypes,
     PaymentPage,
     PaymentPageResponse,
     PaymentRequest,
+    PaymentState,
+    PaymentTransaction,
     PaymentType,
     PaymentTypes,
     TransactionStatus,
@@ -538,3 +543,64 @@ class TestInstallmentPlansTimestamp:
         assert len(plans.plans) == 1
         assert plans.plans[0].numberOfRates == 3
         assert len(plans.plans[0].installmentRates) == 3
+
+
+class TestEnumsStayComparableToTheirValue:
+    """Turning the transaction fields into enums broke every string comparison.
+
+    Before #9, ``PaymentTransaction.fromDict`` stored ``action`` and ``status`` as
+    lowercase strings, with a comment saying they "must be equivalent to enum".
+    Making them real enums was right, but a plain :class:`enum.Enum` member never
+    equals its value, so a consumer comparing ``txn.action == "authorize"`` silently
+    got ``False`` from then on -- measured in viur-shop, where it stopped Klarna
+    payments from ever being charged after a successful authorization.
+
+    ``Events`` and ``CustomerGroup`` were already ``StrEnum`` and ``RegistrationLevel``
+    already ``IntEnum``; the enums here simply had not been given the matching mixin.
+    """
+
+    @pytest.mark.parametrize("member,value", [
+        (Action.AUTHORIZE, "authorize"),
+        (Action.CHARGE, "charge"),
+        (Action.REVERSAL, "cancel-authorize"),
+        (TransactionStatus.SUCCESS, "success"),
+        (TransactionStatus.PENDING, "pending"),
+        (PaymentTypes.CARD, "crd"),
+        (PaymentMethodTypes.CARD, "card"),
+    ])
+    def test_member_equals_its_string_value(self, member, value):
+        assert member == value
+
+    def test_payment_state_equals_its_int_value(self):
+        """``PaymentState`` carries ints, so it is an ``IntEnum`` rather than a ``StrEnum``."""
+        assert PaymentState.COMPLETED == 1
+        assert PaymentState.PENDING == 0
+
+    @pytest.mark.parametrize("member,expected", [
+        (Action.CHARGE, "charge"),
+        (TransactionStatus.SUCCESS, "success"),
+        (PaymentTypes.CARD, "crd"),
+    ])
+    def test_interpolation_yields_the_value_not_the_member_name(self, member, expected):
+        """``f"{Action.CHARGE}"`` used to render "Action.CHARGE" -- a silently wrong URL."""
+        assert f"{member}" == expected
+        assert str(member) == expected
+
+    def test_a_parsed_transaction_compares_to_plain_strings(self):
+        """The end-to-end case: what a consumer reads off a payment."""
+        txn = PaymentTransaction.fromDict({
+            "date": "2026-09-11 21:24:55",
+            "type": "authorize",
+            "status": "success",
+            "url": f"{BASE}/payments/s-pay-1/authorize/s-aut-1",
+            "amount": "100.0000",
+        })
+        assert txn.action == "authorize"
+        assert txn.status == "success"
+        assert txn.action == Action.AUTHORIZE
+        assert txn.status == TransactionStatus.SUCCESS
+
+    def test_enum_values_survive_json_serialisation(self):
+        """``json.dumps(..., default=str)`` turned a member into "Action.CHARGE"."""
+        assert json.dumps(Action.CHARGE) == '"charge"'
+        assert json.dumps(PaymentState.COMPLETED) == "1"
