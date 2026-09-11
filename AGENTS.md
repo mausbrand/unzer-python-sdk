@@ -51,6 +51,7 @@ had been believed:
 | A discount can be sent as its own negative basket item (a `voucher` line) | Both schemas reject negative item amounts — `API.600.200.131`, plus `API.600.410.018` on v1. A discount belongs in `amountDiscount` (v1) or `amountDiscountPerUnitGross` (v3), positive |
 | The basket endpoint checks its own arithmetic | Only v3 does, to the cent (`API.600.410.062`). v1 accepts items that contradict `amountTotalGross`, and a charge does not compare the basket to the payment amount either — measured with Prepayment: amounts of 817.02, 726.24, 907.80 and 1.00 are all accepted against the same basket worth 817.02 |
 | Any `returnUrl` the API accepts is fine for local development | A gateway in front of the API refuses `localhost`, `127.0.0.1` and private IPs with a **403 and an nginx HTML page** — the API never sees the request. Hostnames that merely *resolve* to 127.0.0.1 (`lvh.me`, `localtest.me`, `127-0-0-1.nip.io`) pass, so the block is on the string, not the resolved address |
+| An id field takes any value the resource accepts | A value that looks like a card number is refused with `API.500.560.003` *"Your request is containing the sensitive card information in BODY"*, and the whole request fails. Measured: the check reads each string value **as a whole**, strips separators, and rejects it when the remainder is a Luhn-valid digit string in a card BIN range — so a plain numeric id can trip it |
 
 ### How to verify
 
@@ -394,3 +395,34 @@ minimal dicts.
   SDK bug. The known trigger is a `returnUrl` on localhost or a private IP.
 - `logger.debug` output contains full request payloads, including IBANs and dates of birth.
   Do not add payload logging above DEBUG level.
+- **A numeric id can be mistaken for a card number and kill the whole request.** The API answers
+  `400 API.500.560.003` *"Your request is containing the sensitive card information in BODY"* —
+  a message that points at card data even when none is involved. Measured against the sandbox,
+  the check takes each string value **on its own**, removes separators, and refuses it when what
+  remains is a Luhn-valid digit string in a card BIN range:
+
+  | Value sent as `basketItemReferenceId` | Result |
+  |---|---|
+  | `6223247974596608` (Luhn-valid, BIN `62` UnionPay) | `400 API.500.560.003` |
+  | `4816184959310341` (Luhn-valid, BIN `4` Visa) | `400` |
+  | `6520514627048281` (Luhn-valid, BIN `65` Discover) | `400` |
+  | `6223-2479-7459-6608` (same digits, grouped) | `400` — separators are stripped first |
+  | `item-6223247974596608` / `6223247974596608-item` / `abc6223247974596608def` | accepted |
+  | `6223247974596607` (one digit changed, Luhn fails) | accepted |
+  | `5708013389083863` (Luhn-valid, but `57` is no card BIN) | accepted |
+  | `9288095701543039` (Luhn-valid, leading `9` is outside every card range) | accepted |
+
+  It is not restricted to id fields — the same value in `title` is refused just as well, while
+  the same digits inside a sentence pass. So the unit is the complete field value, not a
+  substring of it.
+
+  This is worth knowing because ids from a consuming system routinely look like this: a 16-digit
+  numeric key can fall into a card BIN range, and roughly one in ten numbers is Luhn-valid by
+  chance. Both have to hold, which is why only some such ids trip it — the ranges are specific
+  subranges, not whole leading digits. `4…` is Visa, but of the `5…` space only `51`-`55` is
+  Mastercard, which is why `5708…` above is accepted while `6223…` (UnionPay) and `6520…`
+  (Discover) are not.
+
+  An id that does trip it fails **every** time it is sent, so an order carrying one can never be
+  paid — retrying cannot help, because the id does not change. Prefixing the value
+  (`order-<id>`) avoids it entirely.
