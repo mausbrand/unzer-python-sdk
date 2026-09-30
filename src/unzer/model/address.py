@@ -1,3 +1,5 @@
+import typing as t
+
 from .base import BaseModel
 
 
@@ -7,6 +9,30 @@ class Address(BaseModel):
     The wire format has a single ``name`` field, which this model splits into
     :attr:`firstname` and :attr:`lastname` and joins again on serialisation. Note
     that it calls the postcode ``zip``, while the attribute is :attr:`zipCode`.
+
+    The API is inconsistent about the name and the SDK mirrors it rather than hiding
+    it: an address carries one joined ``name``, while the
+    :class:`~unzer.model.customer.Customer` that holds the address sends ``firstname``
+    and ``lastname`` as two fields. They are limited accordingly -- 81 characters for
+    the joined name here, 40 per field there -- so the same person can pass one check
+    and fail the other.
+    """
+
+    MAX_LENGTHS: t.ClassVar[dict[str, int]] = {
+        # The limit is on the joined `name`, not on either half: measured from both
+        # directions, a long first name with a short last one and the reverse both
+        # fail at 82. Checking the two parts separately would let an unbalanced pair
+        # through. The joining space counts.
+        "name": 81,
+        "street": 64,
+        "zipCode": 10,
+        "city": 30,
+    }
+    """Measured against the sandbox; see ``examples/06_probe_field_limits.py``.
+
+    ``state`` and ``country`` are left out on purpose. Both are format-bound (ISO
+    3166-2 and ISO A2), so an over-long value there is a malformed code rather than
+    a length problem, and the API says so with a different error.
     """
 
     def __init__(
@@ -27,7 +53,7 @@ class Address(BaseModel):
         :type firstname: str
         :param lastname: Address last name, see above.
         :type lastname: str
-        :param street: (optional) Address street (max. 50 chars). Required in case of billing address.
+        :param street: (optional) Address street (max. 64 chars). Required in case of billing address.
         :type street: str
         :param state: (optional) Address state in ISO 3166-2 format (max. 8 chars). Required in case of billing address.
         :type state: str

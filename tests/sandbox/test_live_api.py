@@ -502,3 +502,63 @@ class TestErrorShape:
         with pytest.raises(ErrorResponse) as excinfo:
             sandbox_client.getPayment("s-pay-does-not-exist")
         assert excinfo.value.errorId or excinfo.value.traceId
+
+
+#: Model attribute -> the field it is called in the request payload.
+SERIALIZED_AS = {"name": "name", "street": "street", "zipCode": "zip", "city": "city"}
+
+#: Every length limit under test, as (owner, attribute, serialized field, limit).
+FIELD_LENGTH_CASES = [
+    ("customer", attr, attr, limit)
+    for attr, limit in sorted(Customer.MAX_LENGTHS.items())
+] + [
+    ("address", attr, SERIALIZED_AS[attr], limit)
+    for attr, limit in sorted(Address.MAX_LENGTHS.items())
+]
+
+#: Readable ids for the parametrised cases above.
+FIELD_LENGTH_IDS = [f"{owner}.{attr}" for owner, attr, _, _ in FIELD_LENGTH_CASES]
+
+
+class TestFieldLengths:
+    """Pin the limits in `MAX_LENGTHS` to what the API actually enforces.
+
+    These send the payload by hand rather than through the models, because the models
+    would sit between the test and the answer: an address has no `firstname` on the
+    wire, only one `name` that `Address` builds from two attributes. Stretching an
+    attribute and asserting on the result would measure that joining, not the API's
+    limit -- and the limit on `name` is on the sum, so it can only be hit directly.
+
+    The numbers came from `examples/06_probe_field_limits.py`, and the documented ones
+    disagreed with several: `street` is documented as 50 and accepted up to 64. These
+    tests fail if Unzer moves a boundary, which is the only way we would find out.
+    """
+
+    @staticmethod
+    def _payload(owner: str, field: str, length: int) -> dict:
+        """Build a valid customer payload with one field stretched to `length`."""
+        value = ("1" if field == "zip" else "a") * length
+        address = {"name": "Probe Tester", "street": "Teststrasse 1", "state": "",
+                   "zip": "44135", "city": "Dortmund", "country": "DE"}
+        customer = {
+            "firstname": "Probe", "lastname": "Tester", "id": "",
+            "salutation": "mr", "company": "", "customerId": f"probe-{uuid.uuid4()}",
+            "birthDate": "1980-01-01", "email": "probe@example.org",
+            "phone": "", "mobile": "",
+        }
+        (customer if owner == "customer" else address)[field] = value
+        return {**customer, "billingAddress": address, "shippingAddress": address}
+
+    @pytest.mark.parametrize(("owner", "attr", "field", "limit"), FIELD_LENGTH_CASES,
+                             ids=FIELD_LENGTH_IDS)
+    def test_a_value_at_the_limit_is_accepted(self, sandbox_client, owner, attr, field, limit):
+        assert sandbox_client.request("customers", "POST",
+                                      self._payload(owner, field, limit))["id"]
+
+    @pytest.mark.parametrize(("owner", "attr", "field", "limit"), FIELD_LENGTH_CASES,
+                             ids=FIELD_LENGTH_IDS)
+    def test_one_character_over_the_limit_is_rejected(self, sandbox_client, owner, attr,
+                                                      field, limit):
+        with pytest.raises(ErrorResponse) as excinfo:
+            sandbox_client.request("customers", "POST", self._payload(owner, field, limit + 1))
+        assert any("invalid length" in error.merchantMessage for error in excinfo.value.errors)
