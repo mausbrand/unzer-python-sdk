@@ -152,6 +152,38 @@ class TestCustomer:
         customer = Customer(firstname="A", lastname="B", key="s-cst-1", customerId="mine")
         assert customer.keyOrCustomerId == "s-cst-1"
 
+    @pytest.mark.parametrize("attr", ["firstname", "lastname"])
+    def test_the_two_names_are_limited_separately(self, attr):
+        """Unlike an address, a customer sends them as two fields with a limit each."""
+        names = {"firstname": "A", "lastname": "B"}
+        assert Customer(**{**names, attr: "x" * 40}).validateBeforeRequest()
+        with pytest.raises(ValueError, match=rf"Customer\.{attr}"):
+            Customer(**{**names, attr: "x" * 41}).validateBeforeRequest()
+
+    def test_the_addresses_are_validated_too(self):
+        """Nothing else would: they only ever travel inside a customer request."""
+        customer = Customer(
+            firstname="A", lastname="B",
+            billingAddress=Address(firstname="Max", lastname="Mustermann", city="x" * 31),
+        )
+        with pytest.raises(ValueError, match=r"Address\.city"):
+            customer.validateBeforeRequest()
+
+    def test_the_customer_and_address_limits_line_up(self):
+        """Two customer names at their maximum join into an address name at its maximum.
+
+        40 + 1 + 40 is exactly 81, so a customer that satisfies its own two field
+        limits can never break the address one. That the measurements agree this
+        precisely is a good sign they are right; if either constant is ever changed
+        without the other, this is where it shows.
+        """
+        names = {
+            "firstname": "x" * Customer.MAX_LENGTHS["firstname"],
+            "lastname": "y" * Customer.MAX_LENGTHS["lastname"],
+        }
+        assert len(Address(**names).name) == Address.MAX_LENGTHS["name"]
+        assert Customer(**names, billingAddress=Address(**names)).validateBeforeRequest()
+
 
 class TestAddress:
 
@@ -170,6 +202,40 @@ class TestAddress:
         data = Address(firstname="Max", lastname="Mustermann", zipCode="10963").serialize()
         assert data["name"] == "Max Mustermann"
         assert data["zip"] == "10963", "the wire format calls it zip, not zipCode"
+
+    @pytest.mark.parametrize(("firstname", "lastname"), [
+        ("a" * 40, "b" * 40),  # balanced
+        ("a", "b" * 79),       # nearly all of it in the last name
+        ("a" * 79, "b"),       # and the other way round
+    ])
+    def test_a_name_of_exactly_the_limit_passes(self, firstname, lastname):
+        address = Address(firstname=firstname, lastname=lastname)
+        assert len(address.name) == 81
+        assert address.validateBeforeRequest()
+
+    @pytest.mark.parametrize(("firstname", "lastname"), [
+        ("a" * 41, "b" * 40),
+        ("a", "b" * 80),       # neither half is long by itself -- their sum is
+        ("a" * 80, "b"),
+    ])
+    def test_a_name_over_the_limit_is_rejected_whichever_half_is_long(self, firstname, lastname):
+        with pytest.raises(ValueError, match=r"Address\.name"):
+            Address(firstname=firstname, lastname=lastname).validateBeforeRequest()
+
+    def test_the_joining_space_counts_towards_the_limit(self):
+        """41 and 40 are 81 characters of name, but 82 go over the wire."""
+        with pytest.raises(ValueError, match="82 characters"):
+            Address(firstname="a" * 41, lastname="b" * 40).validateBeforeRequest()
+
+    @pytest.mark.parametrize(("attr", "limit"), [("street", 64), ("zipCode", 10), ("city", 30)])
+    def test_field_limits(self, attr, limit):
+        name = {"firstname": "Max", "lastname": "Mustermann"}
+        assert Address(**name, **{attr: "x" * limit}).validateBeforeRequest()
+        with pytest.raises(ValueError, match=rf"Address\.{attr}"):
+            Address(**name, **{attr: "x" * (limit + 1)}).validateBeforeRequest()
+
+    def test_a_missing_value_is_not_a_length_problem(self):
+        assert Address(firstname="Max", lastname="Mustermann", city=None).validateBeforeRequest()
 
 
 class TestPaymentGetResponse:

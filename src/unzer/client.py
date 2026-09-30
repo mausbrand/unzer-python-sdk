@@ -348,6 +348,7 @@ class UnzerClient:
         if customer.key:
             raise TypeError("Customer has a id (key) set. "
                             "Call updateCustomer to update it or remove it to create a new one.")
+        customer.validateBeforeRequest()
         customer.bind_client(self)
         data = self.request(
             "customers",
@@ -370,6 +371,7 @@ class UnzerClient:
             raise TypeError(f"Expected a Customer object. Got {type(customer)!r}")
         if not customer.keyOrCustomerId:
             raise TypeError("Customer has no customerId oder key (id)")
+        customer.validateBeforeRequest()
         customer.bind_client(self)
         data = self.request(
             f"customers/{customer.keyOrCustomerId}",

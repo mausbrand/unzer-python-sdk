@@ -18,8 +18,13 @@ because they all create real transactions on whatever account the key belongs to
 | `03_installment_plans.py` | fetch installment plans and run the risk check |
 | `04_webhooks.py` | register, list and delete webhooks |
 | `05_client_side_types.py` | working with a `typeId` that came from the frontend |
+| `06_probe_field_limits.py` | measure the field length limits the API enforces |
 
 Two things to know before running them.
+
+**`06` is a measuring tool, not a flow.** It binary-searches the longest value each field
+accepts and prints the boundary. The numbers in `MAX_LENGTHS` come from it, because the
+documented ones were wrong for several fields. It sends nothing without `--execute`.
 
 **Not every account can do everything.** Sandbox accounts differ in which payment methods are
 enabled — `03` needs `paylater-installment`. Each script checks and tells you if the account

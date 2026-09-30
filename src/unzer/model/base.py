@@ -27,6 +27,18 @@ class BaseModel(abc.ABC):
 
     REQUIRED_ATTRIBUTES: t.ClassVar[list[str]] = []
 
+    MAX_LENGTHS: t.ClassVar[dict[str, int]] = {}
+    """Longest value the API accepts per attribute, checked by :meth:`validateBeforeRequest`.
+
+    The numbers are measured against the sandbox, not read off the documentation --
+    see ``examples/06_probe_field_limits.py``. Several of the documented limits are
+    wrong, so an entry here without a measurement behind it is worse than none.
+
+    Keys are attribute names and may be properties: an address is limited on its
+    joined :attr:`~unzer.model.address.Address.name`, not on the two parts it is
+    built from.
+    """
+
     def __init__(
             self,
             client: "UnzerClient" = None,
@@ -87,12 +99,22 @@ class BaseModel(abc.ABC):
         """Validate the model.
 
         Useful to check the model for validity before the API request.
-        By default, check for the required attributes,
-        set in :attr:`REQUIRED_ATTRIBUTES` (class attribute).
+        By default, check for the required attributes, set in
+        :attr:`REQUIRED_ATTRIBUTES`, and the field lengths, set in
+        :attr:`MAX_LENGTHS` (both class attributes).
+
+        :raises ValueError: If an attribute is missing or too long for the API.
         """
         for attr in type(self).REQUIRED_ATTRIBUTES:  # use always the cls-attributes
             if not getattr(self, attr):
                 raise ValueError(f"{type(self).__name__} misses the attribute *{attr}*.")
+        for attr, limit in type(self).MAX_LENGTHS.items():
+            value = getattr(self, attr)
+            if value is not None and len(str(value)) > limit:
+                raise ValueError(
+                    f"{type(self).__name__}.{attr} is {len(str(value))} characters long, "
+                    f"but the API accepts at most {limit}."
+                )
         return True
 
     def __repr__(self) -> str:

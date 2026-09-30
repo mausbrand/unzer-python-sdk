@@ -32,7 +32,21 @@ class Customer(BaseModel):
 
     The Pay later payment methods require a customer with a billing address and a
     date of birth for their credit check.
+
+    A customer sends :attr:`firstname` and :attr:`lastname` as two fields, unlike the
+    :class:`~unzer.model.address.Address` it carries, which joins them into a single
+    ``name``. That is the API's inconsistency, not a choice of this SDK, and it matters
+    because the two are limited separately.
     """
+
+    MAX_LENGTHS: t.ClassVar[dict[str, int]] = {
+        # Unlike an address, a customer sends the two names as separate fields, and
+        # the API limits them separately -- each with its own error code
+        # (API.410.200.005 and .002, neither prefixed with an address).
+        "firstname": 40,
+        "lastname": 40,
+    }
+    """Measured against the sandbox; see ``examples/06_probe_field_limits.py``."""
 
     def __init__(
             self,
@@ -210,6 +224,21 @@ class Customer(BaseModel):
         # the getter turns it into the language of the client, or None without one.
         # It must not reach normalize_language(), which reads it as an empty value.
         self._language = value if value is SENTINEL else normalize_language(value)
+
+    def validateBeforeRequest(self) -> bool:
+        """Validate the customer and the addresses it carries.
+
+        The addresses travel inside the customer payload, so nothing else would ever
+        validate them: a too long city is rejected by the API as part of the customer
+        request, and this is the only place that sees both.
+
+        :raises ValueError: If the customer or one of its addresses is invalid.
+        """
+        super().validateBeforeRequest()
+        for attr in ("billingAddress", "shippingAddress"):
+            if (address := getattr(self, attr)) is not None:
+                address.validateBeforeRequest()
+        return True
 
     def serialize(self):
         birthDate = self.birthDate
