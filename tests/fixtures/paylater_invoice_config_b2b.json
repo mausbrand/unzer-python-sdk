@@ -1,0 +1,5 @@
+{
+  "dataPrivacyConsent": "https://test-payment.paylater.unzer.com/payolution-payment/infoport/dataprivacydeclaration?channelId=merchant-invoice-b2b",
+  "dataPrivacyDeclaration": "https://test-payment.paylater.unzer.com/payolution-payment/infoport/dataprivacydeclaration?channelId=merchant-invoice-b2b",
+  "termsAndConditions": "https://test-payment.paylater.unzer.com/payolution-payment/infoport/termsandconditions?channelId=merchant-invoice-b2b"
+}

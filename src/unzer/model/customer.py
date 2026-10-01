@@ -1,9 +1,11 @@
 import datetime
+import enum
 import typing as t
 
-from ..utils import SENTINEL, Sentinel, normalize_language
+from ..utils import SENTINEL, Sentinel, formatBirthDate, normalize_language, parseBirthDate
 from .address import Address
 from .base import BaseModel, JSONValue
+from .company_info import CompanyInfo, CompanyRegistrationType, CompanyType
 
 if t.TYPE_CHECKING:
     from ..client import UnzerClient
@@ -23,6 +25,21 @@ class Salutation:
     UNKNOWN = "unknown"
 
 
+class CustomerType(enum.StrEnum):
+    """Whether a customer is a consumer or a business.
+
+    Customers do not carry this field -- a customer is a B2B customer by carrying
+    :class:`~unzer.model.company_info.CompanyInfo`. It is used where the API asks
+    for it separately: the installment plans, the Pay later configuration, and the
+    ``allowCustomerTypes`` of a keypair.
+
+    .. seealso:: https://github.com/unzerdev/php-sdk/blob/main/src/Constants/CustomerTypes.php
+    """
+
+    B2C = "B2C"
+    B2B = "B2B"
+
+
 class Customer(BaseModel):
     """A customer resource.
 
@@ -37,6 +54,15 @@ class Customer(BaseModel):
     :class:`~unzer.model.address.Address` it carries, which joins them into a single
     ``name``. That is the API's inconsistency, not a choice of this SDK, and it matters
     because the two are limited separately.
+
+    A customer with :attr:`companyData` is a B2B customer, sent as ``companyInfo``,
+    and the API asks more of it than of a consumer -- measured against the sandbox,
+    see :class:`~unzer.model.company_info.CompanyInfo` for the table. Always a
+    :attr:`company` name and a billing address with street, zip code, city and
+    country; for an unregistered company also the email, and for an unregistered
+    sole proprietor the date of birth. A registered company is accepted without
+    first name, last name, date of birth and email by the customer resource, but
+    ``paylater-invoice`` asks for the first name and the email at the authorize.
     """
 
     MAX_LENGTHS: t.ClassVar[dict[str, int]] = {
@@ -45,6 +71,7 @@ class Customer(BaseModel):
         # (API.410.200.005 and .002, neither prefixed with an address).
         "firstname": 40,
         "lastname": 40,
+        "company": 256,
     }
     """Measured against the sandbox; see ``examples/06_probe_field_limits.py``."""
 
@@ -76,7 +103,8 @@ class Customer(BaseModel):
         :type lastname: str
         :param salutation: (optional) Must be either 'mr', 'mrs' or 'unknown'
         :type salutation: str | Salutation
-        :param company: (optional) Company name
+        :param company: (optional) Company name (max. 256 chars). Required for a
+            B2B customer, i.e. one with ``companyData``.
         :type company: str
         :param customerId: (optional) Must be unique and identifies the customer.
             Can be used in place of the resource id
@@ -93,7 +121,8 @@ class Customer(BaseModel):
         :type billingAddress: Address
         :param shippingAddress: (optional) shipping address
         :type shippingAddress: Address
-        :param companyData: (optional)
+        :param companyData: (optional) Company data, which makes this a B2B
+            customer. Sent as ``companyInfo``.
         :type companyData: CompanyInfo
         :param language: (optional) Customer's language as ISO 639-1 code (e.g. ``de``).
             Used by Unzer for customer facing texts and mails.
@@ -168,18 +197,7 @@ class Customer(BaseModel):
 
         :raises TypeError: For a string in neither format, or an unusable type.
         """
-        if not value:
-            value = None
-        elif isinstance(value, str):
-            if "-" in value:  # ISO Date
-                value = datetime.datetime.strptime(value, "%Y-%m-%d")
-            elif "." in value:  # European Date
-                value = datetime.datetime.strptime(value, "%d.%m.%Y")
-            else:
-                raise TypeError(f"Invalid date format of {value!r}")
-        elif not isinstance(value, (datetime.datetime, datetime.date)):
-            raise TypeError(f"Invalid value {value!r}")
-        self._birthDate = value
+        self._birthDate = parseBirthDate(value)
 
     @property
     def phone(self) -> str | None:
@@ -238,12 +256,49 @@ class Customer(BaseModel):
         for attr in ("billingAddress", "shippingAddress"):
             if (address := getattr(self, attr)) is not None:
                 address.validateBeforeRequest()
+        if self.companyData is not None:
+            self._validateB2B()
         return True
 
+    def _validateB2B(self) -> None:
+        """Check what the API requires of a B2B customer beyond the company data.
+
+        All measured against the sandbox; the error code is the API's answer when
+        the attribute is missing.
+
+        :raises ValueError: If a required attribute is missing.
+        """
+        name = type(self).__name__
+        if not isinstance(self.companyData, CompanyInfo):
+            raise TypeError(f"Expected a CompanyInfo object for companyData. Got {type(self.companyData)!r}")
+        required = [
+            ("company", "API.410.100.115"),
+            ("billingAddress", "API.410.100.128"),
+        ]
+        if self.companyData.registrationType is CompanyRegistrationType.NOT_REGISTERED:
+            required.append(("email", "API.410.100.112"))
+            # A sole proprietor, and only that one, needs the customer's own date of
+            # birth -- an owner with a birthdate does not replace it. The API reads
+            # the company type case-insensitively.
+            if str(self.companyData.companyType or "").lower() == CompanyType.SOLE:
+                required.append(("birthDate", "API.410.100.111"))
+        for attr, code in required:
+            if not getattr(self, attr):
+                raise ValueError(f"{name} with companyData misses the attribute *{attr}* ({code}).")
+        # An address without them is refused with API.410.100.107 -- only for B2B.
+        for attr in ("street", "zipCode", "city", "country"):
+            if not getattr(self.billingAddress, attr):
+                raise ValueError(
+                    f"{name} with companyData needs a billing address with *{attr}* (API.410.100.107).")
+        self.companyData.validateBeforeRequest()
+
+    @property
+    def customerType(self) -> CustomerType:
+        """B2B for a customer with :attr:`companyData`, B2C otherwise."""
+        return CustomerType.B2B if self.companyData is not None else CustomerType.B2C
+
     def serialize(self):
-        birthDate = self.birthDate
-        if isinstance(birthDate, (datetime.datetime, datetime.date)):
-            birthDate = birthDate.strftime("%Y-%m-%d")
+        birthDate = formatBirthDate(self.birthDate)
 
         # An empty string is rejected by the API with API.410.300.007
         # ("HTTP message not readable") because the field is an object, not a
@@ -262,6 +317,9 @@ class Customer(BaseModel):
         billingAddress = addresses["billingAddress"]
         shippingAddress = addresses["shippingAddress"]
 
+        if self.companyData is not None and not isinstance(self.companyData, CompanyInfo):
+            raise TypeError(f"Expected a CompanyInfo object for companyData. Got {type(self.companyData)!r}")
+
         return {
             "lastname": self.lastname,
             "firstname": self.firstname,
@@ -276,18 +334,9 @@ class Customer(BaseModel):
             "language": self.getString(self.language),
             "billingAddress": billingAddress,
             "shippingAddress": shippingAddress,
-
-            # Additional information for B2B Customer #ToDo
-            # "companyInfo": {
-            # 	# Mandatory in case companyInfo is existing, restrict '<' and '>'
-            # 	"registrationType": "registered|not_registered",
-            # 	# Mandatory for REGISTERED, restrict '<' and '>'
-            # 	"commercialRegisterNumber": "...",
-            # 	# Mandatory must be the value "OWNER" for NOT_REGISTERED, restrict '<' and '>'
-            # 	"function": "...",
-            # 	# Mandatory for NOT_REGISTERED, restrict '<' and '>'
-            # 	"commercialSector": "..."
-            # }
+            # null makes a B2C customer (measured). An empty object would not: it
+            # is read as B2B and refused for its missing registrationType.
+            "companyInfo": self.companyData.serialize() if self.companyData is not None else None,
         }
 
     @classmethod
@@ -302,4 +351,7 @@ class Customer(BaseModel):
         data["key"] = data["id"]
         data["billingAddress"] = Address.fromDict(data["billingAddress"])
         data["shippingAddress"] = Address.fromDict(data["shippingAddress"])
+        # A B2C customer comes back without the key at all.
+        company_info = data.pop("companyInfo", None)
+        data["companyData"] = CompanyInfo.fromDict(company_info, client=client) if company_info else None
         return cls(**data, client=client)

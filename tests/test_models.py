@@ -9,7 +9,14 @@ from unzer.model import (
     Address,
     Basket,
     BasketItem,
+    CompanyCommercialSector,
+    CompanyFunction,
+    CompanyInfo,
+    CompanyOwner,
+    CompanyRegistrationType,
+    CompanyType,
     Customer,
+    CustomerType,
     Events,
     PaymentGetResponse,
     PaymentPage,
@@ -185,6 +192,166 @@ class TestCustomer:
         assert Customer(**names, billingAddress=Address(**names)).validateBeforeRequest()
 
 
+def _b2b_customer(companyData: CompanyInfo, **kwargs) -> Customer:
+    """A B2B customer that satisfies every measured rule, unless `kwargs` break one."""
+    fields = {
+        "firstname": "Max",
+        "lastname": "Mustermann",
+        "company": "Mustermann GmbH",
+        "email": "max@example.org",
+        "birthDate": "1980-01-01",
+        "billingAddress": Address(firstname="Max", lastname="Mustermann", street="Teststr. 1",
+                                  zipCode="44135", city="Dortmund", country="DE"),
+        **kwargs,
+    }
+    return Customer(companyData=companyData, **fields)
+
+
+class TestB2BCustomer:
+    """B2B customers, parsed from captured sandbox responses."""
+
+    def test_registered_company_from_api_response(self, fixture_json):
+        customer = Customer.fromDict(fixture_json("customer_b2b_registered"))
+        info = customer.companyData
+        assert isinstance(info, CompanyInfo)
+        assert info.registrationType is CompanyRegistrationType.REGISTERED
+        assert info.commercialRegisterNumber == "HRB 12345"
+        assert info.function == CompanyFunction.OWNER
+        assert info.commercialSector == CompanyCommercialSector.OTHER
+        # The API answers an unset companyType with "".
+        assert info.companyType is None
+        assert info.owner is None
+        assert customer.customerType is CustomerType.B2B
+
+    def test_unregistered_company_with_owner_from_api_response(self, fixture_json):
+        info = Customer.fromDict(fixture_json("customer_b2b_not_registered")).companyData
+        assert info.registrationType is CompanyRegistrationType.NOT_REGISTERED
+        assert info.commercialRegisterNumber is None
+        assert info.companyType == CompanyType.SOLE
+        assert isinstance(info.owner, CompanyOwner)
+        assert (info.owner.firstname, info.owner.lastname) == ("Probe", "Tester")
+        assert info.owner.birthdate == datetime.datetime(1980, 1, 1)
+
+    def test_a_consumer_has_no_company_data(self, fixture_json):
+        """A B2C customer comes back without the companyInfo key."""
+        customer = Customer.fromDict(fixture_json("customer"))
+        assert customer.companyData is None
+        assert customer.customerType is CustomerType.B2C
+        assert customer.serialize()["companyInfo"] is None
+
+    def test_round_trip_keeps_the_company_data(self, fixture_json):
+        data = fixture_json("customer_b2b_not_registered")
+        serialized = Customer.fromDict(data).serialize()
+        assert serialized["companyInfo"] == {
+            key: value for key, value in data["companyInfo"].items() if value != ""
+        }
+
+    def test_unset_fields_are_left_out(self):
+        assert CompanyInfo.registered("HRB 1").serialize() == {
+            "registrationType": "registered",
+            "commercialRegisterNumber": "HRB 1",
+        }
+
+    def test_not_registered_defaults_to_the_php_sdk_values(self):
+        assert CompanyInfo.notRegistered().serialize() == {
+            "registrationType": "not_registered",
+            "function": "OWNER",
+            "commercialSector": "OTHER",
+        }
+
+    def test_owner_birthdate_is_sent_in_iso_form(self):
+        owner = CompanyOwner("Max", "Mustermann", "24.01.1990")
+        assert owner.serialize() == {"firstname": "Max", "lastname": "Mustermann",
+                                     "birthdate": "1990-01-24"}
+
+    def test_owner_rejects_a_malformed_birthdate(self):
+        """The API would answer with the generic API.410.300.999."""
+        with pytest.raises(TypeError):
+            CompanyOwner(birthdate="24/01/1990")
+
+    def test_unknown_registration_type_raises(self):
+        """The API refuses it too (API.410.200.026)."""
+        with pytest.raises(ValueError, match="nonsense"):
+            CompanyInfo("nonsense")
+
+    def test_free_text_fields_keep_unlisted_values(self):
+        """The API stores any text there, so parsing must not refuse it."""
+        info = CompanyInfo.fromDict({"registrationType": "registered", "commercialRegisterNumber": "1",
+                                     "function": "Owner", "commercialSector": "nonsense",
+                                     "companyType": "COMPANY"})
+        assert (info.function, info.commercialSector, info.companyType) == ("Owner", "nonsense", "COMPANY")
+
+    def test_company_data_must_be_a_company_info(self):
+        with pytest.raises(TypeError, match="CompanyInfo"):
+            Customer(firstname="A", lastname="B", companyData={"registrationType": "registered"}).serialize()
+
+    @pytest.mark.parametrize("info", [CompanyInfo.registered("HRB 1"), CompanyInfo.notRegistered()])
+    def test_a_complete_b2b_customer_validates(self, info):
+        assert _b2b_customer(info).validateBeforeRequest()
+
+    @pytest.mark.parametrize(("info", "override", "attr"), [
+        (CompanyInfo.registered("HRB 1"), {"company": None}, "company"),
+        (CompanyInfo.registered("HRB 1"), {"billingAddress": None}, "billingAddress"),
+        (CompanyInfo.notRegistered(), {"email": None}, "email"),
+        (CompanyInfo.notRegistered(companyType="sole"), {"birthDate": None}, "birthDate"),
+        (CompanyInfo.notRegistered(companyType="SOLE"), {"birthDate": None}, "birthDate"),
+    ])
+    def test_measured_customer_requirements(self, info, override, attr):
+        with pytest.raises(ValueError, match=rf"\*{attr}\*"):
+            _b2b_customer(info, **override).validateBeforeRequest()
+
+    @pytest.mark.parametrize("override", [{"email": None}, {"birthDate": None}])
+    def test_a_registered_company_needs_neither_email_nor_birth_date(self, override):
+        assert _b2b_customer(CompanyInfo.registered("HRB 1"), **override).validateBeforeRequest()
+
+    def test_only_a_sole_proprietor_needs_a_birth_date(self):
+        info = CompanyInfo.notRegistered(companyType=CompanyType.COMPANY)
+        assert _b2b_customer(info, birthDate=None).validateBeforeRequest()
+
+    @pytest.mark.parametrize("attr", ["street", "zipCode", "city", "country"])
+    def test_the_billing_address_must_be_complete(self, attr):
+        address = Address(firstname="Max", lastname="Mustermann", street="Teststr. 1",
+                          zipCode="44135", city="Dortmund", country="DE")
+        setattr(address, attr, None)
+        with pytest.raises(ValueError, match=rf"\*{attr}\*"):
+            _b2b_customer(CompanyInfo.registered("HRB 1"), billingAddress=address).validateBeforeRequest()
+
+    def test_a_consumer_needs_no_complete_billing_address(self):
+        assert Customer(firstname="A", lastname="B",
+                        billingAddress=Address(firstname="A", lastname="B")).validateBeforeRequest()
+
+    @pytest.mark.parametrize(("info", "attr"), [
+        (CompanyInfo(CompanyRegistrationType.REGISTERED), "commercialRegisterNumber"),
+        (CompanyInfo(CompanyRegistrationType.NOT_REGISTERED, commercialSector="OTHER"), "function"),
+        (CompanyInfo(CompanyRegistrationType.NOT_REGISTERED, function="OWNER"), "commercialSector"),
+    ])
+    def test_measured_company_requirements(self, info, attr):
+        with pytest.raises(ValueError, match=rf"\*{attr}\*"):
+            _b2b_customer(info).validateBeforeRequest()
+
+    @pytest.mark.parametrize(("model", "attr"), [
+        (Customer(firstname="A", lastname="B"), "company"),
+        (CompanyInfo.registered("HRB 1"), "commercialRegisterNumber"),
+        (CompanyInfo.registered("HRB 1"), "function"),
+        (CompanyInfo.registered("HRB 1"), "commercialSector"),
+        (CompanyInfo.registered("HRB 1"), "companyType"),
+        (CompanyOwner("A", "B"), "firstname"),
+        (CompanyOwner("A", "B"), "lastname"),
+        (Address(firstname="A", lastname="B"), "company"),
+    ])
+    def test_the_company_fields_are_limited_to_256(self, model, attr):
+        setattr(model, attr, "x" * 256)
+        assert model.validateBeforeRequest()
+        setattr(model, attr, "x" * 257)
+        with pytest.raises(ValueError, match=attr):
+            model.validateBeforeRequest()
+
+    def test_the_owner_is_validated_through_the_customer(self):
+        info = CompanyInfo.registered("HRB 1", owner=CompanyOwner("x" * 257, "B"))
+        with pytest.raises(ValueError, match=r"CompanyOwner\.firstname"):
+            _b2b_customer(info).validateBeforeRequest()
+
+
 class TestAddress:
 
     def test_name_is_split_into_first_and_lastname(self):
@@ -236,6 +403,15 @@ class TestAddress:
 
     def test_a_missing_value_is_not_a_length_problem(self):
         assert Address(firstname="Max", lastname="Mustermann", city=None).validateBeforeRequest()
+
+    def test_company_is_sent_and_read(self):
+        address = Address(firstname="Max", lastname="Mustermann", company="Mustermann GmbH")
+        assert address.serialize()["company"] == "Mustermann GmbH"
+        assert Address.fromDict(address.serialize()).company == "Mustermann GmbH"
+
+    def test_company_is_optional_in_a_response(self, fixture_json):
+        """Not every captured response carries it."""
+        assert Address.fromDict(fixture_json("customer")["billingAddress"]).company is None
 
 
 class TestPaymentGetResponse:

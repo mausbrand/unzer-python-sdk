@@ -33,9 +33,15 @@ from unzer.model import (
     Address,
     Basket,
     BasketItem,
+    CompanyInfo,
+    CompanyOwner,
+    CompanyType,
     Customer,
+    CustomerType,
     ErrorResponse,
     PaymentPage,
+    PaylaterInstallment,
+    PaylaterInvoice,
     PaymentRequest,
     SepaDirectDebit,
 )
@@ -189,6 +195,124 @@ class TestCustomer:
         # a GET issued immediately after the PUT, which has been seen to still carry
         # the previous name -- so the write is verified, not that response.
         assert sandbox_client.getCustomer(customer_id).firstname == "Maximiliane"
+
+
+class TestB2BCustomer:
+    """B2B customers, and the ``companyInfo`` rules the API actually enforces.
+
+    The sources disagree on these (see ``examples/07_probe_b2b_customer.py``);
+    these tests hold what the API answered.
+    """
+
+    @staticmethod
+    def _address(**kwargs) -> Address:
+        return Address(firstname="Maximilian", lastname="Mustermann",
+                       street="Hugo-Junkers-Str. 3", zipCode="60386",
+                       city="Frankfurt am Main", country="DE", **kwargs)
+
+    def test_registered_company_round_trips(self, sandbox_client):
+        customer = sandbox_client.createCustomer(Customer(
+            firstname="Maximilian", lastname="Mustermann", company="Mustermann GmbH",
+            billingAddress=self._address(),
+            companyData=CompanyInfo.registered("HRB 12345", companyType=CompanyType.COMPANY),
+        ))
+        assert customer.company == "Mustermann GmbH"
+        assert customer.companyData.registrationType == "registered"
+        assert customer.companyData.commercialRegisterNumber == "HRB 12345"
+        assert customer.companyData.companyType == "company"
+        assert customer.companyData.owner is None
+        assert customer.customerType == "B2B"
+
+    def test_unregistered_sole_proprietor_with_owner_round_trips(self, sandbox_client):
+        customer = sandbox_client.createCustomer(Customer(
+            firstname="Maximilian", lastname="Mustermann", company="Mustermann Consulting",
+            email="maximilian.mustermann@example.com", birthDate="1980-11-22",
+            billingAddress=self._address(),
+            companyData=CompanyInfo.notRegistered(
+                companyType=CompanyType.SOLE,
+                owner=CompanyOwner("Maximilian", "Mustermann", "22.11.1980"),
+            ),
+        ))
+        info = customer.companyData
+        assert (info.registrationType, info.function, info.commercialSector) == (
+            "not_registered", "OWNER", "OTHER")
+        # Sent as dd.mm.yyyy, answered in ISO form.
+        assert info.owner.birthdate.strftime("%Y-%m-%d") == "1980-11-22"
+
+    def test_a_consumer_has_no_company_data(self, sandbox_client):
+        """companyInfo null makes a B2C customer, and it comes back without the key."""
+        customer = sandbox_client.createCustomer(
+            Customer(firstname="Maximilian", lastname="Mustermann"))
+        assert customer.companyData is None
+        assert customer.customerType == "B2C"
+
+    def test_registered_without_register_number_is_refused(self, sandbox_client):
+        with pytest.raises(ErrorResponse) as excinfo:
+            sandbox_client.request("customers", "POST", {
+                "firstname": "Maximilian", "lastname": "Mustermann", "company": "Mustermann GmbH",
+                "billingAddress": self._address().serialize(),
+                "companyInfo": {"registrationType": "registered"},
+            })
+        assert "API.410.100.110" in {error.code for error in excinfo.value.errors}
+
+    def test_sole_proprietor_needs_the_customers_birth_date(self, sandbox_client):
+        """The owner's birthdate does not stand in for it."""
+        customer = Customer(
+            firstname="Maximilian", lastname="Mustermann", company="Mustermann Consulting",
+            email="maximilian.mustermann@example.com", billingAddress=self._address(),
+            companyData=CompanyInfo.notRegistered(
+                companyType=CompanyType.SOLE,
+                owner=CompanyOwner("Maximilian", "Mustermann", "1980-11-22"),
+            ),
+        )
+        with pytest.raises(ErrorResponse) as excinfo:
+            sandbox_client.request("customers", "POST", customer.serialize())
+        assert "API.410.100.111" in {error.code for error in excinfo.value.errors}
+        # And the SDK refuses it before sending.
+        with pytest.raises(ValueError, match="birthDate"):
+            customer.validateBeforeRequest()
+
+    def test_b2b_needs_a_complete_billing_address(self, sandbox_client):
+        customer = Customer(
+            firstname="Maximilian", lastname="Mustermann", company="Mustermann GmbH",
+            billingAddress=Address(firstname="Maximilian", lastname="Mustermann", country="DE"),
+            companyData=CompanyInfo.registered("HRB 12345"),
+        )
+        with pytest.raises(ErrorResponse) as excinfo:
+            sandbox_client.request("customers", "POST", customer.serialize())
+        assert "API.410.100.107" in {error.code for error in excinfo.value.errors}
+        with pytest.raises(ValueError, match="street"):
+            customer.validateBeforeRequest()
+
+    def test_unregistered_company_drops_the_register_number(self, sandbox_client):
+        """Accepted without an error, and not stored."""
+        info = CompanyInfo.notRegistered(commercialRegisterNumber="HRB 12345")
+        customer = sandbox_client.createCustomer(Customer(
+            firstname="Maximilian", lastname="Mustermann", company="Mustermann GmbH",
+            email="maximilian.mustermann@example.com", billingAddress=self._address(),
+            companyData=info,
+        ))
+        assert customer.companyData.commercialRegisterNumber is None
+
+    def test_free_text_is_stored_where_the_docs_list_values(self, sandbox_client):
+        """function, commercialSector and companyType are not checked by the API."""
+        customer = sandbox_client.createCustomer(Customer(
+            firstname="Maximilian", lastname="Mustermann", company="Mustermann GmbH",
+            billingAddress=self._address(),
+            companyData=CompanyInfo.registered("HRB 12345", function="Owner",
+                                               commercialSector="nonsense", companyType="nonsense"),
+        ))
+        info = customer.companyData
+        assert (info.function, info.commercialSector, info.companyType) == ("Owner", "nonsense", "nonsense")
+
+    def test_address_company_is_stored_on_the_billing_address_only(self, sandbox_client):
+        customer = sandbox_client.createCustomer(Customer(
+            firstname="Maximilian", lastname="Mustermann",
+            billingAddress=self._address(company="Billing GmbH"),
+            shippingAddress=self._address(company="Shipping GmbH"),
+        ))
+        assert customer.billingAddress.company == "Billing GmbH"
+        assert customer.shippingAddress.company is None
 
 
 class TestBasket:
@@ -487,6 +611,112 @@ class TestSepaDirectDebit:
         assert all(isinstance(txn.action, Action) for txn in payment.transactions)
 
 
+def requires_b2b(sandbox_client, enabled_methods, payment_type):
+    """Skip unless the keypair allows B2B customers for `payment_type`."""
+    requires(sandbox_client, enabled_methods, payment_type.method_name.value)
+    allowed = payment_type(client=sandbox_client).get_allowed_customer_types()
+    if allowed is not None and CustomerType.B2B not in allowed:
+        pytest.skip(f"account does not allow B2B for {payment_type.method_name.value}")
+
+
+class TestPaylaterB2B:
+    """B2B with the Pay later methods, as far as a server can drive it.
+
+    ``paylater-invoice`` is created with an empty body, and unlike the redirect
+    methods it needs no browser step: an authorize with a B2B customer succeeds
+    right away. It checks more than the customer resource does, though.
+    """
+
+    @staticmethod
+    def _authorize(sandbox_client, customer: Customer):
+        customer = sandbox_client.createCustomer(customer)
+        basket = sandbox_client.createBasket(Basket(
+            amountTotalGross=119.0, currencyCode="EUR", orderId=f"sdk-test-{uuid.uuid4().hex[:12]}",
+            basketItems=[BasketItem(basketItemReferenceId="item-1", quantity=1, amountPerUnit=119.0,
+                                    amountNet=100.0, amountVat=19.0, amountGross=119.0, vat=19,
+                                    title="Article", type="goods")],
+        ))
+        return sandbox_client.authorize(PaymentRequest(
+            paymentType=PaylaterInvoice(), amount=119.0, currency="EUR",
+            customerId=customer.key, basketId=basket.key,
+            orderId=f"sdk-test-{uuid.uuid4().hex[:12]}", returnUrl="https://shop.example.com/return",
+        ), headers={"CLIENTIP": "203.0.113.10", "X-CLIENTIP": "203.0.113.10"})
+
+    @staticmethod
+    def _customer(info: CompanyInfo, **kwargs) -> Customer:
+        address = Address(firstname="Maximilian", lastname="Mustermann", street="Hugo-Junkers-Str. 3",
+                          zipCode="60386", city="Frankfurt am Main", country="DE")
+        fields = {
+            "firstname": "Maximilian",
+            "lastname": "Mustermann",
+            "company": "Mustermann GmbH",
+            "email": "maximilian.mustermann@example.com",
+            "birthDate": "1980-11-22",
+            "billingAddress": address,
+            "shippingAddress": address,
+            "customerId": f"sdk-test-{uuid.uuid4().hex[:12]}",
+            **kwargs,
+        }
+        return Customer(companyData=info, **fields)
+
+    @pytest.mark.parametrize("info", [
+        CompanyInfo.registered("HRB 12345", companyType=CompanyType.COMPANY),
+        CompanyInfo.notRegistered(companyType=CompanyType.COMPANY),
+    ], ids=["registered", "not_registered"])
+    def test_invoice_authorizes_a_b2b_customer(self, sandbox_client, enabled_methods, info):
+        requires_b2b(sandbox_client, enabled_methods, PaylaterInvoice)
+        assert self._authorize(sandbox_client, self._customer(info)).isSuccess
+
+    @pytest.mark.parametrize("company_type", [None, "COMPANY", "nonsense"])
+    def test_invoice_needs_a_valid_company_type(self, sandbox_client, enabled_methods, company_type):
+        """Optional on the customer, but the authorize refuses it missing or unknown -- in any
+        case but lower case."""
+        requires_b2b(sandbox_client, enabled_methods, PaylaterInvoice)
+        customer = self._customer(CompanyInfo.registered("HRB 12345", companyType=company_type))
+        with pytest.raises(ErrorResponse) as excinfo:
+            self._authorize(sandbox_client, customer)
+        assert any("customer.company.type" in error.merchantMessage for error in excinfo.value.errors)
+
+    def test_invoice_needs_function_owner_when_not_registered(self, sandbox_client, enabled_methods):
+        """The customer resource stores any text; the authorize wants OWNER."""
+        requires_b2b(sandbox_client, enabled_methods, PaylaterInvoice)
+        customer = self._customer(CompanyInfo.notRegistered(companyType=CompanyType.COMPANY, function="nonsense"))
+        with pytest.raises(ErrorResponse) as excinfo:
+            self._authorize(sandbox_client, customer)
+        assert "API.410.100.108" in {error.code for error in excinfo.value.errors}
+
+    def test_invoice_owner_must_carry_the_customers_name(self, sandbox_client, enabled_methods):
+        requires_b2b(sandbox_client, enabled_methods, PaylaterInvoice)
+        customer = self._customer(CompanyInfo.notRegistered(
+            companyType=CompanyType.SOLE, owner=CompanyOwner("Erika", "Musterfrau", "1985-01-01")))
+        with pytest.raises(ErrorResponse) as excinfo:
+            self._authorize(sandbox_client, customer)
+        assert "API.320.100.135" in {error.code for error in excinfo.value.errors}
+
+    def test_invoice_config_differs_per_customer_type(self, sandbox_client, enabled_methods):
+        requires_b2b(sandbox_client, enabled_methods, PaylaterInvoice)
+        b2b = sandbox_client.getPaylaterConfig(PaylaterInvoice, CustomerType.B2B)
+        b2c = sandbox_client.getPaylaterConfig(PaylaterInvoice, CustomerType.B2C)
+        assert set(b2b) >= {"dataPrivacyConsent", "dataPrivacyDeclaration", "termsAndConditions"}
+        assert b2b["termsAndConditions"] != b2c["termsAndConditions"]
+
+    def test_invoice_config_requires_the_customer_type(self, sandbox_client, enabled_methods):
+        requires(sandbox_client, enabled_methods, "paylater-invoice")
+        with pytest.raises(ErrorResponse) as excinfo:
+            sandbox_client.getPaylaterConfig(PaylaterInvoice)
+        assert "API.901.300.999" in {error.code for error in excinfo.value.errors}
+
+    def test_installment_plans_refuse_b2b_where_it_is_not_configured(self, sandbox_client, enabled_methods):
+        requires(sandbox_client, enabled_methods, "paylater-installment")
+        allowed = PaylaterInstallment(client=sandbox_client).get_allowed_customer_types()
+        if allowed is None or CustomerType.B2B in allowed:
+            pytest.skip("account allows B2B for installment, or does not say")
+        with pytest.raises(ErrorResponse) as excinfo:
+            sandbox_client.getPaylaterInstallmentPlans(amount=500, currency="EUR", country="DE",
+                                                       customerType=CustomerType.B2B)
+        assert "API.903.000.011" in {error.code for error in excinfo.value.errors}
+
+
 class TestErrorShape:
 
     def test_unknown_payment_raises_error_response(self, sandbox_client):
@@ -505,7 +735,8 @@ class TestErrorShape:
 
 
 #: Model attribute -> the field it is called in the request payload.
-SERIALIZED_AS = {"name": "name", "street": "street", "zipCode": "zip", "city": "city"}
+SERIALIZED_AS = {"name": "name", "street": "street", "zipCode": "zip", "city": "city",
+                 "company": "company"}
 
 #: Every length limit under test, as (owner, attribute, serialized field, limit).
 FIELD_LENGTH_CASES = [
@@ -514,6 +745,12 @@ FIELD_LENGTH_CASES = [
 ] + [
     ("address", attr, SERIALIZED_AS[attr], limit)
     for attr, limit in sorted(Address.MAX_LENGTHS.items())
+] + [
+    ("companyInfo", attr, attr, limit)
+    for attr, limit in sorted(CompanyInfo.MAX_LENGTHS.items())
+] + [
+    ("owner", attr, attr, limit)
+    for attr, limit in sorted(CompanyOwner.MAX_LENGTHS.items())
 ]
 
 #: Readable ids for the parametrised cases above.
@@ -546,8 +783,20 @@ class TestFieldLengths:
             "birthDate": "1980-01-01", "email": "probe@example.org",
             "phone": "", "mobile": "",
         }
-        (customer if owner == "customer" else address)[field] = value
-        return {**customer, "billingAddress": address, "shippingAddress": address}
+        # A registered company with an owner, so that every companyInfo field has
+        # a valid baseline to stretch.
+        company_owner = {"firstname": "Probe", "lastname": "Tester", "birthdate": "1980-01-01"}
+        company_info = {"registrationType": "registered", "commercialRegisterNumber": "HRB 12345",
+                        "function": "OWNER", "commercialSector": "OTHER",
+                        "companyType": "company", "owner": company_owner}
+        target = {"customer": customer, "address": address,
+                  "companyInfo": company_info, "owner": company_owner}[owner]
+        target[field] = value
+        body = {**customer, "billingAddress": address, "shippingAddress": address}
+        if owner in {"companyInfo", "owner"}:
+            body["company"] = "Probe GmbH"
+            body["companyInfo"] = company_info
+        return body
 
     @pytest.mark.parametrize(("owner", "attr", "field", "limit"), FIELD_LENGTH_CASES,
                              ids=FIELD_LENGTH_IDS)
@@ -561,4 +810,9 @@ class TestFieldLengths:
                                                       field, limit):
         with pytest.raises(ErrorResponse) as excinfo:
             sandbox_client.request("customers", "POST", self._payload(owner, field, limit + 1))
-        assert any("invalid length" in error.merchantMessage for error in excinfo.value.errors)
+        # Two wordings, depending on the field: "<field> has invalid length." and,
+        # for the address company, the company type and the owner names,
+        # "<path>: size must be between 0 and 256".
+        assert any("invalid length" in error.merchantMessage
+                   or "size must be between" in error.merchantMessage
+                   for error in excinfo.value.errors)

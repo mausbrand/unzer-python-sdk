@@ -51,6 +51,11 @@ had been believed:
 | A discount can be sent as its own negative basket item (a `voucher` line) | Both schemas reject negative item amounts — `API.600.200.131`, plus `API.600.410.018` on v1. A discount belongs in `amountDiscount` (v1) or `amountDiscountPerUnitGross` (v3), positive |
 | The basket endpoint checks its own arithmetic | Only v3 does, to the cent (`API.600.410.062`). v1 accepts items that contradict `amountTotalGross`, and a charge does not compare the basket to the payment amount either — measured with Prepayment: amounts of 817.02, 726.24, 907.80 and 1.00 are all accepted against the same basket worth 817.02 |
 | Any `returnUrl` the API accepts is fine for local development | A gateway in front of the API refuses `localhost`, `127.0.0.1` and private IPs with a **403 and an nginx HTML page** — the API never sees the request. Hostnames that merely *resolve* to 127.0.0.1 (`lvh.me`, `localtest.me`, `127-0-0-1.nip.io`) pass, so the block is on the string, not the resolved address |
+| `companyType` is mandatory for a B2B customer (docs) | Optional on the customer resource; the `paylater-invoice` authorize requires it, lower case and from the documented list (`COR.100.301.111`) |
+| A sole proprietor needs the `owner` object | The customer resource wants the customer's own `birthDate` (`API.410.100.111`); an owner with a birthdate does not replace it |
+| `commercialSector`, `function`, `companyType` take the listed values | The customer resource stores any text. Only `registrationType` is checked (`API.410.200.026`); `function` must be `OWNER` at the invoice authorize |
+| The owner's date of birth is `birthDate` (invoice docs table) | It is `birthdate`; `birthDate` is dropped without an error |
+| `company` exists on billing and shipping address (OpenAPI) | Stored on the billing address only; on the shipping address it is accepted and dropped |
 | An id field takes any value the resource accepts | A value that looks like a card number is refused with `API.500.560.003` *"Your request is containing the sensitive card information in BODY"*, and the whole request fails. Measured: the check reads each string value **as a whole**, strips separators, and rejects it when the remainder is a Luhn-valid digit string in a card BIN range — so a plain numeric id can trip it |
 
 ### How to verify

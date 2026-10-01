@@ -78,6 +78,48 @@ placeholder class on the fly. The placeholder cannot create a new payment type �
 it for its slug raises `NotImplementedError` with an explanation rather than an obscure
 `AttributeError`.
 
+## B2B customers
+
+A customer becomes a business customer by carrying `companyData` — a `CompanyInfo`, sent
+as `companyInfo`. Which payment methods accept one is a keypair setting:
+`PaymentType.get_allowed_customer_types()` reads it. On every keypair measured so far only
+`paylater-invoice` allows `B2B`.
+
+```python
+from unzer import CompanyInfo, CompanyType, Customer
+
+customer = Customer(
+    firstname="Max", lastname="Mustermann", email="max@example.com",
+    company="Mustermann GmbH", billingAddress=address,
+    companyData=CompanyInfo.registered("HRB 12345", companyType=CompanyType.COMPANY),
+    # or: CompanyInfo.notRegistered(companyType=CompanyType.COMPANY)
+)
+```
+
+What is required is checked in two places, and the second is stricter:
+
+| | Customer resource | `paylater-invoice` authorize |
+|---|---|---|
+| always | `company`, billing address with street, zip, city, country | + first name, email |
+| `registered` | `commercialRegisterNumber` | |
+| `not_registered` | `function`, `commercialSector`, email | `function` must be `OWNER` |
+| sole proprietor | the customer's `birthDate` (an owner does not replace it) | an owner must carry the customer's name |
+| `companyType` | optional, any text | required, lower case, one of `CompanyType` |
+
+`Customer.validateBeforeRequest()` checks the left column. The right one only the
+authorize can tell, so build the `CompanyInfo` with a `companyType` from the start.
+
+Also measured:
+
+- `commercialSector` and `function` accept any text on the customer. Only
+  `registrationType` is checked there.
+- An unregistered company silently drops a `commercialRegisterNumber`.
+- `Address.company` is kept on the billing address only; on the shipping address it
+  disappears.
+- `getPaylaterConfig(PaylaterInvoice, CustomerType.B2B)` returns the legal texts for B2B.
+  An unconfigured customer type is no error — the URLs come back with an empty `channelId`.
+- Installment plans for `B2B` fail with `API.903.000.011` where the keypair allows `B2C` only.
+
 ## Method-specific notes
 
 ### Installment (`paylater-installment`)

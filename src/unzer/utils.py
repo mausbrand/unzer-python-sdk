@@ -71,6 +71,44 @@ def parseDate(value):
     return datetime.datetime.strptime(value, "%Y-%m-%d").date()
 
 
+def parseBirthDate(
+        value: str | datetime.date | datetime.datetime | None,
+) -> datetime.datetime | datetime.date | None:
+    """Parse a date of birth in either of the two formats the API accepts.
+
+    ``1990-01-24`` and ``24.01.1990`` are both read; a :class:`~datetime.date` or
+    :class:`~datetime.datetime` is taken as is. The API accepts both formats for
+    the customer's ``birthDate`` and for the ``birthdate`` of a company owner, and
+    answers with the ISO form either way (measured for the owner).
+
+    :param value: The date of birth, or an empty value.
+    :return: The parsed date, or ``None`` if there was none.
+    :raises TypeError: For a string in neither format, or an unusable type.
+    """
+    if not value:
+        return None
+    if isinstance(value, str):
+        if "-" in value:  # ISO Date
+            return datetime.datetime.strptime(value, "%Y-%m-%d")
+        if "." in value:  # European Date
+            return datetime.datetime.strptime(value, "%d.%m.%Y")
+        raise TypeError(f"Invalid date format of {value!r}")
+    if not isinstance(value, (datetime.datetime, datetime.date)):
+        raise TypeError(f"Invalid value {value!r}")
+    return value
+
+
+def formatBirthDate(value: datetime.date | str | None) -> str | None:
+    """Write a date of birth in the ISO form the API answers with.
+
+    :param value: A parsed date, or a string that is passed on unchanged.
+    :return: ``YYYY-MM-DD``, the string as given, or ``None``.
+    """
+    if isinstance(value, (datetime.datetime, datetime.date)):
+        return value.strftime("%Y-%m-%d")
+    return value
+
+
 def parseFloat(value):
     """Parse an optional amount, which the API sends as string."""
     if value is None or value == "":

@@ -291,3 +291,59 @@ class TestTypeChecks:
         from unzer.model import Customer
         with pytest.raises(TypeError, match="Call updateCustomer"):
             client.createCustomer(Customer(firstname="A", lastname="B", key="s-cst-1"))
+
+
+class TestAllowedCustomerTypes:
+    """``allowCustomerTypes`` arrives as one comma-separated string."""
+
+    @pytest.fixture
+    def keypair(self, fixture_json):
+        responses.add(responses.GET, f"{BASE}/keypair/types",
+                      json=fixture_json("keypair_types_multi_card"))
+
+    @responses.activate
+    def test_the_string_is_split_into_customer_types(self, client, keypair):
+        from unzer.model import CustomerType, PaylaterInvoice
+        assert PaylaterInvoice(client=client).get_allowed_customer_types() == {
+            CustomerType.B2B, CustomerType.B2C}
+
+    @responses.activate
+    def test_several_configurations_give_one_set(self, client, keypair):
+        from unzer.model import Card, CustomerType
+        assert Card(client=client).get_allowed_customer_types() == {CustomerType.B2C}
+
+    @responses.activate
+    def test_a_missing_field_is_not_known_rather_than_nothing_allowed(self, client):
+        from unzer.model import Card
+        responses.add(responses.GET, f"{BASE}/keypair/types",
+                      json={"paymentTypes": [{"type": "card", "supports": []}]})
+        assert Card(client=client).get_allowed_customer_types() is None
+
+    @responses.activate
+    def test_an_unknown_customer_type_raises(self, client):
+        from unzer.model import Card
+        responses.add(responses.GET, f"{BASE}/keypair/types",
+                      json={"paymentTypes": [{"type": "card", "allowCustomerTypes": "B2C,B2X"}]})
+        with pytest.raises(ValueError, match="B2X"):
+            Card(client=client).get_allowed_customer_types()
+
+
+class TestPaylaterConfig:
+    """``types/<paylater method>/config``; the fixture is a captured answer, with the
+    merchant's channel name replaced."""
+
+    @responses.activate
+    def test_customer_type_and_country_go_into_the_query(self, client, fixture_json):
+        from unzer.model import CustomerType, PaylaterInvoice
+        responses.add(responses.GET, f"{BASE}/types/paylater-invoice/config",
+                      json=fixture_json("paylater_invoice_config_b2b"))
+        config = client.getPaylaterConfig(PaylaterInvoice, CustomerType.B2B, country="DE")
+        assert responses.calls[0].request.params == {"customerType": "B2B", "country": "DE"}
+        assert config["termsAndConditions"].endswith("channelId=merchant-invoice-b2b")
+
+    @responses.activate
+    def test_no_query_without_parameters(self, client):
+        from unzer.model import PaylaterInstallment
+        responses.add(responses.GET, f"{BASE}/types/paylater-installment/config", json={})
+        client.getPaylaterConfig(PaylaterInstallment())
+        assert "?" not in responses.calls[0].request.url

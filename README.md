@@ -189,6 +189,24 @@ PCI-DSS liable.
 (`invoice`, `invoice-secured`, `installment-secured`, `sepa-direct-debit-secured`) are not
 implemented.
 
+## B2B customers
+
+A customer with `companyData` is a business customer. What the API requires of it depends on
+whether the company is in a commercial register, and the payment method checks more than the
+customer resource does — see [docs/payment-methods.md](docs/payment-methods.md#b2b-customers).
+
+```python
+from unzer import CompanyInfo, CompanyType, Customer, CustomerType, PaylaterInvoice
+
+customer = client.createCustomer(Customer(
+    firstname="Max", lastname="Mustermann", email="max@example.com",
+    company="Mustermann GmbH", billingAddress=address,
+    companyData=CompanyInfo.registered("HRB 12345", companyType=CompanyType.COMPANY),
+))
+
+PaylaterInvoice(client=client).get_allowed_customer_types()  # {CustomerType.B2B, CustomerType.B2C}
+```
+
 ## What the SDK covers
 
 | Category     | Covered                                                                         |
@@ -196,6 +214,7 @@ implemented.
 | Resources    | customers, baskets (v1 and v3), payment types, payment pages, webhooks, keypair |
 | Transactions | `authorize`, `charge`                                                           |
 | Extras       | installment plans, installment risk check, additional transaction data          |
+| B2B          | company data on customers, Pay later configuration per customer type            |
 
 **Not implemented yet:** cancellations and refunds, shipments, payouts, recurring payments,
 the metadata resource, chargeback retrieval, and Payment Page v2 / LinkPay. A payment that was

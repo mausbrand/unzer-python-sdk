@@ -518,7 +518,7 @@ class UnzerClient:
             amount: float,
             currency: str,
             country: str,
-            customerType: str | None = None,
+            customerType: CustomerType | str | None = None,
             orderId: str | None = None,
             startDateOfPurchase: str | None = None,
             endDateOfPurchase: str | None = None,
@@ -537,7 +537,11 @@ class UnzerClient:
         :param amount: Total amount of the purchase.
         :param currency: ISO currency code of the transaction (``EUR`` or ``CHF``).
         :param country: The customer's country in ISO 3166 ALPHA-2 format (e.g. ``DE``).
-        :param customerType: (optional) ``B2C`` (``B2B`` is not available yet).
+        :param customerType: (optional) :class:`~unzer.model.CustomerType`. The API
+            checks it (``API.903.200.075``). ``B2B`` is refused with
+            ``API.903.000.011`` *Channel/Merchant not configured* on a keypair whose
+            installment configuration only allows ``B2C`` -- which is every keypair
+            measured so far, see :meth:`~unzer.model.PaymentType.get_allowed_customer_types`.
         :param orderId: (optional) Order id that identifies the payment on merchant side.
         :param startDateOfPurchase: (optional) Start date of the purchase.
         :param endDateOfPurchase: (optional) End date of the purchase.
@@ -563,6 +567,52 @@ class UnzerClient:
             "GET",
         )
         return InstallmentPlans.fromDict(data)
+
+    def getPaylaterConfig(
+            self,
+            paymentType: PaylaterInvoice | PaylaterInstallment | PaylaterDirectDebit | type[PaymentType],
+            customerType: CustomerType | str | None = None,
+            country: str | None = None,
+    ) -> dict[str, t.Any]:
+        """Fetch the configuration of a Pay later method for one customer type.
+
+        Mainly the legal texts the customer has to be shown before paying: the
+        privacy declaration and the terms, as URLs on Unzer's side. For
+        installment the answer also names the creditor of the direct debit.
+
+        Measured against the sandbox:
+
+        * ``paylater-invoice`` requires ``customerType``, the others do not. The
+          value is case-sensitive, ``b2b`` is refused (``API.901.300.998``).
+        * A customer type or country the keypair is not configured for is **not**
+          an error: the answer carries the same URLs with an empty ``channelId``.
+          Check :meth:`~unzer.model.PaymentType.get_allowed_customer_types` for
+          what is configured.
+        * The answer does not change with the ``Accept-Language`` header.
+        * The creditor address of ``paylater-installment`` comes back with
+          ``houseNumber`` and ``zipCode`` swapped, which is Unzer's data, not
+          a parsing problem.
+
+        The answer is returned as it is, since it differs per method.
+
+        .. seealso:: ``GET /v1/types/paylater-invoice/config`` in the
+            `API reference <https://api.unzer.com/api-reference/index.html>`_
+
+        :param paymentType: The Pay later method, as class or instance.
+        :param customerType: (optional) :class:`~unzer.model.CustomerType`.
+            Required for ``paylater-invoice``.
+        :param country: (optional) The customer's country in ISO 3166 ALPHA-2 format.
+        :return: The configuration as the API sent it.
+        """
+        query = {
+            key: str(value)
+            for key, value in (("customerType", customerType), ("country", country))
+            if value is not None
+        }
+        path = f"types/{paymentType.method_name.value}/config"
+        if query:
+            path = f"{path}?{urlencode(query)}"
+        return self.request(path, "GET")
 
     def riskCheckPaylaterInstallment(
             self,

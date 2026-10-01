@@ -10,7 +10,15 @@ from .additional_transaction_data import (
 from .address import Address
 from .basket import Basket
 from .basketItem import BasketItem
-from .customer import Customer
+from .company_info import (
+    CompanyCommercialSector,
+    CompanyFunction,
+    CompanyInfo,
+    CompanyOwner,
+    CompanyRegistrationType,
+    CompanyType,
+)
+from .customer import Customer, CustomerType, Salutation
 from .error import Error, ErrorResponse
 from .installment_plans import InstallmentPlan, InstallmentPlans, InstallmentRate
 from .payment import (
@@ -34,6 +42,16 @@ __all__ = [
     "Basket",
     "BasketItem",
     "Customer",
+    # customer
+    "CustomerType",
+    "Salutation",
+    # company_info
+    "CompanyCommercialSector",
+    "CompanyFunction",
+    "CompanyInfo",
+    "CompanyOwner",
+    "CompanyRegistrationType",
+    "CompanyType",
     # additional_transaction_data
     "AdditionalTransactionData",
     "CardTransactionData",
