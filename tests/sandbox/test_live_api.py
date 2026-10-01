@@ -39,9 +39,9 @@ from unzer.model import (
     Customer,
     CustomerType,
     ErrorResponse,
-    PaymentPage,
     PaylaterInstallment,
     PaylaterInvoice,
+    PaymentPage,
     PaymentRequest,
     SepaDirectDebit,
 )
