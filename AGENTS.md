@@ -156,11 +156,19 @@ a browser and would place a real order on every run.
 Do not add fields to these classes. Server-side fields belong only to types that are actually
 created server-side — Installment, SEPA Direct Debit, Direct Bank Transfer.
 
-**camelCase is the current public API, on purpose for now.** Method and attribute names mirror
-the Unzer JSON payload (`getPayment`, `paymentId`, `amountTotalGross`). This is scheduled to
-change to snake_case in 2.0, together with a move to dataclasses. Until then: do not rename
-anything, and keep new *parameters* snake_case only where that is already the local convention
-(`api_version`, `client_ip`, `additional_transaction_data`).
+**Existing camelCase names stay until 2.0; new methods are always snake_case.** Much of the
+public API is camelCase (`getPayment`, `createCustomer`, `fromDict`), and 2.0 moves it to
+snake_case together with dataclasses. Until then:
+
+- **Existing names:** do not rename them — that breaks every caller, viur-shop included.
+- **New methods, properties and helpers:** snake_case, always — even next to camelCase
+  neighbours (`get_paylater_config`, `get_allowed_customer_types`, `CompanyInfo.not_registered`,
+  `Customer.customer_type`).
+- **Attributes that mirror a payload field:** keep the field's name, i.e. camelCase
+  (`paymentId`, `amountTotalGross`, `registrationType`). The same goes for constructor
+  parameters that set such a field.
+- **Other new parameters:** snake_case (`api_version`, `client_ip`,
+  `additional_transaction_data`).
 
 **Unzer offers no idempotency keys.** Neither OpenAPI spec contains an `Idempotency-Key`
 header, and `docs.unzer.com` has no mention of idempotency at all. A retried `POST` can
