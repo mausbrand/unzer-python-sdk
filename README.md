@@ -191,9 +191,10 @@ implemented.
 
 ## B2B customers
 
-A customer with `companyData` is a business customer. What the API requires of it depends on
-whether the company is in a commercial register, and the payment method checks more than the
-customer resource does — see [docs/payment-methods.md](docs/payment-methods.md#b2b-customers).
+A customer with `companyData` is a business customer. What the API asks of it depends on
+whether the company is in a commercial register, and a payment method can check more than the
+customer resource. The SDK leaves those rules to the API; what was observed in the sandbox is
+in [docs/payment-methods.md](docs/payment-methods.md#b2b-customers).
 
 ```python
 from unzer import CompanyInfo, CompanyType, Customer, CustomerType, PaylaterInvoice

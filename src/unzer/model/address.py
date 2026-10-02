@@ -17,9 +17,9 @@ class Address(BaseModel):
     the joined name here, 40 per field there -- so the same person can pass one check
     and fail the other.
 
-    :attr:`company` is stored for a billing address only. Sent on a shipping
-    address, it is accepted and silently dropped: the customer reads back with an
-    empty ``company`` there (measured against the sandbox).
+    In the sandbox :attr:`company` was stored for a billing address only. Sent on a
+    shipping address, it was accepted and dropped: the customer read back with an
+    empty ``company`` there.
     """
 
     MAX_LENGTHS: t.ClassVar[dict[str, int]] = {
@@ -69,8 +69,8 @@ class Address(BaseModel):
         :type city: str
         :param country: (optional) Address country in ISO A2 format (max. 2 chars). Required in case of billing address.
         :type country: str
-        :param company: (optional) Company name (max. 256 chars). Stored for a
-            billing address only, see the class docstring.
+        :param company: (optional) Company name (max. 256 chars). The sandbox kept
+            it on a billing address only, see the class docstring.
         """
         super().__init__(**kwargs)
         self.firstname = firstname  # type: str

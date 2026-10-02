@@ -100,8 +100,8 @@ class Customer(BaseModel):
         :type lastname: str
         :param salutation: (optional) Must be either 'mr', 'mrs' or 'unknown'
         :type salutation: str | Salutation
-        :param company: (optional) Company name (max. 256 chars). The API requires
-            it for a B2B customer, i.e. one with ``companyData``.
+        :param company: (optional) Company name (max. 256 chars). The sandbox asked
+            for it with a B2B customer, i.e. one with ``companyData``.
         :type company: str
         :param customerId: (optional) Must be unique and identifies the customer.
             Can be used in place of the resource id
@@ -301,8 +301,8 @@ class Customer(BaseModel):
             "language": self.getString(self.language),
             "billingAddress": billingAddress,
             "shippingAddress": shippingAddress,
-            # null makes a B2C customer (measured). An empty object would not: it
-            # is read as B2B and refused for its missing registrationType.
+            # null made a B2C customer in the sandbox. An empty object did not: it was
+            # read as B2B and refused for its missing registrationType.
             "companyInfo": self.companyData.serialize() if self.companyData is not None else None,
         }
 
@@ -318,7 +318,7 @@ class Customer(BaseModel):
         data["key"] = data["id"]
         data["billingAddress"] = Address.fromDict(data["billingAddress"])
         data["shippingAddress"] = Address.fromDict(data["shippingAddress"])
-        # A B2C customer comes back without the key at all.
+        # A B2C customer came back without the key at all in the sandbox.
         company_info = data.pop("companyInfo", None)
         data["companyData"] = CompanyInfo.fromDict(company_info, client=client) if company_info else None
         return cls(**data, client=client)

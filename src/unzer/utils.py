@@ -74,12 +74,11 @@ def parseDate(value):
 def parse_birth_date(
         value: str | datetime.date | datetime.datetime | None,
 ) -> datetime.datetime | datetime.date | None:
-    """Parse a date of birth in either of the two formats the API accepts.
+    """Parse a date of birth in either of the two formats the API documents.
 
     ``1990-01-24`` and ``24.01.1990`` are both read; a :class:`~datetime.date` or
-    :class:`~datetime.datetime` is taken as is. The API accepts both formats for
-    the customer's ``birthDate`` and for the ``birthdate`` of a company owner, and
-    answers with the ISO form either way (measured for the owner).
+    :class:`~datetime.datetime` is taken as is. In the sandbox both formats were
+    accepted for the ``birthdate`` of a company owner, and read back in ISO form.
 
     :param value: The date of birth, or an empty value.
     :return: The parsed date, or ``None`` if there was none.
@@ -99,7 +98,7 @@ def parse_birth_date(
 
 
 def format_birth_date(value: datetime.date | str | None) -> str | None:
-    """Write a date of birth in the ISO form the API answers with.
+    """Write a date of birth in ISO form, ``YYYY-MM-DD``.
 
     :param value: A parsed date, or a string that is passed on unchanged.
     :return: ``YYYY-MM-DD``, the string as given, or ``None``.

@@ -537,11 +537,11 @@ class UnzerClient:
         :param amount: Total amount of the purchase.
         :param currency: ISO currency code of the transaction (``EUR`` or ``CHF``).
         :param country: The customer's country in ISO 3166 ALPHA-2 format (e.g. ``DE``).
-        :param customerType: (optional) :class:`~unzer.model.CustomerType`. The API
-            checks it (``API.903.200.075``). ``B2B`` is refused with
-            ``API.903.000.011`` *Channel/Merchant not configured* on a keypair whose
-            installment configuration only allows ``B2C`` -- which is every keypair
-            measured so far, see :meth:`~unzer.model.PaymentType.get_allowed_customer_types`.
+        :param customerType: (optional) :class:`~unzer.model.CustomerType`. In the
+            sandbox an unknown value was refused (``API.903.200.075``), and ``B2B``
+            with ``API.903.000.011`` *Channel/Merchant not configured* on keypairs
+            whose installment configuration allows ``B2C`` only -- see
+            :meth:`~unzer.model.PaymentType.get_allowed_customer_types`.
         :param orderId: (optional) Order id that identifies the payment on merchant side.
         :param startDateOfPurchase: (optional) Start date of the purchase.
         :param endDateOfPurchase: (optional) End date of the purchase.
@@ -580,18 +580,18 @@ class UnzerClient:
         privacy declaration and the terms, as URLs on Unzer's side. For
         installment the answer also names the creditor of the direct debit.
 
-        Measured against the sandbox:
+        Observed in the sandbox, on one keypair:
 
-        * ``paylater-invoice`` requires ``customerType``, the others do not. The
-          value is case-sensitive, ``b2b`` is refused (``API.901.300.998``).
-        * A customer type or country the keypair is not configured for is **not**
-          an error: the answer carries the same URLs with an empty ``channelId``.
+        * ``paylater-invoice`` required ``customerType``, the others did not. The
+          value was case-sensitive, ``b2b`` was refused (``API.901.300.998``).
+        * A customer type or country the keypair is not configured for was **not**
+          an error: the answer carried the same URLs with an empty ``channelId``.
           Check :meth:`~unzer.model.PaymentType.get_allowed_customer_types` for
           what is configured.
-        * The answer does not change with the ``Accept-Language`` header.
-        * The creditor address of ``paylater-installment`` comes back with
-          ``houseNumber`` and ``zipCode`` swapped, which is Unzer's data, not
-          a parsing problem.
+        * The answer did not change with the ``Accept-Language`` header.
+        * The creditor address of ``paylater-installment`` came back with
+          ``houseNumber`` and ``zipCode`` swapped -- Unzer's data, not a parsing
+          problem.
 
         The answer is returned as it is, since it differs per method.
 

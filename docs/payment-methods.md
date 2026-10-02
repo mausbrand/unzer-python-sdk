@@ -83,16 +83,21 @@ it for its slug raises `NotImplementedError` with an explanation rather than an 
 A customer becomes a business customer by carrying `companyData` — a `CompanyInfo`, sent
 as `companyInfo`.
 
+Everything below that says what the API accepts or refuses was observed on sandbox accounts.
+It describes those accounts, not a contract: production, another keypair or another partner
+setup may behave differently. The SDK checks none of it.
+
 Which methods accept one is the keypair's `allowCustomerTypes`, read by
 `PaymentType.get_allowed_customer_types()` — that is the setting to go by. (The docs list B2B
 for nearly every method, except installment, Paylater direct debit and Wero, but what a
 method supports in general says nothing about what an account has enabled.)
 
-Measured, the API enforces the setting for the Pay later methods only:
+In the sandbox only the Pay later methods were seen to enforce it:
 
 | Method | Keypair | B2B customer |
 |---|---|---|
 | `paylater-installment` | `B2C` | refused, `COR.600.200.201` |
+| `paylater-invoice` | `B2C` (a separate invoice keypair) | refused, `COR.600.200.201` |
 | `paylater-invoice` | `B2B,B2C` | accepted |
 | `sepa-direct-debit`, `eps`, `prepayment` | `B2C` | accepted all the same |
 
@@ -110,8 +115,8 @@ customer = Customer(
 )
 ```
 
-What the API requires, as observed in the sandbox — the SDK does not check it, the API
-answers with an `ErrorResponse`. Two places check, and the second is stricter:
+What the sandbox asked for — the SDK does not check it, the API answers with an
+`ErrorResponse`. Two places checked, and the second was stricter:
 
 | | Customer resource | `paylater-invoice` authorize |
 |---|---|---|
@@ -121,19 +126,21 @@ answers with an `ErrorResponse`. Two places check, and the second is stricter:
 | sole proprietor | the customer's `birthDate` (an owner does not replace it) | an owner must carry the customer's name |
 | `companyType` | optional, any text | required, lower case, one of `CompanyType` |
 
-Build the `CompanyInfo` with a `companyType` from the start; the customer resource does
-not ask for it, the authorize does.
+Sending a valid `companyType` from the start costs nothing and avoids the authorize
+refusal seen in the sandbox. (Several of Unzer's own shop plugins send the placeholder
+`"Company Type"` — so other setups may not insist; not verified.)
 
-Also measured:
+Also observed in the sandbox:
 
-- `commercialSector` and `function` accept any text on the customer. Only
-  `registrationType` is checked there.
-- An unregistered company silently drops a `commercialRegisterNumber`.
-- `Address.company` is kept on the billing address only; on the shipping address it
-  disappears.
-- `get_paylater_config(PaylaterInvoice, CustomerType.B2B)` returns the legal texts for B2B.
-  An unconfigured customer type is no error — the URLs come back with an empty `channelId`.
-- Installment plans for `B2B` fail with `API.903.000.011` where the keypair allows `B2C` only.
+- `commercialSector` and `function` accepted any text on the customer; only
+  `registrationType` was checked there.
+- An unregistered company had a `commercialRegisterNumber` dropped without an error.
+- `Address.company` was kept on the billing address only; on the shipping address it
+  disappeared.
+- `get_paylater_config(PaylaterInvoice, CustomerType.B2B)` returned the legal texts for B2B.
+  An unconfigured customer type was no error — the URLs came back with an empty `channelId`.
+- Installment plans for `B2B` failed with `API.903.000.011` where the keypair allowed `B2C`
+  only.
 
 ## Method-specific notes
 

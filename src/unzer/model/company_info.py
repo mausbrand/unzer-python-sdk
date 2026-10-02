@@ -1,9 +1,11 @@
 """The company data of a B2B customer (``companyInfo`` on the customer resource).
 
-Every rule stated here was measured against the sandbox with
-``examples/07_probe_b2b_customer.py``. The PHP SDK, the Java SDK, the OpenAPI spec
-and docs.unzer.com disagree with each other on most of them, and with the API on
-several.
+The behaviour described in this module was observed on sandbox accounts with
+``examples/07_probe_b2b_customer.py``. It describes those accounts, not a contract:
+production, another keypair or another partner setup may behave differently, and
+Unzer can change it at any time. The SDK enforces none of it -- the API answers a
+violation itself. The PHP SDK, the Java SDK, the OpenAPI spec and docs.unzer.com
+disagree with each other on most points, and with the sandbox on several.
 """
 import datetime
 import enum
@@ -19,9 +21,9 @@ if t.TYPE_CHECKING:
 class CompanyRegistrationType(enum.StrEnum):
     """Whether the company is entered in a commercial register.
 
-    The only ``companyInfo`` field whose value the API checks: anything else is
-    refused with ``API.410.200.026`` *registrationType value is invalid.* The API
-    reads it case-insensitively and stores it in lower case.
+    In the sandbox, the only ``companyInfo`` field whose value was checked: anything
+    else was refused with ``API.410.200.026`` *registrationType value is invalid.*,
+    and the value was read case-insensitively and stored in lower case.
 
     .. seealso:: https://github.com/unzerdev/php-sdk/blob/main/src/Constants/CompanyRegistrationTypes.php
     """
@@ -33,10 +35,10 @@ class CompanyRegistrationType(enum.StrEnum):
 class CompanyFunction(enum.StrEnum):
     """The function of the person placing the order within the company.
 
-    ``OWNER`` is the only value any source names. The customer resource does not
-    check it -- ``Owner`` and arbitrary text are stored as sent -- but the
-    ``paylater-invoice`` authorize refuses anything else for an unregistered
-    company (``API.410.100.108``).
+    ``OWNER`` is the only value any source names. In the sandbox the customer
+    resource stored ``Owner`` and arbitrary text as sent, while the
+    ``paylater-invoice`` authorize refused anything else for an unregistered company
+    (``API.410.100.108``).
 
     .. seealso:: https://github.com/unzerdev/php-sdk/blob/main/src/Resources/CustomerFactory.php
     """
@@ -47,8 +49,9 @@ class CompanyFunction(enum.StrEnum):
 class CompanyType(enum.StrEnum):
     """Legal form of the company.
 
-    The customer resource stores any text, in any case. The ``paylater-invoice``
-    authorize requires one of these values, in lower case (``COR.100.301.111``).
+    In the sandbox the customer resource stored any text, in any case, while the
+    ``paylater-invoice`` authorize asked for one of these values, in lower case
+    (``COR.100.301.111``).
 
     .. seealso:: https://github.com/unzerdev/php-sdk/blob/main/src/Constants/CompanyTypes.php
     """
@@ -63,10 +66,10 @@ class CompanyType(enum.StrEnum):
 class CompanyCommercialSector(enum.StrEnum):
     """Line of business of the company.
 
-    Not checked anywhere measured: the customer resource stores any text, in any
-    case -- including the Java SDK's misspelt
+    Not checked anywhere in the sandbox: the customer resource stored any text, in
+    any case -- including the Java SDK's misspelt
     ``WAREHOUSING_AND_SUPPORT_ACTIVITES_FOR_TRANSPORTATION`` -- and the
-    ``paylater-invoice`` authorize accepts it. These are the documented values,
+    ``paylater-invoice`` authorize accepted it. These are the documented values,
     spelt as in the PHP SDK.
 
     .. seealso:: https://github.com/unzerdev/php-sdk/blob/main/src/Constants/CompanyCommercialSectorItems.php
@@ -119,11 +122,12 @@ class CompanyCommercialSector(enum.StrEnum):
 class CompanyOwner(BaseModel):
     """The owner of a company, embedded in :class:`CompanyInfo` as ``owner``.
 
-    Docs.unzer.com asks for it with sole proprietors. The API requires it in no
-    measured case, and stores it for registered and unregistered companies alike.
+    Docs.unzer.com asks for it with sole proprietors. In the sandbox it was required
+    in no case tried, and stored for registered and unregistered companies alike.
 
     Note the casing: the owner's date of birth is ``birthdate``, while the
-    customer's is ``birthDate``. The API silently drops an owner ``birthDate``.
+    customer's is ``birthDate``. In the sandbox an owner ``birthDate`` was dropped
+    without an error.
     """
 
     MAX_LENGTHS: t.ClassVar[dict[str, int]] = {
@@ -144,8 +148,7 @@ class CompanyOwner(BaseModel):
         :param firstname: (optional) First name of the owner.
         :param lastname: (optional) Last name of the owner.
         :param birthdate: (optional) Date of birth, as date or in the format
-            ``yyyy-mm-dd`` or ``dd.mm.yyyy`` -- the API accepts both and answers
-            with the first.
+            ``yyyy-mm-dd`` or ``dd.mm.yyyy``; it is sent as the first.
         """
         super().__init__(**kwargs)
         self.firstname = firstname
@@ -159,7 +162,7 @@ class CompanyOwner(BaseModel):
 
     @birthdate.setter
     def birthdate(self, value: str | datetime.date | datetime.datetime | None) -> None:
-        # A malformed date is refused by the API with the generic API.410.300.999,
+        # The sandbox refused a malformed date with the generic API.410.300.999,
         # which does not name the field. Parsing here names it.
         self._birthdate = parse_birth_date(value)
 
@@ -186,10 +189,10 @@ class CompanyInfo(BaseModel):
     """The company data that makes a customer a B2B customer.
 
     Sent as ``companyInfo`` on the :class:`~unzer.model.customer.Customer`. What
-    the API then requires depends on :attr:`registrationType`. Observed in the
-    sandbox -- this SDK does **not** check these rules, because they are the API's
-    to enforce and production is not known to behave the same; a violation comes
-    back as :class:`~unzer.model.error.ErrorResponse` with the code below:
+    the API then asks for depends on :attr:`registrationType`. The table is what the
+    sandbox asked for -- an observation, not a contract (see the module docstring).
+    This SDK does **not** check it; a violation comes back as
+    :class:`~unzer.model.error.ErrorResponse`, in the sandbox with the code below:
 
     ======================== ============================================== =====================
     registrationType         required                                       error code if missing
@@ -207,30 +210,32 @@ class CompanyInfo(BaseModel):
 
     *sole* is a ``companyType`` of ``sole``, in any case.
 
-    The owner's ``birthdate`` does not replace the customer's for a sole
-    proprietor. And the address rule has a hole: an empty ``billingAddress: {}`` is
-    accepted, while one with only some fields is refused.
+    In the sandbox the owner's ``birthdate`` did not replace the customer's for a
+    sole proprietor, and an empty ``billingAddress: {}`` was accepted while one with
+    only some fields was refused.
 
     The customer resource is only the first check; a payment method may check
-    more at the authorize. Measured for ``paylater-invoice`` -- the other methods
-    were not measured for these rules:
+    more at the authorize. Observed for ``paylater-invoice`` on one sandbox keypair
+    -- other methods and setups were not tried:
 
-    * ``companyType`` is required and must be one of :class:`CompanyType`, in lower
-      case -- ``COR.100.301.111`` *customer.company.type needs to be provided* or
-      *must be a valid type* otherwise. The customer resource accepts it missing.
-    * ``function`` must be ``OWNER`` for an unregistered company
+    * ``companyType`` was required and had to be one of :class:`CompanyType`, in
+      lower case -- ``COR.100.301.111`` *customer.company.type needs to be provided*
+      or *must be a valid type* otherwise -- although the customer resource
+      accepted it missing. Several of Unzer's own shop plugins send the placeholder
+      ``"Company Type"``, which suggests other setups do not insist -- not verified.
+    * ``function`` had to be ``OWNER`` for an unregistered company
       (``API.410.100.108``).
-    * The customer needs a first name and an email, registered or not.
-    * An owner must carry the customer's name (``API.320.100.135``, which speaks
+    * The customer needed a first name and an email, registered or not.
+    * An owner had to carry the customer's name (``API.320.100.135``, which speaks
       of the billing address).
-    * ``commercialSector`` is still not checked.
+    * ``commercialSector`` was not checked.
 
-    And an unregistered company drops a ``commercialRegisterNumber`` without an
+    An unregistered company had a ``commercialRegisterNumber`` dropped without an
     error, so the value is lost rather than refused.
 
-    The customer resource stores any text in ``function``, ``commercialSector``
-    and ``companyType``, so a customer read back can carry values outside the
-    enums. They are typed as strings for that reason; :class:`CompanyFunction`,
+    The sandbox's customer resource stored any text in ``function``,
+    ``commercialSector`` and ``companyType``, so a customer read back can carry
+    values outside the enums. They are typed as strings for that reason; :class:`CompanyFunction`,
     :class:`CompanyCommercialSector` and :class:`CompanyType` hold the documented
     values, and compare equal to them.
 
@@ -259,12 +264,14 @@ class CompanyInfo(BaseModel):
 
         :param registrationType: Whether the company is in a commercial register.
         :param commercialRegisterNumber: (optional) Entry in the commercial register.
-            The API requires it for a registered company and drops it for an
-            unregistered one.
+            Asked for with a registered company, dropped with an unregistered one
+            (sandbox).
         :param function: (optional) Function of the person ordering, documented is
-            only :attr:`CompanyFunction.OWNER`. The API requires it for an unregistered company.
+            only :attr:`CompanyFunction.OWNER`. Asked for with an unregistered
+            company (sandbox).
         :param commercialSector: (optional) Line of business, see
-            :class:`CompanyCommercialSector`. The API requires it for an unregistered company.
+            :class:`CompanyCommercialSector`. Asked for with an unregistered company
+            (sandbox).
         :param companyType: (optional) Legal form, see :class:`CompanyType`.
         :param owner: (optional) The owner of the company.
         :raises ValueError: For a registration type the API does not know.
@@ -284,8 +291,8 @@ class CompanyInfo(BaseModel):
 
     @registrationType.setter
     def registrationType(self, value: CompanyRegistrationType | str) -> None:
-        # Strict on purpose: the API refuses an unknown value (API.410.200.026),
-        # so a typo is better caught here than there.
+        # Strict like every enum here. The sandbox refused an unknown value too
+        # (API.410.200.026).
         self._registrationType = CompanyRegistrationType(value)
 
     @classmethod
@@ -315,7 +322,7 @@ class CompanyInfo(BaseModel):
         """Build the company data of a company without a register entry.
 
         The defaults are the ones the PHP SDK's ``CustomerFactory`` uses, and
-        cover the two fields the API requires here.
+        cover the two fields the sandbox asked for here.
 
         :param commercialSector: (optional) Line of business, ``OTHER`` by default.
         :param function: (optional) Function of the person ordering, ``OWNER`` by default.
@@ -339,9 +346,9 @@ class CompanyInfo(BaseModel):
         return True
 
     def serialize(self) -> dict[str, JSONValue]:
-        # Missing fields are left out rather than sent as "" or null. Both of those
-        # are accepted where the field is optional, but leaving them out is what
-        # was measured for every case.
+        # Missing fields are left out rather than sent as "" or null. The sandbox
+        # accepted both where the field was optional, but leaving them out is what
+        # was tried for every case.
         if self.owner is not None and not isinstance(self.owner, CompanyOwner):
             raise TypeError(f"Expected a CompanyOwner object for owner. Got {type(self.owner)!r}")
         data = {
@@ -358,9 +365,8 @@ class CompanyInfo(BaseModel):
     def fromDict(cls, data: dict[str, JSONValue], client: "UnzerClient | None" = None) -> t.Self:
         """Build the company data from the ``companyInfo`` object of a customer response.
 
-        The API answers an unset field with an empty string, and leaves
-        ``commercialRegisterNumber`` and ``owner`` out entirely when they are not
-        set. Both come back as ``None`` here.
+        An unset field may come as an empty string or be missing altogether -- the
+        sandbox did both. Either becomes ``None`` here.
         """
         owner = data.get("owner")
         return cls(
