@@ -89,7 +89,23 @@ For finding out *what to try*, in this order:
 3. **`https://api.unzer.com/swagger-ui/api-docs`** — the full OpenAPI spec; the API reference
    page is only a ReDoc wrapper around it. Incomplete: `clicktopay` and `sofort` are missing
    although both exist. Still the best written source for `additionalTransactionData`.
-4. `docs.unzer.com` — last, and only for prose and flow descriptions.
+4. **The official shop plugins** under `github.com/unzerdev` — `woocommerce`, `shopware6`,
+   `magento2`, `jtl5`, `oxid7`, `plentymarket`, `commercetools`, `integration-core`. They show
+   what Unzer itself sends in production, which the SDKs do not. Treat them as hints like
+   the rest: they disagree with each other and with the sandbox. Measured examples from B2B:
+   - WooCommerce, Shopware 6, OXID 7 and Plentymarkets send the literal placeholder
+     `companyType: "Company Type"`, which the sandbox's `paylater-invoice` authorize refuses
+     (`COR.100.301.111` *must be a valid type*).
+   - JTL5 is the only one sending `registrationType: "registered"` — with the VAT ID as
+     `commercialRegisterNumber`.
+   - commercetools is the only one filtering methods by the keypair's `allowCustomerTypes`;
+     the older plugins hardcode B2C-only lists and keep separate B2B keypairs for invoice.
+
+   A shallow clone and a local `grep` beat GitHub's code search, which misses matches.
+5. `docs.unzer.com` — last, and only for prose and flow descriptions. Exception: the feature
+   table on each `payment-methods/<method>/` page states B2B/B2C support per method
+   (`pt-feature-row-… supported`/`unsupported` in the HTML) — a statement about the method
+   in general, not about what a keypair has enabled.
 
 Where sources contradict each other, resolve it with a sandbox call and note in the docstring
 which one turned out right — otherwise the next person cannot tell a decision from a mistake.
@@ -116,6 +132,10 @@ not yet verified against the API:
 
 Payment Page attribute keys, as a live generator:
   https://demo.unzer.com/demo/resources/paypage_manual.html
+
+B2B customer UI component, as a live demo (shows the "no commercial register number" toggle
+and the customer payload it sends -- created with the demo's public key, so no authorize):
+  https://sbx-static.unzer.com/demo/resources/b2b_customer.html
 
 When a docs URL 404s — the site was restructured in April 2026:
   https://docs.unzer.com/sitemap.xml
