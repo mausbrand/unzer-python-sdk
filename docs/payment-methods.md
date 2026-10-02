@@ -83,10 +83,12 @@ it for its slug raises `NotImplementedError` with an explanation rather than an 
 A customer becomes a business customer by carrying `companyData` — a `CompanyInfo`, sent
 as `companyInfo`.
 
-Which methods accept one: the docs list B2B for nearly every method, except installment,
-Paylater direct debit and Wero. The keypair carries `allowCustomerTypes` per method, read by
-`PaymentType.get_allowed_customer_types()` — but measured, it is enforced by the Pay later
-methods only:
+Which methods accept one is the keypair's `allowCustomerTypes`, read by
+`PaymentType.get_allowed_customer_types()` — that is the setting to go by. (The docs list B2B
+for nearly every method, except installment, Paylater direct debit and Wero, but what a
+method supports in general says nothing about what an account has enabled.)
+
+Measured, the API enforces the setting for the Pay later methods only:
 
 | Method | Keypair | B2B customer |
 |---|---|---|
@@ -94,8 +96,8 @@ methods only:
 | `paylater-invoice` | `B2B,B2C` | accepted |
 | `sepa-direct-debit`, `eps`, `prepayment` | `B2C` | accepted all the same |
 
-So for the Pay later methods the keypair decides; for the others it does not, as far as
-measured.
+Do not read that leniency as permission: a method that is not enabled for B2B on the keypair
+should not be offered to a business.
 
 ```python
 from unzer import CompanyInfo, CompanyType, Customer
