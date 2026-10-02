@@ -268,9 +268,6 @@ class TestB2BCustomer:
         with pytest.raises(ErrorResponse) as excinfo:
             sandbox_client.request("customers", "POST", customer.serialize())
         assert "API.410.100.111" in {error.code for error in excinfo.value.errors}
-        # And the SDK refuses it before sending.
-        with pytest.raises(ValueError, match="birthDate"):
-            customer.validateBeforeRequest()
 
     def test_b2b_needs_a_complete_billing_address(self, sandbox_client):
         customer = Customer(
@@ -281,8 +278,6 @@ class TestB2BCustomer:
         with pytest.raises(ErrorResponse) as excinfo:
             sandbox_client.request("customers", "POST", customer.serialize())
         assert "API.410.100.107" in {error.code for error in excinfo.value.errors}
-        with pytest.raises(ValueError, match="street"):
-            customer.validateBeforeRequest()
 
     def test_unregistered_company_drops_the_register_number(self, sandbox_client):
         """Accepted without an error, and not stored."""

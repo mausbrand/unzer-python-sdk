@@ -5,7 +5,7 @@ import typing as t
 from ..utils import SENTINEL, Sentinel, formatBirthDate, normalize_language, parseBirthDate
 from .address import Address
 from .base import BaseModel, JSONValue
-from .company_info import CompanyInfo, CompanyRegistrationType, CompanyType
+from .company_info import CompanyInfo
 
 if t.TYPE_CHECKING:
     from ..client import UnzerClient
@@ -55,14 +55,11 @@ class Customer(BaseModel):
     ``name``. That is the API's inconsistency, not a choice of this SDK, and it matters
     because the two are limited separately.
 
-    A customer with :attr:`companyData` is a B2B customer, sent as ``companyInfo``,
-    and the API asks more of it than of a consumer -- measured against the sandbox,
-    see :class:`~unzer.model.company_info.CompanyInfo` for the table. Always a
-    :attr:`company` name and a billing address with street, zip code, city and
-    country; for an unregistered company also the email, and for an unregistered
-    sole proprietor the date of birth. A registered company is accepted without
-    first name, last name, date of birth and email by the customer resource, but
-    ``paylater-invoice`` asks for the first name and the email at the authorize.
+    A customer with :attr:`companyData` is a B2B customer, sent as ``companyInfo``.
+    The API asks more of it than of a consumer; what was observed in the sandbox is
+    listed at :class:`~unzer.model.company_info.CompanyInfo`. This SDK does not check
+    those rules -- the API does, and answers with an
+    :class:`~unzer.model.error.ErrorResponse`.
     """
 
     MAX_LENGTHS: t.ClassVar[dict[str, int]] = {
@@ -103,8 +100,8 @@ class Customer(BaseModel):
         :type lastname: str
         :param salutation: (optional) Must be either 'mr', 'mrs' or 'unknown'
         :type salutation: str | Salutation
-        :param company: (optional) Company name (max. 256 chars). Required for a
-            B2B customer, i.e. one with ``companyData``.
+        :param company: (optional) Company name (max. 256 chars). The API requires
+            it for a B2B customer, i.e. one with ``companyData``.
         :type company: str
         :param customerId: (optional) Must be unique and identifies the customer.
             Can be used in place of the resource id
@@ -257,40 +254,10 @@ class Customer(BaseModel):
             if (address := getattr(self, attr)) is not None:
                 address.validateBeforeRequest()
         if self.companyData is not None:
-            self._validateB2B()
+            if not isinstance(self.companyData, CompanyInfo):
+                raise TypeError(f"Expected a CompanyInfo object for companyData. Got {type(self.companyData)!r}")
+            self.companyData.validateBeforeRequest()
         return True
-
-    def _validateB2B(self) -> None:
-        """Check what the API requires of a B2B customer beyond the company data.
-
-        All measured against the sandbox; the error code is the API's answer when
-        the attribute is missing.
-
-        :raises ValueError: If a required attribute is missing.
-        """
-        name = type(self).__name__
-        if not isinstance(self.companyData, CompanyInfo):
-            raise TypeError(f"Expected a CompanyInfo object for companyData. Got {type(self.companyData)!r}")
-        required = [
-            ("company", "API.410.100.115"),
-            ("billingAddress", "API.410.100.128"),
-        ]
-        if self.companyData.registrationType is CompanyRegistrationType.NOT_REGISTERED:
-            required.append(("email", "API.410.100.112"))
-            # A sole proprietor, and only that one, needs the customer's own date of
-            # birth -- an owner with a birthdate does not replace it. The API reads
-            # the company type case-insensitively.
-            if str(self.companyData.companyType or "").lower() == CompanyType.SOLE:
-                required.append(("birthDate", "API.410.100.111"))
-        for attr, code in required:
-            if not getattr(self, attr):
-                raise ValueError(f"{name} with companyData misses the attribute *{attr}* ({code}).")
-        # An address without them is refused with API.410.100.107 -- only for B2B.
-        for attr in ("street", "zipCode", "city", "country"):
-            if not getattr(self.billingAddress, attr):
-                raise ValueError(
-                    f"{name} with companyData needs a billing address with *{attr}* (API.410.100.107).")
-        self.companyData.validateBeforeRequest()
 
     @property
     def customerType(self) -> CustomerType:

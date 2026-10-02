@@ -110,7 +110,8 @@ customer = Customer(
 )
 ```
 
-What is required is checked in two places, and the second is stricter:
+What the API requires, as observed in the sandbox — the SDK does not check it, the API
+answers with an `ErrorResponse`. Two places check, and the second is stricter:
 
 | | Customer resource | `paylater-invoice` authorize |
 |---|---|---|
@@ -120,8 +121,8 @@ What is required is checked in two places, and the second is stricter:
 | sole proprietor | the customer's `birthDate` (an owner does not replace it) | an owner must carry the customer's name |
 | `companyType` | optional, any text | required, lower case, one of `CompanyType` |
 
-`Customer.validateBeforeRequest()` checks the left column. The right one only the
-authorize can tell, so build the `CompanyInfo` with a `companyType` from the start.
+Build the `CompanyInfo` with a `companyType` from the start; the customer resource does
+not ask for it, the authorize does.
 
 Also measured:
 

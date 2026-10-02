@@ -193,7 +193,7 @@ class TestCustomer:
 
 
 def _b2b_customer(companyData: CompanyInfo, **kwargs) -> Customer:
-    """A B2B customer that satisfies every measured rule, unless `kwargs` break one."""
+    """A complete B2B customer, as the API accepts it in the sandbox."""
     fields = {
         "firstname": "Max",
         "lastname": "Mustermann",
@@ -285,49 +285,9 @@ class TestB2BCustomer:
         with pytest.raises(TypeError, match="CompanyInfo"):
             Customer(firstname="A", lastname="B", companyData={"registrationType": "registered"}).serialize()
 
-    @pytest.mark.parametrize("info", [CompanyInfo.registered("HRB 1"), CompanyInfo.notRegistered()])
-    def test_a_complete_b2b_customer_validates(self, info):
-        assert _b2b_customer(info).validateBeforeRequest()
-
-    @pytest.mark.parametrize(("info", "override", "attr"), [
-        (CompanyInfo.registered("HRB 1"), {"company": None}, "company"),
-        (CompanyInfo.registered("HRB 1"), {"billingAddress": None}, "billingAddress"),
-        (CompanyInfo.notRegistered(), {"email": None}, "email"),
-        (CompanyInfo.notRegistered(companyType="sole"), {"birthDate": None}, "birthDate"),
-        (CompanyInfo.notRegistered(companyType="SOLE"), {"birthDate": None}, "birthDate"),
-    ])
-    def test_measured_customer_requirements(self, info, override, attr):
-        with pytest.raises(ValueError, match=rf"\*{attr}\*"):
-            _b2b_customer(info, **override).validateBeforeRequest()
-
-    @pytest.mark.parametrize("override", [{"email": None}, {"birthDate": None}])
-    def test_a_registered_company_needs_neither_email_nor_birth_date(self, override):
-        assert _b2b_customer(CompanyInfo.registered("HRB 1"), **override).validateBeforeRequest()
-
-    def test_only_a_sole_proprietor_needs_a_birth_date(self):
-        info = CompanyInfo.notRegistered(companyType=CompanyType.COMPANY)
-        assert _b2b_customer(info, birthDate=None).validateBeforeRequest()
-
-    @pytest.mark.parametrize("attr", ["street", "zipCode", "city", "country"])
-    def test_the_billing_address_must_be_complete(self, attr):
-        address = Address(firstname="Max", lastname="Mustermann", street="Teststr. 1",
-                          zipCode="44135", city="Dortmund", country="DE")
-        setattr(address, attr, None)
-        with pytest.raises(ValueError, match=rf"\*{attr}\*"):
-            _b2b_customer(CompanyInfo.registered("HRB 1"), billingAddress=address).validateBeforeRequest()
-
-    def test_a_consumer_needs_no_complete_billing_address(self):
-        assert Customer(firstname="A", lastname="B",
-                        billingAddress=Address(firstname="A", lastname="B")).validateBeforeRequest()
-
-    @pytest.mark.parametrize(("info", "attr"), [
-        (CompanyInfo(CompanyRegistrationType.REGISTERED), "commercialRegisterNumber"),
-        (CompanyInfo(CompanyRegistrationType.NOT_REGISTERED, commercialSector="OTHER"), "function"),
-        (CompanyInfo(CompanyRegistrationType.NOT_REGISTERED, function="OWNER"), "commercialSector"),
-    ])
-    def test_measured_company_requirements(self, info, attr):
-        with pytest.raises(ValueError, match=rf"\*{attr}\*"):
-            _b2b_customer(info).validateBeforeRequest()
+    def test_api_requirements_are_not_checked_here(self):
+        """Missing company, address or email is the API's to refuse, not the SDK's."""
+        assert Customer(firstname="A", lastname="B", companyData=CompanyInfo("registered")).validateBeforeRequest()
 
     @pytest.mark.parametrize(("model", "attr"), [
         (Customer(firstname="A", lastname="B"), "company"),

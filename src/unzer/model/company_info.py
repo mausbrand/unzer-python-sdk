@@ -186,10 +186,10 @@ class CompanyInfo(BaseModel):
     """The company data that makes a customer a B2B customer.
 
     Sent as ``companyInfo`` on the :class:`~unzer.model.customer.Customer`. What
-    the API then requires depends on :attr:`registrationType`, measured against the
-    sandbox. The rules on customer fields are checked by
-    :meth:`Customer.validateBeforeRequest() <unzer.model.customer.Customer.validateBeforeRequest>`,
-    the others here:
+    the API then requires depends on :attr:`registrationType`. Observed in the
+    sandbox -- this SDK does **not** check these rules, because they are the API's
+    to enforce and production is not known to behave the same; a violation comes
+    back as :class:`~unzer.model.error.ErrorResponse` with the code below:
 
     ======================== ============================================== =====================
     registrationType         required                                       error code if missing
@@ -209,8 +209,7 @@ class CompanyInfo(BaseModel):
 
     The owner's ``birthdate`` does not replace the customer's for a sole
     proprietor. And the address rule has a hole: an empty ``billingAddress: {}`` is
-    accepted, while one with only some fields is refused -- this SDK always sends
-    every field, so it checks them.
+    accepted, while one with only some fields is refused.
 
     The customer resource is only the first check; a payment method may check
     more at the authorize. Measured for ``paylater-invoice`` -- the other methods
@@ -260,12 +259,12 @@ class CompanyInfo(BaseModel):
 
         :param registrationType: Whether the company is in a commercial register.
         :param commercialRegisterNumber: (optional) Entry in the commercial register.
-            Required for a registered company, dropped by the API for an
+            The API requires it for a registered company and drops it for an
             unregistered one.
         :param function: (optional) Function of the person ordering, documented is
-            only :attr:`CompanyFunction.OWNER`. Required for an unregistered company.
+            only :attr:`CompanyFunction.OWNER`. The API requires it for an unregistered company.
         :param commercialSector: (optional) Line of business, see
-            :class:`CompanyCommercialSector`. Required for an unregistered company.
+            :class:`CompanyCommercialSector`. The API requires it for an unregistered company.
         :param companyType: (optional) Legal form, see :class:`CompanyType`.
         :param owner: (optional) The owner of the company.
         :raises ValueError: For a registration type the API does not know.
@@ -330,21 +329,11 @@ class CompanyInfo(BaseModel):
         )
 
     def validateBeforeRequest(self) -> bool:
-        """Check the fields the API requires for the registration type.
+        """Check the field lengths, of the owner too.
 
-        :raises ValueError: If a required field is missing or one is too long.
+        :raises ValueError: If a field is too long.
         """
         super().validateBeforeRequest()
-        if self.registrationType is CompanyRegistrationType.REGISTERED:
-            required = ("commercialRegisterNumber",)
-        else:
-            required = ("function", "commercialSector")
-        for attr in required:
-            if not getattr(self, attr):
-                raise ValueError(
-                    f"{type(self).__name__} with registrationType "
-                    f"{self.registrationType.value!r} misses the attribute *{attr}*."
-                )
         if self.owner is not None:
             self.owner.validateBeforeRequest()
         return True
