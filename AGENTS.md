@@ -56,6 +56,7 @@ had been believed:
 | `commercialSector`, `function`, `companyType` take the listed values | The customer resource stores any text. Only `registrationType` is checked (`API.410.200.026`); `function` must be `OWNER` at the invoice authorize |
 | The owner's date of birth is `birthDate` (invoice docs table) | It is `birthdate`; `birthDate` is dropped without an error |
 | `allowCustomerTypes` of the keypair restricts which customers a method accepts | Only the Pay later methods enforce it (installment: `COR.600.200.201` for a B2B customer on a `B2C` keypair). SEPA direct debit, EPS and prepayment accept a B2B customer on a `B2C` keypair |
+| `salutation` takes `"diverse"` (docs of the B2B customer UI component) | Refused for B2C and B2B customers alike: `API.410.200.007` *salutation is invalid: must be mr, mrs or unknown.* `Salutation` keeps its three values, and a "diverse" salutation of a consuming system maps to `unknown` |
 | `company` exists on billing and shipping address (OpenAPI) | Stored on the billing address only; on the shipping address it is accepted and dropped |
 | An id field takes any value the resource accepts | A value that looks like a card number is refused with `API.500.560.003` *"Your request is containing the sensitive card information in BODY"*, and the whole request fails. Measured: the check reads each string value **as a whole**, strips separators, and rejects it when the remainder is a Luhn-valid digit string in a card BIN range — so a plain numeric id can trip it |
 
