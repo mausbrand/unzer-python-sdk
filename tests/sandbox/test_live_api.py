@@ -601,6 +601,25 @@ class TestSepaDirectDebit:
         assert len(charged) == 1, "getChargedTransactions used to return []"
         assert charged[0].transactionId == response.transactionId
 
+    def test_b2b_customer_is_charged_despite_a_b2c_keypair(self, sandbox_client, enabled_methods):
+        """`allowCustomerTypes` is not enforced here, unlike for the Pay later methods."""
+        requires(sandbox_client, enabled_methods, "sepa-direct-debit")
+        allowed = SepaDirectDebit(client=sandbox_client).get_allowed_customer_types()
+        if allowed is None or CustomerType.B2B in allowed:
+            pytest.skip("keypair allows B2B for SEPA direct debit, or does not say")
+        address = Address(firstname="Maximilian", lastname="Mustermann", street="Hugo-Junkers-Str. 3",
+                          zipCode="60386", city="Frankfurt am Main", country="DE")
+        customer = sandbox_client.createCustomer(Customer(
+            firstname="Maximilian", lastname="Mustermann", company="Mustermann GmbH",
+            billingAddress=address, companyData=CompanyInfo.registered("HRB 12345"),
+        ))
+        response = sandbox_client.charge(PaymentRequest(
+            paymentType=SepaDirectDebit(iban=TEST_IBAN, bic=TEST_BIC, holder=TEST_HOLDER),
+            amount=1.0, currency="EUR", customerId=customer.key,
+            returnUrl="https://shop.example.com/return",
+        ))
+        assert response.isSuccess
+
     def test_transaction_actions_are_enums(self, sandbox_client, enabled_methods):
         requires(sandbox_client, enabled_methods, "sepa-direct-debit")
         response = sandbox_client.charge(PaymentRequest(

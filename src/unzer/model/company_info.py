@@ -212,8 +212,9 @@ class CompanyInfo(BaseModel):
     accepted, while one with only some fields is refused -- this SDK always sends
     every field, so it checks them.
 
-    The customer resource is only the first check. ``paylater-invoice``, the one
-    method with B2B, checks more at the authorize (measured):
+    The customer resource is only the first check; a payment method may check
+    more at the authorize. Measured for ``paylater-invoice`` -- the other methods
+    were not measured for these rules:
 
     * ``companyType`` is required and must be one of :class:`CompanyType`, in lower
       case -- ``COR.100.301.111`` *customer.company.type needs to be provided* or

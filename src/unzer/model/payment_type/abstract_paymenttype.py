@@ -168,6 +168,10 @@ class PaymentType(BaseModel):
         string (``"B2B,B2C"``), not as a list. With several configurations for the
         type, the union of all of them is returned.
 
+        Measured, only the Pay later methods enforce it: installment refuses a B2B
+        customer on a keypair that allows ``B2C`` only (``COR.600.200.201``), while
+        SEPA direct debit, EPS and prepayment accept one all the same.
+
         :return: The accepted customer types, or ``None`` if no configuration
             carries the field. That is a deliberate "not known", not "none
             allowed": keypairs differ in which fields they carry at all, and
