@@ -71,7 +71,7 @@ def parseDate(value):
     return datetime.datetime.strptime(value, "%Y-%m-%d").date()
 
 
-def parseBirthDate(
+def parse_birth_date(
         value: str | datetime.date | datetime.datetime | None,
 ) -> datetime.datetime | datetime.date | None:
     """Parse a date of birth in either of the two formats the API accepts.
@@ -98,7 +98,7 @@ def parseBirthDate(
     return value
 
 
-def formatBirthDate(value: datetime.date | str | None) -> str | None:
+def format_birth_date(value: datetime.date | str | None) -> str | None:
     """Write a date of birth in the ISO form the API answers with.
 
     :param value: A parsed date, or a string that is passed on unchanged.

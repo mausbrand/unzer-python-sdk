@@ -221,14 +221,14 @@ class TestB2BCustomer:
         assert customer.companyData.commercialRegisterNumber == "HRB 12345"
         assert customer.companyData.companyType == "company"
         assert customer.companyData.owner is None
-        assert customer.customerType == "B2B"
+        assert customer.customer_type == "B2B"
 
     def test_unregistered_sole_proprietor_with_owner_round_trips(self, sandbox_client):
         customer = sandbox_client.createCustomer(Customer(
             firstname="Maximilian", lastname="Mustermann", company="Mustermann Consulting",
             email="maximilian.mustermann@example.com", birthDate="1980-11-22",
             billingAddress=self._address(),
-            companyData=CompanyInfo.notRegistered(
+            companyData=CompanyInfo.not_registered(
                 companyType=CompanyType.SOLE,
                 owner=CompanyOwner("Maximilian", "Mustermann", "22.11.1980"),
             ),
@@ -244,7 +244,7 @@ class TestB2BCustomer:
         customer = sandbox_client.createCustomer(
             Customer(firstname="Maximilian", lastname="Mustermann"))
         assert customer.companyData is None
-        assert customer.customerType == "B2C"
+        assert customer.customer_type == "B2C"
 
     def test_registered_without_register_number_is_refused(self, sandbox_client):
         with pytest.raises(ErrorResponse) as excinfo:
@@ -260,7 +260,7 @@ class TestB2BCustomer:
         customer = Customer(
             firstname="Maximilian", lastname="Mustermann", company="Mustermann Consulting",
             email="maximilian.mustermann@example.com", billingAddress=self._address(),
-            companyData=CompanyInfo.notRegistered(
+            companyData=CompanyInfo.not_registered(
                 companyType=CompanyType.SOLE,
                 owner=CompanyOwner("Maximilian", "Mustermann", "1980-11-22"),
             ),
@@ -281,7 +281,7 @@ class TestB2BCustomer:
 
     def test_unregistered_company_drops_the_register_number(self, sandbox_client):
         """Accepted without an error, and not stored."""
-        info = CompanyInfo.notRegistered(commercialRegisterNumber="HRB 12345")
+        info = CompanyInfo.not_registered(commercialRegisterNumber="HRB 12345")
         customer = sandbox_client.createCustomer(Customer(
             firstname="Maximilian", lastname="Mustermann", company="Mustermann GmbH",
             email="maximilian.mustermann@example.com", billingAddress=self._address(),
@@ -675,7 +675,7 @@ class TestPaylaterB2B:
 
     @pytest.mark.parametrize("info", [
         CompanyInfo.registered("HRB 12345", companyType=CompanyType.COMPANY),
-        CompanyInfo.notRegistered(companyType=CompanyType.COMPANY),
+        CompanyInfo.not_registered(companyType=CompanyType.COMPANY),
     ], ids=["registered", "not_registered"])
     def test_invoice_authorizes_a_b2b_customer(self, sandbox_client, enabled_methods, info):
         requires_b2b(sandbox_client, enabled_methods, PaylaterInvoice)
@@ -694,14 +694,14 @@ class TestPaylaterB2B:
     def test_invoice_needs_function_owner_when_not_registered(self, sandbox_client, enabled_methods):
         """The customer resource stores any text; the authorize wants OWNER."""
         requires_b2b(sandbox_client, enabled_methods, PaylaterInvoice)
-        customer = self._customer(CompanyInfo.notRegistered(companyType=CompanyType.COMPANY, function="nonsense"))
+        customer = self._customer(CompanyInfo.not_registered(companyType=CompanyType.COMPANY, function="nonsense"))
         with pytest.raises(ErrorResponse) as excinfo:
             self._authorize(sandbox_client, customer)
         assert "API.410.100.108" in {error.code for error in excinfo.value.errors}
 
     def test_invoice_owner_must_carry_the_customers_name(self, sandbox_client, enabled_methods):
         requires_b2b(sandbox_client, enabled_methods, PaylaterInvoice)
-        customer = self._customer(CompanyInfo.notRegistered(
+        customer = self._customer(CompanyInfo.not_registered(
             companyType=CompanyType.SOLE, owner=CompanyOwner("Erika", "Musterfrau", "1985-01-01")))
         with pytest.raises(ErrorResponse) as excinfo:
             self._authorize(sandbox_client, customer)
@@ -709,15 +709,15 @@ class TestPaylaterB2B:
 
     def test_invoice_config_differs_per_customer_type(self, sandbox_client, enabled_methods):
         requires_b2b(sandbox_client, enabled_methods, PaylaterInvoice)
-        b2b = sandbox_client.getPaylaterConfig(PaylaterInvoice, CustomerType.B2B)
-        b2c = sandbox_client.getPaylaterConfig(PaylaterInvoice, CustomerType.B2C)
+        b2b = sandbox_client.get_paylater_config(PaylaterInvoice, CustomerType.B2B)
+        b2c = sandbox_client.get_paylater_config(PaylaterInvoice, CustomerType.B2C)
         assert set(b2b) >= {"dataPrivacyConsent", "dataPrivacyDeclaration", "termsAndConditions"}
         assert b2b["termsAndConditions"] != b2c["termsAndConditions"]
 
     def test_invoice_config_requires_the_customer_type(self, sandbox_client, enabled_methods):
         requires(sandbox_client, enabled_methods, "paylater-invoice")
         with pytest.raises(ErrorResponse) as excinfo:
-            sandbox_client.getPaylaterConfig(PaylaterInvoice)
+            sandbox_client.get_paylater_config(PaylaterInvoice)
         assert "API.901.300.999" in {error.code for error in excinfo.value.errors}
 
     def test_installment_plans_refuse_b2b_where_it_is_not_configured(self, sandbox_client, enabled_methods):

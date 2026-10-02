@@ -2,7 +2,7 @@ import datetime
 import enum
 import typing as t
 
-from ..utils import SENTINEL, Sentinel, formatBirthDate, normalize_language, parseBirthDate
+from ..utils import SENTINEL, Sentinel, format_birth_date, normalize_language, parse_birth_date
 from .address import Address
 from .base import BaseModel, JSONValue
 from .company_info import CompanyInfo
@@ -194,7 +194,7 @@ class Customer(BaseModel):
 
         :raises TypeError: For a string in neither format, or an unusable type.
         """
-        self._birthDate = parseBirthDate(value)
+        self._birthDate = parse_birth_date(value)
 
     @property
     def phone(self) -> str | None:
@@ -260,12 +260,12 @@ class Customer(BaseModel):
         return True
 
     @property
-    def customerType(self) -> CustomerType:
+    def customer_type(self) -> CustomerType:
         """B2B for a customer with :attr:`companyData`, B2C otherwise."""
         return CustomerType.B2B if self.companyData is not None else CustomerType.B2C
 
     def serialize(self):
-        birthDate = formatBirthDate(self.birthDate)
+        birthDate = format_birth_date(self.birthDate)
 
         # An empty string is rejected by the API with API.410.300.007
         # ("HTTP message not readable") because the field is an object, not a

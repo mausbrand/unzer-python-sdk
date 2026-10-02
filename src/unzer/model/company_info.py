@@ -9,7 +9,7 @@ import datetime
 import enum
 import typing as t
 
-from ..utils import formatBirthDate, parseBirthDate
+from ..utils import format_birth_date, parse_birth_date
 from .base import BaseModel, JSONValue
 
 if t.TYPE_CHECKING:
@@ -161,13 +161,13 @@ class CompanyOwner(BaseModel):
     def birthdate(self, value: str | datetime.date | datetime.datetime | None) -> None:
         # A malformed date is refused by the API with the generic API.410.300.999,
         # which does not name the field. Parsing here names it.
-        self._birthdate = parseBirthDate(value)
+        self._birthdate = parse_birth_date(value)
 
     def serialize(self) -> dict[str, JSONValue]:
         data = {
             "firstname": self.firstname,
             "lastname": self.lastname,
-            "birthdate": formatBirthDate(self.birthdate),
+            "birthdate": format_birth_date(self.birthdate),
         }
         return {key: value for key, value in data.items() if value is not None}
 
@@ -306,7 +306,7 @@ class CompanyInfo(BaseModel):
         )
 
     @classmethod
-    def notRegistered(
+    def not_registered(
             cls,
             commercialSector: CompanyCommercialSector | str = CompanyCommercialSector.OTHER,
             function: CompanyFunction | str = CompanyFunction.OWNER,

@@ -221,7 +221,7 @@ class TestB2BCustomer:
         # The API answers an unset companyType with "".
         assert info.companyType is None
         assert info.owner is None
-        assert customer.customerType is CustomerType.B2B
+        assert customer.customer_type is CustomerType.B2B
 
     def test_unregistered_company_with_owner_from_api_response(self, fixture_json):
         info = Customer.fromDict(fixture_json("customer_b2b_not_registered")).companyData
@@ -236,7 +236,7 @@ class TestB2BCustomer:
         """A B2C customer comes back without the companyInfo key."""
         customer = Customer.fromDict(fixture_json("customer"))
         assert customer.companyData is None
-        assert customer.customerType is CustomerType.B2C
+        assert customer.customer_type is CustomerType.B2C
         assert customer.serialize()["companyInfo"] is None
 
     def test_round_trip_keeps_the_company_data(self, fixture_json):
@@ -253,7 +253,7 @@ class TestB2BCustomer:
         }
 
     def test_not_registered_defaults_to_the_php_sdk_values(self):
-        assert CompanyInfo.notRegistered().serialize() == {
+        assert CompanyInfo.not_registered().serialize() == {
             "registrationType": "not_registered",
             "function": "OWNER",
             "commercialSector": "OTHER",

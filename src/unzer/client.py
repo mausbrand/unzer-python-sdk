@@ -568,7 +568,7 @@ class UnzerClient:
         )
         return InstallmentPlans.fromDict(data)
 
-    def getPaylaterConfig(
+    def get_paylater_config(
             self,
             paymentType: PaylaterInvoice | PaylaterInstallment | PaylaterDirectDebit | type[PaymentType],
             customerType: CustomerType | str | None = None,

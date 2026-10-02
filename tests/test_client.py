@@ -337,7 +337,7 @@ class TestPaylaterConfig:
         from unzer.model import CustomerType, PaylaterInvoice
         responses.add(responses.GET, f"{BASE}/types/paylater-invoice/config",
                       json=fixture_json("paylater_invoice_config_b2b"))
-        config = client.getPaylaterConfig(PaylaterInvoice, CustomerType.B2B, country="DE")
+        config = client.get_paylater_config(PaylaterInvoice, CustomerType.B2B, country="DE")
         assert responses.calls[0].request.params == {"customerType": "B2B", "country": "DE"}
         assert config["termsAndConditions"].endswith("channelId=merchant-invoice-b2b")
 
@@ -345,5 +345,5 @@ class TestPaylaterConfig:
     def test_no_query_without_parameters(self, client):
         from unzer.model import PaylaterInstallment
         responses.add(responses.GET, f"{BASE}/types/paylater-installment/config", json={})
-        client.getPaylaterConfig(PaylaterInstallment())
+        client.get_paylater_config(PaylaterInstallment())
         assert "?" not in responses.calls[0].request.url

@@ -106,7 +106,7 @@ customer = Customer(
     firstname="Max", lastname="Mustermann", email="max@example.com",
     company="Mustermann GmbH", billingAddress=address,
     companyData=CompanyInfo.registered("HRB 12345", companyType=CompanyType.COMPANY),
-    # or: CompanyInfo.notRegistered(companyType=CompanyType.COMPANY)
+    # or: CompanyInfo.not_registered(companyType=CompanyType.COMPANY)
 )
 ```
 
@@ -131,7 +131,7 @@ Also measured:
 - An unregistered company silently drops a `commercialRegisterNumber`.
 - `Address.company` is kept on the billing address only; on the shipping address it
   disappears.
-- `getPaylaterConfig(PaylaterInvoice, CustomerType.B2B)` returns the legal texts for B2B.
+- `get_paylater_config(PaylaterInvoice, CustomerType.B2B)` returns the legal texts for B2B.
   An unconfigured customer type is no error — the URLs come back with an empty `channelId`.
 - Installment plans for `B2B` fail with `API.903.000.011` where the keypair allows `B2C` only.
 
