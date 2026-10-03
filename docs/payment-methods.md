@@ -162,6 +162,14 @@ reference shows seconds. The `CLIENTIP` header is required for the risk checks â
 `client_ip` to the client. Note the API reference calls that header `x-CLIENTIP`; the API
 wants `CLIENTIP`, which is also what the PHP and Java SDKs send.
 
+### Invoice (`paylater-invoice`)
+
+A shipping address in another person's name got the authorize refused in the sandbox:
+`COR.100.301.002` *transaction declined [details: Transaction not allowed. PRE_AUTH
+declined.]* â€” for consumers and businesses alike, with or without a date of birth. The same
+person at a different address was accepted. Whether production behaves the same is not
+known; the SDK does not prevent it, the API decides.
+
 ### Klarna
 
 Runs on a **v1 basket** and without `termsAndConditionUrl`/`privacyPolicyUrl`, both of
