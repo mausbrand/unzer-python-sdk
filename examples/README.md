@@ -19,12 +19,15 @@ because they all create real transactions on whatever account the key belongs to
 | `04_webhooks.py` | register, list and delete webhooks |
 | `05_client_side_types.py` | working with a `typeId` that came from the frontend |
 | `06_probe_field_limits.py` | measure the field length limits the API enforces |
+| `07_probe_b2b_customer.py` | measure what the API enforces for B2B customers (`companyInfo`) |
 
 Two things to know before running them.
 
-**`06` is a measuring tool, not a flow.** It binary-searches the longest value each field
-accepts and prints the boundary. The numbers in `MAX_LENGTHS` come from it, because the
-documented ones were wrong for several fields. It sends nothing without `--execute`.
+**`06` and `07` are measuring tools, not flows.** `06` binary-searches the longest value each
+field accepts and prints the boundary; the numbers in `MAX_LENGTHS` come from it, because the
+documented ones were wrong for several fields. `07` sends one B2B customer per case and shows
+what the API refused or stored; the rules in `CompanyInfo` come from it. Neither sends anything
+without `--execute`.
 
 **Not every account can do everything.** Sandbox accounts differ in which payment methods are
 enabled — `03` needs `paylater-installment`. Each script checks and tells you if the account

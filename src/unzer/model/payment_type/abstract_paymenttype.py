@@ -4,6 +4,7 @@ import logging
 import typing as t
 
 from ..base import BaseModel
+from ..customer import CustomerType
 
 if t.TYPE_CHECKING:
     from ..payment import PaymentTypes, PaymentMethodTypes  # noqa
@@ -159,6 +160,41 @@ class PaymentType(BaseModel):
         if not configurations:
             raise LookupError(f"PaymentType {self.method_name} is not configured in the keypair")
         return configurations
+
+    def get_allowed_customer_types(self) -> set[CustomerType] | None:
+        """Provide the customer types the keypair accepts for this payment type.
+
+        Read from ``allowCustomerTypes``, which the API sends as one comma-separated
+        string (``"B2B,B2C"``), not as a list. With several configurations for the
+        type, the union of all of them is returned.
+
+        This is the setting to go by. In the sandbox only the Pay later methods were
+        seen to enforce it -- installment and invoice refused a B2B customer on a
+        keypair allowing ``B2C`` only (``COR.600.200.201``), while SEPA direct debit,
+        EPS and prepayment accepted one all the same. That leniency is an observation,
+        not something to rely on.
+
+        :return: The accepted customer types, or ``None`` if no configuration
+            carries the field. That is a deliberate "not known", not "none
+            allowed": keypairs differ in which fields they carry at all, and
+            reading a missing field as "nothing allowed" would switch off a
+            payment method that works.
+        :raises LookupError: If the payment type is not configured at all.
+        :raises ValueError: For a customer type this SDK does not know.
+        """
+        values = [
+            configuration["allowCustomerTypes"]
+            for configuration in self.get_configurations()
+            if configuration.get("allowCustomerTypes") is not None
+        ]
+        if not values:
+            return None
+        return {
+            CustomerType(part.strip())
+            for value in values
+            for part in value.split(",")
+            if part.strip()
+        }
 
     # TODO: Without caching this isn't the best solution --> better implement in the KeyPairTypeModel
     def get_channel_id(self, brand: str | None = None) -> str:

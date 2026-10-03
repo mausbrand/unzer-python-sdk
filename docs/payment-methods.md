@@ -78,6 +78,71 @@ placeholder class on the fly. The placeholder cannot create a new payment type �
 it for its slug raises `NotImplementedError` with an explanation rather than an obscure
 `AttributeError`.
 
+## B2B customers
+
+A customer becomes a business customer by carrying `companyData` — a `CompanyInfo`, sent
+as `companyInfo`.
+
+Everything below that says what the API accepts or refuses was observed on sandbox accounts.
+It describes those accounts, not a contract: production, another keypair or another partner
+setup may behave differently. The SDK checks none of it.
+
+Which methods accept one is the keypair's `allowCustomerTypes`, read by
+`PaymentType.get_allowed_customer_types()` — that is the setting to go by. (The docs list B2B
+for nearly every method, except installment, Paylater direct debit and Wero, but what a
+method supports in general says nothing about what an account has enabled.)
+
+In the sandbox only the Pay later methods were seen to enforce it:
+
+| Method | Keypair | B2B customer |
+|---|---|---|
+| `paylater-installment` | `B2C` | refused, `COR.600.200.201` |
+| `paylater-invoice` | `B2C` (a separate invoice keypair) | refused, `COR.600.200.201` |
+| `paylater-invoice` | `B2B,B2C` | accepted |
+| `sepa-direct-debit`, `eps`, `prepayment` | `B2C` | accepted all the same |
+
+Do not read that leniency as permission: a method that is not enabled for B2B on the keypair
+should not be offered to a business.
+
+```python
+from unzer import CompanyInfo, CompanyType, Customer
+
+customer = Customer(
+    firstname="Max", lastname="Mustermann", email="max@example.com",
+    company="Mustermann GmbH", billingAddress=address,
+    companyData=CompanyInfo.registered("HRB 12345", companyType=CompanyType.COMPANY),
+    # or: CompanyInfo.not_registered(companyType=CompanyType.COMPANY)
+)
+```
+
+What a `paylater-invoice` payment for a business needed in the sandbox — the SDK does not
+check it, the API answers with an `ErrorResponse`. Part of it is refused already when the
+customer is created, the rest at the authorize; for the outcome that makes no difference:
+
+| | Needed |
+|---|---|
+| always | `company`; billing address with street, zip, city, country; first name; email; `companyType`, lower case, one of `CompanyType` |
+| `registered` | `commercialRegisterNumber` |
+| `not_registered` | `function` = `OWNER`, `commercialSector` |
+| sole proprietor (`not_registered`, `companyType` `sole`) | the customer's `birthDate` — an owner's does not replace it |
+| with an owner | the owner carries the customer's name |
+| not needed | salutation (sent as `unknown`); the last name was not tried on its own |
+
+Several of Unzer's own shop plugins send the placeholder `"Company Type"` — so other setups
+may not insist on a valid one; not verified. Other methods were not tried.
+
+Also observed in the sandbox:
+
+- `commercialSector` and `function` accepted any text on the customer; only
+  `registrationType` was checked there.
+- An unregistered company had a `commercialRegisterNumber` dropped without an error.
+- `Address.company` was kept on the billing address only; on the shipping address it
+  disappeared.
+- `get_paylater_config(PaylaterInvoice, CustomerType.B2B)` returned the legal texts for B2B.
+  An unconfigured customer type was no error — the URLs came back with an empty `channelId`.
+- Installment plans for `B2B` failed with `API.903.000.011` where the keypair allowed `B2C`
+  only.
+
 ## Method-specific notes
 
 ### Installment (`paylater-installment`)
@@ -96,6 +161,14 @@ The only method with a mandatory order of calls:
 reference shows seconds. The `CLIENTIP` header is required for the risk checks — pass
 `client_ip` to the client. Note the API reference calls that header `x-CLIENTIP`; the API
 wants `CLIENTIP`, which is also what the PHP and Java SDKs send.
+
+### Invoice (`paylater-invoice`)
+
+A shipping address in another person's name got the authorize refused in the sandbox:
+`COR.100.301.002` *transaction declined [details: Transaction not allowed. PRE_AUTH
+declined.]* — for consumers and businesses alike, with or without a date of birth. The same
+person at a different address was accepted. Whether production behaves the same is not
+known; the SDK does not prevent it, the API decides.
 
 ### Klarna
 
