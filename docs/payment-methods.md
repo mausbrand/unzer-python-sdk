@@ -115,20 +115,21 @@ customer = Customer(
 )
 ```
 
-What the sandbox asked for — the SDK does not check it, the API answers with an
-`ErrorResponse`. Two places checked, and the second was stricter:
+What a `paylater-invoice` payment for a business needed in the sandbox — the SDK does not
+check it, the API answers with an `ErrorResponse`. Part of it is refused already when the
+customer is created, the rest at the authorize; for the outcome that makes no difference:
 
-| | Customer resource | `paylater-invoice` authorize |
-|---|---|---|
-| always | `company`, billing address with street, zip, city, country | + first name, email |
-| `registered` | `commercialRegisterNumber` | |
-| `not_registered` | `function`, `commercialSector`, email | `function` must be `OWNER` |
-| sole proprietor | the customer's `birthDate` (an owner does not replace it) | an owner must carry the customer's name |
-| `companyType` | optional, any text | required, lower case, one of `CompanyType` |
+| | Needed |
+|---|---|
+| always | `company`; billing address with street, zip, city, country; first name; email; `companyType`, lower case, one of `CompanyType` |
+| `registered` | `commercialRegisterNumber` |
+| `not_registered` | `function` = `OWNER`, `commercialSector` |
+| sole proprietor (`not_registered`, `companyType` `sole`) | the customer's `birthDate` — an owner's does not replace it |
+| with an owner | the owner carries the customer's name |
+| not needed | salutation (sent as `unknown`); the last name was not tried on its own |
 
-Sending a valid `companyType` from the start costs nothing and avoids the authorize
-refusal seen in the sandbox. (Several of Unzer's own shop plugins send the placeholder
-`"Company Type"` — so other setups may not insist; not verified.)
+Several of Unzer's own shop plugins send the placeholder `"Company Type"` — so other setups
+may not insist on a valid one; not verified. Other methods were not tried.
 
 Also observed in the sandbox:
 

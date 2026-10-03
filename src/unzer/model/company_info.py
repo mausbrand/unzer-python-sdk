@@ -188,47 +188,38 @@ class CompanyOwner(BaseModel):
 class CompanyInfo(BaseModel):
     """The company data that makes a customer a B2B customer.
 
-    Sent as ``companyInfo`` on the :class:`~unzer.model.customer.Customer`. What
-    the API then asks for depends on :attr:`registrationType`. The table is what the
-    sandbox asked for -- an observation, not a contract (see the module docstring).
-    This SDK does **not** check it; a violation comes back as
-    :class:`~unzer.model.error.ErrorResponse`, in the sandbox with the code below:
+    Sent as ``companyInfo`` on the :class:`~unzer.model.customer.Customer`. What a
+    payment then needs depends on :attr:`registrationType`. The table is what the
+    whole ``paylater-invoice`` flow asked for on one sandbox keypair -- an
+    observation, not a contract (see the module docstring); other methods were not
+    tried. This SDK does **not** check it; a violation comes back as
+    :class:`~unzer.model.error.ErrorResponse`. Codes starting with ``API.410`` came
+    already when the customer was created, ``COR`` and ``API.320`` only at the
+    authorize -- worth knowing when debugging, irrelevant otherwise:
 
-    ======================== ============================================== =====================
-    registrationType         required                                       error code if missing
-    ======================== ============================================== =====================
+    ======================== ============================================== ==============================
+    registrationType         needed for a ``paylater-invoice`` payment      refused with
+    ======================== ============================================== ==============================
     (always)                 ``registrationType``                           ``API.410.100.120``
     (always)                 ``company`` on the customer                    ``API.410.100.115``
     (always)                 a billing address                              ``API.410.100.128``
     (always)                 its ``street``, ``zip``, ``city``, ``country`` ``API.410.100.107``
+    (always)                 ``firstname`` and ``email`` on the customer    ``COR.100.301.111``
+    (always)                 ``companyType``, one of :class:`CompanyType`   ``COR.100.301.111``
     ``registered``           ``commercialRegisterNumber``                   ``API.410.100.110``
-    ``not_registered``       ``function``                                   ``API.410.100.119``
+    ``not_registered``       ``function``, and it must be ``OWNER``         ``API.410.100.119`` / ``.108``
     ``not_registered``       ``commercialSector``                           ``API.410.100.116``
     ``not_registered``       ``email`` on the customer                      ``API.410.100.112``
     ``not_registered``, sole ``birthDate`` on the customer                  ``API.410.100.111``
-    ======================== ============================================== =====================
+    with an owner            the owner carries the customer's name          ``API.320.100.135``
+    ======================== ============================================== ==============================
 
-    *sole* is a ``companyType`` of ``sole``, in any case.
-
-    In the sandbox the owner's ``birthdate`` did not replace the customer's for a
-    sole proprietor, and an empty ``billingAddress: {}`` was accepted while one with
-    only some fields was refused.
-
-    The customer resource is only the first check; a payment method may check
-    more at the authorize. Observed for ``paylater-invoice`` on one sandbox keypair
-    -- other methods and setups were not tried:
-
-    * ``companyType`` was required and had to be one of :class:`CompanyType`, in
-      lower case -- ``COR.100.301.111`` *customer.company.type needs to be provided*
-      or *must be a valid type* otherwise -- although the customer resource
-      accepted it missing. Several of Unzer's own shop plugins send the placeholder
-      ``"Company Type"``, which suggests other setups do not insist -- not verified.
-    * ``function`` had to be ``OWNER`` for an unregistered company
-      (``API.410.100.108``).
-    * The customer needed a first name and an email, registered or not.
-    * An owner had to carry the customer's name (``API.320.100.135``, which speaks
-      of the billing address).
-    * ``commercialSector`` was not checked.
+    *sole* is a ``companyType`` of ``sole``, in any case. ``companyType`` had to be
+    lower case; several of Unzer's own shop plugins send the placeholder
+    ``"Company Type"``, which suggests other setups do not insist -- not verified.
+    The customer's last name was not tried on its own. The owner's ``birthdate`` did
+    not replace the customer's for a sole proprietor, ``commercialSector`` was not
+    checked, and the salutation was not needed (it defaults to ``unknown``).
 
     An unregistered company had a ``commercialRegisterNumber`` dropped without an
     error, so the value is lost rather than refused.
