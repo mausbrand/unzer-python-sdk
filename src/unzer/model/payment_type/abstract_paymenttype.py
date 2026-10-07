@@ -61,20 +61,20 @@ class PaymentType(BaseModel):
     def __init__(
             self,
             key: str | None = None,
-            **kwargs
-    ):
+            **kwargs: t.Any,
+    ) -> None:
         """Create a new paymentType ressource.
 
         :param key: (optional) (original: id) ID for this payment type
         """
         super().__init__(**kwargs)
-        self.key: str = key
+        self.key: str | None = key
 
-    def serialize(self) -> dict:
+    def serialize(self) -> dict[str, t.Any]:
         return {}
 
     @classmethod
-    def fromDict(cls, data: dict) -> t.Self:
+    def fromDict(cls, data: dict[str, t.Any]) -> t.Self:
         data = data.copy()
         data["key"] = data["id"]
         return cls(**data)
@@ -111,7 +111,7 @@ class PaymentType(BaseModel):
         sub_cls = type(name, (cls,), {"method": method, "method_name": _UnknownMethodName()})
         return sub_cls  # noqa
 
-    def get_configuration(self) -> dict:
+    def get_configuration(self) -> dict[str, t.Any]:
         """Provide the keypair configuration for this payment type.
 
         Returns the first entry when the keypair holds several, which it can --
@@ -129,7 +129,7 @@ class PaymentType(BaseModel):
             )
         return configurations[0]
 
-    def get_configurations(self) -> list[dict]:
+    def get_configurations(self) -> list[dict[str, t.Any]]:
         """Provide every keypair configuration for this payment type.
 
         A keypair can hold more than one entry per payment type -- observed with
@@ -181,7 +181,7 @@ class PaymentType(BaseModel):
         """
         return self._support(brand)["brands"]
 
-    def _support(self, brand: str | None = None) -> dict:
+    def _support(self, brand: str | None = None) -> dict[str, t.Any]:
         """Pick the ``supports`` entry to read channel and brands from."""
         configurations = self.get_configurations()
         supports = [

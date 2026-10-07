@@ -30,85 +30,62 @@ class PaymentPage(BaseModel):
 
     def __init__(
             self,
-            action=None,
-            amount=None,
-            currency="EUR",
-            invoiceId=None,
-            orderId=None,
-            card3ds=None,
-            returnUrl=None,
-            excludeTypes=None,
-            additionalAttributes=None,
-            logoImage=None,
-            fullPageImage=None,
-            shopName=None,
-            shopDescription=None,
-            tagline=None,
-            css=None,
-            termsAndConditionUrl=None,
-            privacyPolicyUrl=None,
-            imprintUrl=None,
-            helpUrl=None,
-            contactUrl=None,
-            customerId=None,
-            metadataId=None,
-            basketId=None,
-            **kwargs
-    ):
+            action: str | Action | None = None,
+            amount: float | None = None,
+            currency: str = "EUR",
+            invoiceId: str | None = None,
+            orderId: str | None = None,
+            card3ds: bool | None = None,
+            returnUrl: str | None = None,
+            excludeTypes: list[str] | None = None,
+            additionalAttributes: dict[str, str] | None = None,
+            logoImage: str | None = None,
+            fullPageImage: str | None = None,
+            shopName: str | None = None,
+            shopDescription: str | None = None,
+            tagline: str | None = None,
+            css: dict[str, str] | None = None,
+            termsAndConditionUrl: str | None = None,
+            privacyPolicyUrl: str | None = None,
+            imprintUrl: str | None = None,
+            helpUrl: str | None = None,
+            contactUrl: str | None = None,
+            customerId: str | None = None,
+            metadataId: str | None = None,
+            basketId: str | None = None,
+            **kwargs: t.Any,
+    ) -> None:
         """Create a new PaymentPage.
 
         Payment attributes:
         :param action: (required) Action for this paypage: charge or authorize.
             Accepts the enum member or its name in any casing.
-        :type action: str | Action
         :param amount: (required) The transaction amount.
-        :type amount: float
         :param currency: (required) The transaction currency, in the ISO 4217 alpha-3 format.
-        :type currency: str
         :param invoiceId: (optional) Your internal invoice ID.
-        :type invoiceId: str
         :param orderId: (optional) A unique order ID that identifies the payment on your side.
-        :type orderId: str
         :param card3ds: (optional) Switches between 3ds and non 3ds card transactions.
-        :type card3ds: bool
         :param returnUrl: (required) The URL to redirect the customer to after the payment is completed.
-        :type returnUrl: str
         :param excludeTypes: (optional) Exclude some of the payment types from the Payment Page.
-        :type excludeTypes: list[str]
         :param additionalAttributes: (optional) Attributes for LinkPay.
-        :type additionalAttributes: dict[str, str]
 
         Paypage config:
         :param logoImage: (optional) Your company logo to show in the Embedded Payment Page’s header.
-        :type logoImage: str
         :param fullPageImage: (optional) The URL of the image to show in the Hosted Payment Page’s background.
-        :type fullPageImage: str
         :param shopName: (optional) Your company name to show in the Embedded Payment Page’s header.
-        :type shopName: str
         :param shopDescription: (optional) Main description of the purchase.
-        :type shopDescription: str
         :param tagline: (optional) A short description to show in the Payment Page’s header.
-        :type tagline: str
         :param css: (optional)
-        :type css: dict[str, str]
         :param termsAndConditionUrl: (optional) Your Terms and Conditions URL to show in the Payment Page’s footer.
-        :type termsAndConditionUrl: str
         :param privacyPolicyUrl: (optional) Your Privacy Policy URL to show in the Payment Page’s footer.
-        :type privacyPolicyUrl: str
         :param imprintUrl: (optional) Your imprint URL to show in the Payment Page’s footer.
-        :type imprintUrl: str
         :param helpUrl: (optional) The URL of the help page to show in the Payment Page’s header.
-        :type helpUrl: str
         :param contactUrl: (optional) The URL of the contact page to show in the Payment Page’s header.
-        :type contactUrl: str
 
         Resources
         :param customerId: (optional) The ID of the customers resource to be used.
-        :type customerId: str
         :param metadataId: (optional) The ID of the metadata resource to be used.
-        :type metadataId: str
         :param basketId: (optional) The ID of the baskets resource to be used.
-        :type basketId: str
         """
         super().__init__(**kwargs)
         if excludeTypes is None:
@@ -131,31 +108,31 @@ class PaymentPage(BaseModel):
             raise TypeError(
                 f"Invalid value {card3ds!r} for card3ds. Must be a boolean or None."
             )
-        self.amount = amount  # type:float
-        self.currency = currency  # type:str
-        self.returnUrl = returnUrl  # type:str
-        self.logoImage = logoImage  # type:str
-        self.fullPageImage = fullPageImage  # type:str
-        self.shopName = shopName  # type:str
-        self.shopDescription = shopDescription  # type:str
-        self.tagline = tagline  # type:str
-        self.css = css  # type:dict[str, str]
-        self.termsAndConditionUrl = termsAndConditionUrl  # type:str
-        self.privacyPolicyUrl = privacyPolicyUrl  # type:str
-        self.imprintUrl = imprintUrl  # type:str
-        self.helpUrl = helpUrl  # type:str
-        self.contactUrl = contactUrl  # type:str
-        self.invoiceId = invoiceId  # type:str
-        self.orderId = orderId  # type:str
-        self.card3ds = card3ds  # type:bool
-        self.additionalAttributes = additionalAttributes  # type:dict[str, str]
-        self.excludeTypes = excludeTypes  # type:list[str]
-        self.action = action  # type:Action
-        self.customerId = customerId  # type:str
-        self.metadataId = metadataId  # type:str
-        self.basketId = basketId  # type:str
+        self.amount: float | None = amount
+        self.currency: str = currency
+        self.returnUrl: str | None = returnUrl
+        self.logoImage: str | None = logoImage
+        self.fullPageImage: str | None = fullPageImage
+        self.shopName: str | None = shopName
+        self.shopDescription: str | None = shopDescription
+        self.tagline: str | None = tagline
+        self.css: dict[str, str] = css
+        self.termsAndConditionUrl: str | None = termsAndConditionUrl
+        self.privacyPolicyUrl: str | None = privacyPolicyUrl
+        self.imprintUrl: str | None = imprintUrl
+        self.helpUrl: str | None = helpUrl
+        self.contactUrl: str | None = contactUrl
+        self.invoiceId: str | None = invoiceId
+        self.orderId: str | None = orderId
+        self.card3ds: bool | None = card3ds
+        self.additionalAttributes: dict[str, str] = additionalAttributes
+        self.excludeTypes: list[str] = excludeTypes
+        self.action: Action = action
+        self.customerId: str | None = customerId
+        self.metadataId: str | None = metadataId
+        self.basketId: str | None = basketId
 
-    def serialize(self):
+    def serialize(self) -> dict[str, t.Any]:
         return {
             "amount": roundAmount(self.amount),
             "currency": self.currency,
@@ -184,7 +161,7 @@ class PaymentPage(BaseModel):
         }
 
     @classmethod
-    def fromDict(cls, data):
+    def fromDict(cls, data: dict[str, t.Any]) -> t.Self:
         raise NotImplementedError("Use PaymentPageResponse.fromDict for your responses.")
 
 
@@ -198,35 +175,30 @@ class PaymentPageResponse(PaymentPage):
 
     def __init__(
             self,
-            payPageId=None,
-            paymentId=None,
-            redirectUrl=None,
-            billingAddressRequired=None,
-            shippingAddressRequired=None,
-            **kwargs
-    ):
+            payPageId: str | None = None,
+            paymentId: str | None = None,
+            redirectUrl: str | None = None,
+            billingAddressRequired: bool | None = None,
+            shippingAddressRequired: bool | None = None,
+            **kwargs: t.Any,
+    ) -> None:
         """Create a new PaymentPageResponse.
 
         To PaymentPage additionally response only params:
         :param payPageId: Id of this payment page
-        :type payPageId: str
         :param paymentId: (optional) The ID of the related payment resource. (After success payment)
-        :type paymentId: str
         :param redirectUrl: (optional) A unique Hosted Payment Page URL, where the customer completes the payment.
-        :type redirectUrl: str
         :param billingAddressRequired: (optional) Determines whether the customer needs to provide a billing address.
-        :type billingAddressRequired: bool
         :param shippingAddressRequired: (optional) Determines whether the customer needs to provide a shipping address.
-        :type shippingAddressRequired: bool
         """
         super().__init__(**kwargs)
-        self.payPageId = payPageId  # type:str
-        self.paymentId = paymentId  # type:str
-        self.redirectUrl = redirectUrl  # type:str
-        self.billingAddressRequired = billingAddressRequired  # type:bool
-        self.shippingAddressRequired = shippingAddressRequired  # type:bool
+        self.payPageId: str | None = payPageId
+        self.paymentId: str | None = paymentId
+        self.redirectUrl: str | None = redirectUrl
+        self.billingAddressRequired: bool | None = billingAddressRequired
+        self.shippingAddressRequired: bool | None = shippingAddressRequired
 
-    def serialize(self):
+    def serialize(self) -> dict[str, t.Any]:
         data = super().serialize()
         data["id"] = self.payPageId
         data["paymentId"] = self.paymentId
@@ -236,7 +208,7 @@ class PaymentPageResponse(PaymentPage):
         return data
 
     @classmethod
-    def fromDict(cls, data):
+    def fromDict(cls, data: dict[str, t.Any]) -> t.Self:
         data = data.copy()
         data["payPageId"] = data["id"]
         data["customerId"] = data["resources"].get("customerId")

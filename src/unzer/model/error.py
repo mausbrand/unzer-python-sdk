@@ -4,6 +4,9 @@ from datetime import datetime as dt
 
 from ..utils import parseDateTime
 
+if t.TYPE_CHECKING:
+    import requests
+
 logger = logging.getLogger("unzer-sdk").getChild(__name__)
 
 
@@ -30,10 +33,10 @@ class Error:
         if kwargs:
             logger.warning("Error got additional unhandled data: %r", kwargs)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.__class__.__name__} {self.code}: {self.merchantMessage}"
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
             f"{self.__class__.__module__}.{self.__class__.__name__}("
             f"code={self.code!r}, merchantMessage={self.merchantMessage!r}, "
@@ -55,38 +58,38 @@ class ErrorResponse(Exception):
 
     def __init__(
             self,
-            message,
-            timestamp=None,
-            url=None,
-            errors=None,
-            errorId=None,
-            statusCode=0,
-            traceId=None,
-            isError=None,
-            isPending=None,
-            isSuccess=None,
-            srcResponse=None,
-            **kwargs
+            message: str,
+            timestamp: dt | None = None,
+            url: str | None = None,
+            errors: list[Error] | None = None,
+            errorId: str | None = None,
+            statusCode: int = 0,
+            traceId: str | None = None,
+            isError: bool | None = None,
+            isPending: bool | None = None,
+            isSuccess: bool | None = None,
+            srcResponse: "requests.Response | None" = None,
+            **kwargs: t.Any,
 
-    ):
+    ) -> None:
         super().__init__(message)
         if errors is None:
             errors = []
-        self.timestamp = timestamp  # type: str
-        self.url = url  # type: str
-        self.errors = errors  # type: list[Error]
-        self.errorId = errorId  # type: str
-        self.statusCode = statusCode  # type: int
-        self.traceId = traceId  # type: str
-        self.isError = isError  # type: bool
-        self.isPending = isPending  # type: bool
-        self.isSuccess = isSuccess  # type: bool
-        self.srcResponse = srcResponse  # type: requests.Response
+        self.timestamp: dt | None = timestamp
+        self.url: str | None = url
+        self.errors: list[Error] = errors
+        self.errorId: str | None = errorId
+        self.statusCode: int = statusCode
+        self.traceId: str | None = traceId
+        self.isError: bool | None = isError
+        self.isPending: bool | None = isPending
+        self.isSuccess: bool | None = isSuccess
+        self.srcResponse: requests.Response | None = srcResponse
         if kwargs:
             logger.warning("ErrorResponse got additional unhandled data: %r", kwargs)
 
     @classmethod
-    def fromDict(cls, data: t.Any, message: str = "Unzer Error") -> "ErrorResponse":
+    def fromDict(cls, data: t.Any, message: str = "Unzer Error") -> t.Self:
         """Build an ErrorResponse from a decoded API error body.
 
         Only ``errors`` is treated as required, because it is what identifies the
@@ -131,7 +134,7 @@ class ErrorResponse(Exception):
             logger.warning(f"Cannot parse the error timestamp {value!r}")
             return None
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
             f"{self.__class__.__module__}.{self.__class__.__name__}("
             f"url={self.url!r}, errorId={self.errorId!r}, "

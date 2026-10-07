@@ -1,5 +1,6 @@
 """Tests for the transport layer of :class:`unzer.UnzerClient`."""
 
+import typing as t
 
 import pytest
 import requests
@@ -15,27 +16,27 @@ class TestRequestBuilding:
     """Headers, authentication and URL construction."""
 
     @responses.activate
-    def test_uses_private_key_as_basic_auth_username(self, client):
+    def test_uses_private_key_as_basic_auth_username(self, client: UnzerClient) -> None:
         responses.add(responses.GET, f"{BASE}/keypair", json={"publicKey": "s-pub-x"})
         client.getKeyPair()
         auth = responses.calls[0].request.headers["Authorization"]
         assert auth.startswith("Basic ")
 
     @responses.activate
-    def test_sends_user_agent_with_version(self, client):
+    def test_sends_user_agent_with_version(self, client: UnzerClient) -> None:
         responses.add(responses.GET, f"{BASE}/keypair", json={})
         client.getKeyPair()
         assert responses.calls[0].request.headers["user-agent"] == f"unzer-python-sdk {__version__}"
 
     @responses.activate
-    def test_language_becomes_accept_language(self):
+    def test_language_becomes_accept_language(self) -> None:
         client = UnzerClient("s-priv-x", "s-pub-x", language="de")
         responses.add(responses.GET, f"{BASE}/keypair", json={})
         client.getKeyPair()
         assert responses.calls[0].request.headers["accept-language"] == "de"
 
     @responses.activate
-    def test_client_ip_is_sent_as_clientip_header(self):
+    def test_client_ip_is_sent_as_clientip_header(self) -> None:
         # The API reference names this header x-CLIENTIP, but the API expects
         # CLIENTIP -- verified against the sandbox, see AGENTS.md.
         client = UnzerClient("s-priv-x", "s-pub-x", client_ip="203.0.113.7")
@@ -44,20 +45,22 @@ class TestRequestBuilding:
         assert responses.calls[0].request.headers["CLIENTIP"] == "203.0.113.7"
 
     @responses.activate
-    def test_no_clientip_header_without_client_ip(self, client):
+    def test_no_clientip_header_without_client_ip(self, client: UnzerClient) -> None:
         responses.add(responses.GET, f"{BASE}/keypair", json={})
         client.getKeyPair()
         assert "CLIENTIP" not in responses.calls[0].request.headers
 
     @responses.activate
-    def test_api_version_can_be_overridden_per_request(self, client):
+    def test_api_version_can_be_overridden_per_request(self, client: UnzerClient) -> None:
         responses.add(responses.GET, "https://api.unzer.com/v3/baskets/s-bsk-1",
                       json={"id": "s-bsk-1", "basketItems": []})
         client.getBasket("s-bsk-1", api_version="v3")
-        assert "/v3/baskets/" in responses.calls[0].request.url
+        url = responses.calls[0].request.url
+        assert url is not None
+        assert "/v3/baskets/" in url
 
     @responses.activate
-    def test_additional_headers_are_merged(self, client):
+    def test_additional_headers_are_merged(self, client: UnzerClient) -> None:
         responses.add(responses.GET, f"{BASE}/keypair", json={})
         client.request("keypair", "GET", additional_headers={"X-Extra": "1"})
         assert responses.calls[0].request.headers["X-Extra"] == "1"
@@ -66,7 +69,11 @@ class TestRequestBuilding:
 class TestErrorHandling:
 
     @responses.activate
-    def test_client_error_raises_error_response(self, client, fixture_json):
+    def test_client_error_raises_error_response(
+            self,
+            client: UnzerClient,
+            fixture_json: t.Callable[[str], t.Any],
+    ) -> None:
         payload = fixture_json("error_400")
         responses.add(responses.GET, f"{BASE}/payments/s-pay-1", json=payload, status=400)
         with pytest.raises(ErrorResponse) as excinfo:
@@ -78,7 +85,7 @@ class TestErrorHandling:
         assert error.errors[0].merchantMessage == "Basket is already in use."
 
     @responses.activate
-    def test_non_json_client_error_raises_error_response(self, client):
+    def test_non_json_client_error_raises_error_response(self, client: UnzerClient) -> None:
         """A gateway in front of the API answers 4xx with an HTML page.
 
         That used to surface as a bare JSONDecodeError from inside the SDK, which hid
@@ -113,7 +120,7 @@ class TestErrorHandling:
                      id="envelope-without-errors"),
     ])
     @responses.activate
-    def test_client_error_with_a_foreign_json_body(self, client, body):
+    def test_client_error_with_a_foreign_json_body(self, client: UnzerClient, body: str) -> None:
         """A 4xx carrying JSON that is not this API's error envelope.
 
         An API gateway or WAF in front of the API answers in its own shape --
@@ -138,7 +145,7 @@ class TestErrorHandling:
         pytest.param(None, id="missing"),
     ])
     @responses.activate
-    def test_the_error_codes_survive_an_unreadable_timestamp(self, client, timestamp):
+    def test_the_error_codes_survive_an_unreadable_timestamp(self, client: UnzerClient, timestamp: str | None) -> None:
         """The one field nobody branches on must not cost the ones they do.
 
         `createOrUpdateCustomer` decides on `errors[0].code`, so an error body whose
@@ -158,7 +165,7 @@ class TestErrorHandling:
         assert error.statusCode == 400
 
     @responses.activate
-    def test_an_incomplete_error_entry_keeps_its_code(self, client):
+    def test_an_incomplete_error_entry_keeps_its_code(self, client: UnzerClient) -> None:
         """An entry missing `merchantMessage`/`customerMessage` used to raise TypeError.
 
         `Error` tolerates *extra* keys with a warning, so refusing to build one over a
@@ -175,7 +182,11 @@ class TestErrorHandling:
         assert error.errors[0].merchantMessage is None
 
     @responses.activate
-    def test_error_response_keeps_the_source_response(self, client, fixture_json):
+    def test_error_response_keeps_the_source_response(
+            self,
+            client: UnzerClient,
+            fixture_json: t.Callable[[str], t.Any],
+    ) -> None:
         responses.add(responses.GET, f"{BASE}/payments/s-pay-1",
                       json=fixture_json("error_400"), status=400)
         with pytest.raises(ErrorResponse) as excinfo:
@@ -183,7 +194,11 @@ class TestErrorHandling:
         assert isinstance(excinfo.value.srcResponse, requests.Response)
 
     @responses.activate
-    def test_success_status_with_error_flag_raises(self, client, fixture_json):
+    def test_success_status_with_error_flag_raises(
+            self,
+            client: UnzerClient,
+            fixture_json: t.Callable[[str], t.Any],
+    ) -> None:
         """The API answers 2xx with an error payload -- documented behaviour."""
         charge = fixture_json("charge") | {"isError": True, "isSuccess": False}
         charge["errors"] = fixture_json("error_400")["errors"]
@@ -199,11 +214,15 @@ class TestErrorHandling:
 class TestRetryPolicy:
     """Only idempotent methods may be repeated -- Unzer has no idempotency keys."""
 
-    def test_only_get_and_head_are_retryable(self, client):
+    def test_only_get_and_head_are_retryable(self, client: UnzerClient) -> None:
         assert client.retryableMethods == ("GET", "HEAD")
 
     @responses.activate
-    def test_get_is_retried_on_server_error(self, retrying_client, fixture_json):
+    def test_get_is_retried_on_server_error(
+            self,
+            retrying_client: UnzerClient,
+            fixture_json: t.Callable[[str], t.Any],
+    ) -> None:
         responses.add(responses.GET, f"{BASE}/payments/s-pay-1", status=500)
         responses.add(responses.GET, f"{BASE}/payments/s-pay-1", status=500)
         responses.add(responses.GET, f"{BASE}/payments/s-pay-1", json=fixture_json("payment_get"))
@@ -212,7 +231,7 @@ class TestRetryPolicy:
         assert len(responses.calls) == 3
 
     @responses.activate
-    def test_post_is_not_retried_on_server_error(self, retrying_client):
+    def test_post_is_not_retried_on_server_error(self, retrying_client: UnzerClient) -> None:
         """A repeated POST could charge a customer twice."""
         responses.add(responses.POST, f"{BASE}/customers", status=500)
         from unzer.model import Customer
@@ -221,7 +240,11 @@ class TestRetryPolicy:
         assert len(responses.calls) == 1, "POST must not be repeated"
 
     @responses.activate
-    def test_get_is_retried_on_timeout(self, retrying_client, fixture_json):
+    def test_get_is_retried_on_timeout(
+            self,
+            retrying_client: UnzerClient,
+            fixture_json: t.Callable[[str], t.Any],
+    ) -> None:
         responses.add(responses.GET, f"{BASE}/payments/s-pay-1",
                       body=requests.exceptions.ConnectTimeout())
         responses.add(responses.GET, f"{BASE}/payments/s-pay-1", json=fixture_json("payment_get"))
@@ -229,7 +252,7 @@ class TestRetryPolicy:
         assert len(responses.calls) == 2
 
     @responses.activate
-    def test_post_raises_on_timeout_instead_of_retrying(self, retrying_client):
+    def test_post_raises_on_timeout_instead_of_retrying(self, retrying_client: UnzerClient) -> None:
         responses.add(responses.POST, f"{BASE}/customers",
                       body=requests.exceptions.ReadTimeout())
         from unzer.model import Customer
@@ -238,7 +261,11 @@ class TestRetryPolicy:
         assert len(responses.calls) == 1
 
     @responses.activate
-    def test_connection_error_is_retried_for_get(self, retrying_client, fixture_json):
+    def test_connection_error_is_retried_for_get(
+            self,
+            retrying_client: UnzerClient,
+            fixture_json: t.Callable[[str], t.Any],
+    ) -> None:
         responses.add(responses.GET, f"{BASE}/payments/s-pay-1",
                       body=requests.exceptions.ConnectionError())
         responses.add(responses.GET, f"{BASE}/payments/s-pay-1", json=fixture_json("payment_get"))
@@ -248,7 +275,7 @@ class TestRetryPolicy:
 class TestWebhooks:
 
     @responses.activate
-    def test_list_webhooks_returns_a_list(self, client, fixture_json):
+    def test_list_webhooks_returns_a_list(self, client: UnzerClient, fixture_json: t.Callable[[str], t.Any]) -> None:
         responses.add(responses.GET, f"{BASE}/webhooks", json=fixture_json("webhooks_list"))
         hooks = client.listWebhooks()
         assert isinstance(hooks, list), "a map object can only be consumed once"
@@ -256,7 +283,11 @@ class TestWebhooks:
         assert hooks[0].webhookId == "s-whk-1"
 
     @responses.activate
-    def test_single_webhook_response_is_wrapped_in_a_list(self, client, fixture_json):
+    def test_single_webhook_response_is_wrapped_in_a_list(
+            self,
+            client: UnzerClient,
+            fixture_json: t.Callable[[str], t.Any],
+    ) -> None:
         responses.add(responses.POST, f"{BASE}/webhooks", json=fixture_json("webhook_single"))
         from unzer.model import Events, Webhook
         hooks = client.createWebhook(Webhook(url="https://shop.example.com/webhook",
@@ -265,7 +296,7 @@ class TestWebhooks:
         assert len(hooks) == 1
 
     @responses.activate
-    def test_delete_webhook_accepts_a_model(self, client):
+    def test_delete_webhook_accepts_a_model(self, client: UnzerClient) -> None:
         responses.add(responses.DELETE, f"{BASE}/webhooks/s-whk-1", json={"id": "s-whk-1"})
         from unzer.model import Webhook
         webhook = Webhook(url="https://shop.example.com/webhook", webhookId="s-whk-1")
@@ -283,11 +314,11 @@ class TestTypeChecks:
         ("createBasket", "not-a-basket"),
         ("createPaymentType", "not-a-payment-type"),
     ])
-    def test_wrong_type_raises_type_error(self, client, method, argument):
+    def test_wrong_type_raises_type_error(self, client: UnzerClient, method: str, argument: int | str) -> None:
         with pytest.raises(TypeError):
             getattr(client, method)(argument)
 
-    def test_create_customer_rejects_customer_with_key(self, client):
+    def test_create_customer_rejects_customer_with_key(self, client: UnzerClient) -> None:
         from unzer.model import Customer
         with pytest.raises(TypeError, match="Call updateCustomer"):
             client.createCustomer(Customer(firstname="A", lastname="B", key="s-cst-1"))

@@ -8,6 +8,7 @@ import enum
 import logging
 import re
 import typing as t
+from datetime import datetime as dt
 from types import NoneType
 
 from ..utils import parseBool, parseDateTime, roundAmount
@@ -203,107 +204,95 @@ class PaymentGetResponse(BaseModel):
 
     def __init__(
             self,
-            paymentId=None,
-            paymentType=None,
-            state=None,
-            currency=None,
-            orderId=None,
-            invoiceId=None,
-            transactions=None,
-            card3ds=None,
-            amountTotal=None,
-            amountCharged=None,
-            amountCanceled=None,
-            amountRemaining=None,
-            customerId=None,
-            basketId=None,
-            metadataId=None,
-            payPageId=None,
-            linkPayId=None,
-            typeId=None,
-            **kwargs
-    ):
+            paymentId: str | None = None,
+            paymentType: PaymentTypes | None = None,
+            state: PaymentState | int | None = None,
+            currency: str | None = None,
+            orderId: str | None = None,
+            invoiceId: str | None = None,
+            transactions: list["PaymentTransaction"] | None = None,
+            card3ds: bool | None = None,
+            amountTotal: float | None = None,
+            amountCharged: float | None = None,
+            amountCanceled: float | None = None,
+            amountRemaining: float | None = None,
+            customerId: str | None = None,
+            basketId: str | None = None,
+            metadataId: str | None = None,
+            payPageId: str | None = None,
+            linkPayId: str | None = None,
+            typeId: str | None = None,
+            **kwargs: t.Any,
+    ) -> None:
         """Create a new PaymentGetResponse.
 
         :param paymentId: The id of payment (ex: s-pay-1), assigned by unzer.
-        :type paymentId: str
         :param paymentType: (optional) The type of payment
-        :type paymentType: PaymentTypes
         :param state: (optional) Current state of this payment
-        :type state: PaymentState
         :param currency: (optional) ISO currency code
-        :type currency: str
         :param orderId: (optional) Order id of the merchant application.
             This id can also be used to get payments from the api.
             The id has to be unique for the used key pair.
-        :type orderId: str
         :param invoiceId: (optional) InvoiceId of the merchant.
-        :type invoiceId: str
         :param transactions: (optional) List of subsequence transaction(s).
-        :type transactions: list[PaymentTransaction]
         :param card3ds: (optional)
-        :type card3ds: bool | None
 
         Amounts
         :param amountTotal: (optional) Initial amount reduced by cancellations during authorization
-        :type amountTotal: float
         :param amountCharged: (optional) Already charged amount
-        :type amountCharged: float
         :param amountCanceled: (optional) Refunded amount of all charges
-        :type amountCanceled: float
         :param amountRemaining: (optional) Difference between total and charged
-        :type amountRemaining: float
 
         Resources
         :param customerId: (optional) Customer id used for this transaction.
-        :type customerId: str
         :param basketId: (optional) Basket ID used for this transaction.
-        :type basketId: str
         :param metadataId: (optional) Meta data ID used for this transaction.
-        :type metadataId: str
         :param payPageId: (optional) Payment Page Id related to this payment.
-        :type payPageId: str
         :param linkPayId: (optional)
-        :type linkPayId: str
         :param typeId: (optional) Id of the types Resource that is to be used for this transaction.
-        :type typeId: str
         """
         super().__init__(**kwargs)
         if transactions is None:
             transactions = []
-        state = PaymentState(state)
+        # TODO: state defaults to None, which PaymentState() rejects -- make it required or handle None.
+        state = PaymentState(state)  # type: ignore[arg-type]
         # if state not in vars(PaymentState).values():
         #     raise TypeError("Invalid state %r" % state)
         if not isinstance(card3ds, (bool, NoneType)):
             raise TypeError(f"Invalid value {card3ds!r} for card3ds. Must be a boolean or None.")
-        self.paymentId = paymentId  # type:str
-        self.paymentType = paymentType  # type:PaymentTypes
-        self.state = state  # type:PaymentState
-        self.currency = currency  # type: str
-        self.orderId = orderId  # type: str
-        self.invoiceId = invoiceId  # type: str
-        self.transactions = transactions  # type: list[PaymentTransaction]
-        self.card3ds = card3ds  # type: Union[bool, None]
+        self.paymentId: str | None = paymentId
+        self.paymentType: PaymentTypes | None = paymentType
+        self.state: PaymentState = state
+        self.currency: str | None = currency
+        self.orderId: str | None = orderId
+        self.invoiceId: str | None = invoiceId
+        self.transactions: list[PaymentTransaction] = transactions
+        self.card3ds: bool | None = card3ds
         # Amounts
-        self.amountTotal = amountTotal  # type:float
-        self.amountCharged = amountCharged  # type:float
-        self.amountCanceled = amountCanceled  # type:float
-        self.amountRemaining = amountRemaining  # type: float
+        self.amountTotal: float | None = amountTotal
+        self.amountCharged: float | None = amountCharged
+        self.amountCanceled: float | None = amountCanceled
+        self.amountRemaining: float | None = amountRemaining
         # PaymentResponseResources
-        self.customerId = customerId  # type: str
-        self.paymentId = paymentId  # type: str
-        self.basketId = basketId  # type: str
-        self.metadataId = metadataId  # type: str
-        self.payPageId = payPageId  # type: str
-        self.linkPayId = linkPayId  # type: str
-        self.typeId = typeId  # type: str
+        self.customerId: str | None = customerId
+        self.paymentId = paymentId
+        self.basketId: str | None = basketId
+        self.metadataId: str | None = metadataId
+        self.payPageId: str | None = payPageId
+        self.linkPayId: str | None = linkPayId
+        self.typeId: str | None = typeId
 
-    def serialize(self):
+    def serialize(self) -> dict[str, t.Any]:
         raise NotImplementedError("No serialisation for response models.")
 
     # noinspection PyMethodOverriding
+    # TODO: Requires a client, which BaseModel.fromDict does not have -- violates the base signature.
     @classmethod
-    def fromDict(cls, data, client):
+    def fromDict(  # type: ignore[override]
+            cls,
+            data: dict[str, t.Any],
+            client: "UnzerClient",
+    ) -> t.Self:
         data = data.copy()
         data["paymentId"] = data["id"]
         if data["resources"].get("typeId"):
@@ -326,19 +315,24 @@ class PaymentGetResponse(BaseModel):
         data["typeId"] = data["resources"].get("typeId") or None
         return cls(client=client, **data)
 
-    def getChargedTransactions(self):
+    def getChargedTransactions(self) -> list["PaymentResponse"]:
         """Fetch the charged transaction of this payment.
 
         :return:  List of charged transaction resources.
-        :rtype: list[PaymentResponse]
         """
         transactions = []
         for txn in filter(lambda txn_: txn_.action == Action.CHARGE, self.transactions):
-            transactions.append(self._client.getChargedTransaction(self.paymentId, txn.transactionId))
+            # TODO: Fails on None, with no client or no paymentId.
+            transactions.append(
+                self._client.getChargedTransaction(  # type: ignore[union-attr]
+                    self.paymentId,  # type: ignore[arg-type]
+                    txn.transactionId,
+                )
+            )
         return transactions
 
     @staticmethod
-    def getPaymentTypeFromTypeId(typeId: str) -> PaymentTypes:
+    def getPaymentTypeFromTypeId(typeId: str | None) -> PaymentTypes:
         """Derive the payment type from a type id such as ``s-crd-abc456def789``.
 
         A type id is built from the environment, the short code and a random part.
@@ -375,10 +369,12 @@ class PaymentGetResponse(BaseModel):
         :return: The transaction that was created.
         """
         req_kwargs = self.__dict__.copy()
-        req_kwargs["paymentType"] = PaymentType.construct(self.paymentType)(self.typeId)
+        # TODO: paymentType may be None, which construct() does not handle.
+        req_kwargs["paymentType"] = PaymentType.construct(self.paymentType)(self.typeId)  # type: ignore[arg-type]
         req_kwargs["amount"] = amount
         req = PaymentRequest(**req_kwargs)
-        return self._client.charge(req)
+        # TODO: Fails with an AttributeError on None when the model was not read through a client.
+        return self._client.charge(req)  # type: ignore[union-attr]
 
 
 class PaymentTransaction(BaseModel):
@@ -392,49 +388,41 @@ class PaymentTransaction(BaseModel):
 
     def __init__(
             self,
-            paymentId=None,
-            transactionId=None,
-            participantId=None,
-            date=None,
-            action=None,
-            status=None,
-            url=None,
-            amount=None,
-            **kwargs
-    ):
+            paymentId: str | None = None,
+            transactionId: str | None = None,
+            participantId: str | None = None,
+            date: dt | None = None,
+            action: Action | None = None,
+            status: TransactionStatus | None = None,
+            url: str | None = None,
+            amount: float | None = None,
+            **kwargs: t.Any,
+    ) -> None:
         """Create a new PaymentGetResponseTransaction.
         :param paymentId: Id of the payment where this transaction belongs to
-        :type paymentId: str
         :param transactionId: Id of this transaction (context based to payment)
-        :type transactionId: str
         :param participantId: (optional)
-        :type participantId: str
         :param date: (optional)
-        :type date: datetime.datetime
         :param action: (optional)
-        :type action: Action
         :param status: (optional)
-        :type status: TransactionStatus
         :param url: (optional)
-        :type url: str
         :param amount: (optional)
-        :type amount: float
         """
         super().__init__(**kwargs)
-        self.paymentId = paymentId  # type:str
-        self.transactionId = transactionId  # type:str
-        self.participantId = participantId  # type:str
-        self.date = date  # type:datetime.datetime
-        self.action = action  # type:Action
-        self.status = status  # type:TransactionStatus
-        self.url = url  # type:str
-        self.amount = amount  # type:float
+        self.paymentId: str | None = paymentId
+        self.transactionId: str | None = transactionId
+        self.participantId: str | None = participantId
+        self.date: dt | None = date
+        self.action: Action | None = action
+        self.status: TransactionStatus | None = status
+        self.url: str | None = url
+        self.amount: float | None = amount
 
-    def serialize(self):
+    def serialize(self) -> dict[str, t.Any]:
         raise NotImplementedError("No serialisation for response models.")
 
     @classmethod
-    def fromDict(cls, data):
+    def fromDict(cls, data: dict[str, t.Any]) -> t.Self:
         data = data.copy()
         # A value the enums do not know means this SDK is behind the API, which is a
         # defect worth seeing. It raises rather than degrading into a placeholder.
@@ -480,80 +468,68 @@ class PaymentRequest(BaseModel):
 
     def __init__(
             self,
-            paymentType=None,
-            paymentId=None,
-            amount=None,
-            currency="EUR",
-            returnUrl=None,
-            card3ds=None,
-            paymentReference=None,
-            orderId=None,
-            invoiceId=None,
-            effectiveInterestRate=None,
-            customerId=None,
-            metadataId=None,
-            basketId=None,
+            paymentType: "PaymentType | None" = None,
+            paymentId: str | None = None,
+            amount: float | None = None,
+            currency: str = "EUR",
+            returnUrl: str | None = None,
+            card3ds: bool | None = None,
+            paymentReference: str | None = None,
+            orderId: str | None = None,
+            invoiceId: str | None = None,
+            effectiveInterestRate: float | str | None = None,
+            customerId: str | None = None,
+            metadataId: str | None = None,
+            basketId: str | None = None,
             additional_transaction_data: AdditionalTransactionData | None = None,
 
-            **kwargs
-    ):
+            **kwargs: t.Any,
+    ) -> None:
         """Create a new PaymentRequest.
 
         :param paymentType: The PaymentType model, will provide the typeId.
-        :type paymentType: PaymentType
         :param amount: The amount to be charged on the specified paymentType.
             Amount in positive decimal values. Accepted length: Decimal{10,4}.
-        :type amount: float
         :param currency: (optional) ISO currency code.
-        :type currency: str
         :param returnUrl: (optional) URL to redirect the customer after
             the payment is completed (in case of redirect payments
             e.g. Paypal, Sofort). Required in condition.
-        :type returnUrl: str
         :param card3ds: (optional) Indicate a 3ds transaction.
             Only valid for Card method: Overrides the existing
             credit card configuration if possible.
-        :type card3ds: bool
         :param paymentReference: Transaction description
-        :type paymentReference: str
         :param orderId: (optional) Order id that identifies the payment on merchant side.
-        :type orderId: str
         :param invoiceId: (optional) invoice id that is assigned to the payment on merchant side.
-        :type invoiceId: str
         :param effectiveInterestRate: (optional) Only valid for Installment method:
             The affected installment rated. Required in case of Installment method.
-        :type effectiveInterestRate: str
 
         Resources
         :param customerId: (optional) Customer id used for this transaction.
-        :type customerId: str
         :param metadataId: (optional) Meta data ID used for this transaction.
-        :type metadataId: str
         :param basketId: (optional) Basket ID used for this transaction.
-        :type basketId: str
 
         :param additional_transaction_data: (optional) Additional transaction data
         """
         super().__init__(**kwargs)
         if not isinstance(card3ds, (bool, NoneType)):
             raise TypeError(f"Invalid value {card3ds!r} for card3ds. Must be a boolean or None.")
-        self.paymentType = paymentType  # type:PaymentType
-        self.paymentId = paymentId  # type:str
-        self.amount = amount  # type:float
-        self.currency = currency  # type: str
-        self.returnUrl = returnUrl  # type: str
-        self.card3ds = card3ds  # type: Union[bool, None]
-        self.paymentReference = paymentReference  # type: str
-        self.orderId = orderId  # type: str
-        self.invoiceId = invoiceId  # type: str
-        self.effectiveInterestRate = effectiveInterestRate  # type: str
+        self.paymentType: PaymentType | None = paymentType
+        self.paymentId: str | None = paymentId
+        self.amount: float | None = amount
+        self.currency: str = currency
+        self.returnUrl: str | None = returnUrl
+        self.card3ds: bool | None = card3ds
+        self.paymentReference: str | None = paymentReference
+        self.orderId: str | None = orderId
+        self.invoiceId: str | None = invoiceId
+        self.effectiveInterestRate: float | str | None = effectiveInterestRate
         # PaymentResponseResources
-        self.customerId = customerId  # type: str
-        self.metadataId = metadataId  # type: str
-        self.basketId = basketId  # type: str
-        self.additional_transaction_data = additional_transaction_data
+        self.customerId: str | None = customerId
+        self.metadataId: str | None = metadataId
+        self.basketId: str | None = basketId
+        self.additional_transaction_data: AdditionalTransactionData | None = additional_transaction_data
 
-    def serialize(self):
+    def serialize(self) -> dict[str, t.Any]:
         data = {
             "amount": roundAmount(self.amount),
             "currency": self.currency,
@@ -575,7 +551,7 @@ class PaymentRequest(BaseModel):
         return data
 
     @classmethod
-    def fromDict(cls, data):
+    def fromDict(cls, data: dict[str, t.Any]) -> t.Self:
         raise NotImplementedError("Use PaymentResponse.fromDict for your responses.")
 
 
@@ -593,126 +569,106 @@ class PaymentResponse(BaseModel):
 
     def __init__(
             self,
-            transactionId=None,
-            isSuccess=None,
-            isPending=None,
-            isError=None,
-            card3ds=None,
-            redirectUrl=None,
-            messageCode=None,
-            messageMerchant=None,
-            messageCustomer=None,
-            amount=None,
-            effectiveInterestRate=None,
-            currency=None,
-            returnUrl=None,
-            date=None,
-            customerId=None,
-            paymentId=None,
-            basketId=None,
-            metadataId=None,
-            payPageId=None,
-            linkPayId=None,
-            typeId=None,
-            orderId=None,
-            invoiceId=None,
-            paymentReference=None,
-            processing=None,
-            **kwargs
-    ):
+            transactionId: str | None = None,
+            isSuccess: bool | None = None,
+            isPending: bool | None = None,
+            isError: bool | None = None,
+            card3ds: bool | None = None,
+            redirectUrl: str | None = None,
+            messageCode: str | None = None,
+            messageMerchant: str | None = None,
+            messageCustomer: str | None = None,
+            amount: float | None = None,
+            effectiveInterestRate: float | str | None = None,
+            currency: str | None = None,
+            returnUrl: str | None = None,
+            date: dt | None = None,
+            customerId: str | None = None,
+            paymentId: str | None = None,
+            basketId: str | None = None,
+            metadataId: str | None = None,
+            payPageId: str | None = None,
+            linkPayId: str | None = None,
+            typeId: str | None = None,
+            orderId: str | None = None,
+            invoiceId: str | None = None,
+            paymentReference: str | None = None,
+            processing: "PaymentResponseMetadata | None" = None,
+            **kwargs: t.Any,
+    ) -> None:
         """Create a new PaymentResponse.
 
         :param transactionId: Id of this charge transaction
-        :type transactionId: str
         :param isSuccess: (optional)
-        :type isSuccess: bool
         :param isPending: (optional)
-        :type isPending: bool
         :param isError: (optional)
-        :type isError: bool
         :param card3ds: (optional) Indicate a 3ds transaction (card payment type only).
-        :type card3ds: bool
         :param redirectUrl: (optional)  Some payment methods require the customer
             to leave the merchant application.
             This URL is used to bring the customer back to your application.
-        :type redirectUrl: str
         :param messageCode: (optional) Response message of payment Core. Code of the message.
-        :type messageCode: str
         :param messageMerchant: (optional) Response message of payment Core. Message for merchant.
-        :type messageMerchant: str
         :param messageCustomer: (optional) Response message of payment Core. Message for customer.
-        :type messageCustomer: str
         :param amount: (optional) The amount to be authorized on the specified account.
             The amount is rounded depending on the respective currency.
-        :type amount: float
         :param effectiveInterestRate: (optional) Only valid for Installment method:
             The affected installment rated. Required in case of Installment method.
-        :type effectiveInterestRate: str
         :param currency: (optional) ISO currency code.
-        :type currency: str
         :param returnUrl: (optional) If customer's confirmation is required, a redirect URL will be return.
             Customer needs to be redirected to this URL and proceed the confirmation.
-        :type returnUrl: str
         :param date: (optional) Timestamp of this transaction.
-        :type date: datetime.datetime
 
         Resources
         :param customerId: (optional) Customer id used for this transaction.
-        :type customerId: str
         :param paymentId: (optional) Id of the payment.
-        :type paymentId: str
         :param basketId: (optional) Basket ID used for this transaction.
-        :type basketId: str
         :param metadataId: (optional) Meta data ID used for this transaction.
-        :type metadataId: str
         :param payPageId: (optional) Payment Page Id related to this payment.
-        :type payPageId: str
         :param linkPayId: (optional)
-        :type linkPayId: str
         :param typeId: (optional) Id of the types Resource that is to be used for this transaction.
-        :type typeId: str
 
         :param orderId: (optional) Order id that identifies the payment on merchant side.
-        :type orderId: str
         :param invoiceId: (optional) invoice id that is assigned to the payment on merchant side.
-        :type invoiceId: str
         :param paymentReference: (optional) Transaction description.
-        :type paymentReference: str
         :param processing: (optional)
-        :type processing: PaymentResponseMetadata
         """
         super().__init__(**kwargs)
-        self.transactionId = transactionId  # type:str
-        self.isSuccess = isSuccess  # type:bool
-        self.isPending = isPending  # type:bool
-        self.isError = isError  # type:bool
-        self.card3ds = card3ds  # type:bool
-        self.redirectUrl = redirectUrl  # type:str
-        self.messageCode = messageCode  # type:str
-        self.messageMerchant = messageMerchant  # type:str
-        self.messageCustomer = messageCustomer  # type:str
-        self.amount = amount  # type:float
-        self.effectiveInterestRate = effectiveInterestRate  # type:str
-        self.currency = currency  # type:str
-        self.returnUrl = returnUrl  # type:str
-        self.date = date  # type:datetime.datetime
-        self.customerId = customerId  # type:str
-        self.paymentId = paymentId  # type:str
-        self.basketId = basketId  # type:str
-        self.metadataId = metadataId  # type:str
-        self.payPageId = payPageId  # type:str
-        self.linkPayId = linkPayId  # type:str
-        self.typeId = typeId  # type:str
-        self.orderId = orderId  # type:str
-        self.invoiceId = invoiceId  # type:str
-        self.paymentReference = paymentReference  # type:str
-        self.processing = processing  # type:PaymentResponseMetadata
+        self.transactionId: str | None = transactionId
+        self.isSuccess: bool | None = isSuccess
+        self.isPending: bool | None = isPending
+        self.isError: bool | None = isError
+        self.card3ds: bool | None = card3ds
+        self.redirectUrl: str | None = redirectUrl
+        self.messageCode: str | None = messageCode
+        self.messageMerchant: str | None = messageMerchant
+        self.messageCustomer: str | None = messageCustomer
+        self.amount: float | None = amount
+        self.effectiveInterestRate: float | str | None = effectiveInterestRate
+        self.currency: str | None = currency
+        self.returnUrl: str | None = returnUrl
+        self.date: dt | None = date
+        self.customerId: str | None = customerId
+        self.paymentId: str | None = paymentId
+        self.basketId: str | None = basketId
+        self.metadataId: str | None = metadataId
+        self.payPageId: str | None = payPageId
+        self.linkPayId: str | None = linkPayId
+        self.typeId: str | None = typeId
+        self.orderId: str | None = orderId
+        self.invoiceId: str | None = invoiceId
+        self.paymentReference: str | None = paymentReference
+        self.processing: PaymentResponseMetadata | None = processing
 
-    def serialize(self):
+    def serialize(self) -> dict[str, t.Any]:
         raise NotImplementedError("No serialisation for response models.")
 
+    # TODO: Requires a client, which BaseModel.fromDict does not have -- violates the base signature.
     @classmethod
-    def fromDict(cls, data: dict, client: "UnzerClient") -> t.Self:
+    def fromDict(  # type: ignore[override]
+            cls,
+            data: dict[str, t.Any],
+            client: "UnzerClient",
+    ) -> t.Self:
         data = data.copy()
         data["transactionId"] = data["id"]
         data["isSuccess"] = parseBool(data["isSuccess"])
@@ -752,7 +708,8 @@ class PaymentResponse(BaseModel):
         req_kwargs["paymentType"] = PaymentType.construct(paymentTypeName)(self.typeId)
         req_kwargs["amount"] = amount
         req = PaymentRequest(**req_kwargs)
-        return self._client.charge(req)
+        # TODO: Fails with an AttributeError on None when the model was not read through a client.
+        return self._client.charge(req)  # type: ignore[union-attr]
 
 
 class PaymentResponseMetadata(BaseModel):
@@ -769,95 +726,78 @@ class PaymentResponseMetadata(BaseModel):
 
     def __init__(
             self,
-            creatorId=None,
-            identification=None,
-            iban=None,
-            bic=None,
-            bank=None,
-            externalOrderId=None,
-            zgReferenceId=None,
-            traceId=None,
-            basketId=None,
-            uniqueId=None,
-            shortId=None,
-            descriptor=None,
-            holder=None,
-            PDFLink=None,
-            paypalBuyerId=None,
-            threeDsEci=None,
-            participantId=None,
-            **kwargs
-    ):
+            creatorId: str | None = None,
+            identification: str | None = None,
+            iban: str | None = None,
+            bic: str | None = None,
+            bank: str | None = None,
+            externalOrderId: str | None = None,
+            zgReferenceId: str | None = None,
+            traceId: str | None = None,
+            basketId: str | None = None,
+            uniqueId: str | None = None,
+            shortId: str | None = None,
+            descriptor: str | None = None,
+            holder: str | None = None,
+            PDFLink: str | None = None,
+            paypalBuyerId: str | None = None,
+            threeDsEci: str | None = None,
+            participantId: str | None = None,
+            **kwargs: t.Any,
+    ) -> None:
         """Create a new PaymentResponseMetadata.
 
         :param creatorId: (optional) String This value returns your creditor id.
-        :type creatorId: str
         :param identification: (optional) String This value returns the descriptor for invoice and prepayment.
-        :type identification: str
         :param iban: (optional) String Iban of the merchant for prepayment or invoice.
             In the case of a direct debit, this value contains the customer Iban.
-        :type iban: str
         :param bic: (optional) String Bic of the merchant for prepayment or invoice.
             In the case of a direct debit, this value contains the customer Bic.
-        :type bic: str
         :param bank: (optional)
             Bank of the merchant for prepayment or invoice.
             In the case of a direct debit, this value contains the customer Bank.
-        :type bank: str
         :param externalOrderId: (optional) String External Order Id of installment transaction
             e.g: Hirepurchase, Installment-Secured.
-        :type externalOrderId: str
         :param zgReferenceId: (optional) String Reference Id of installment transaction
             e.g: Hirepurchase, Installment-Secured.
-        :type zgReferenceId: str
         :param traceId: (optional)
-        :type traceId: str
         :param basketId: (optional) String Basket ID used for this transaction.
-        :type basketId: str
         :param uniqueId: (optional) String Unique id of the payment system used.
-        :type uniqueId: str
         :param shortId: (optional) String User-friendly reference id of the payment system.
-        :type shortId: str
         :param descriptor: (optional) String Descriptor of the merchant for prepayment or invoice..
-        :type descriptor: str
         :param holder: (optional) String Holder of the merchant for prepayment or invoice.
             In the case of a direct debit, this value contains the customer holder.
-        :type holder: str
         :param PDFLink: (optional) String PDFLink of installment transaction
             e.g: Hirepurchase, Installment-Secured.
-        :type PDFLink: str
         :param paypalBuyerId: (optional) String Id of buyer for Paypal transaction.
-        :type paypalBuyerId: str
         :param threeDsEci: (optional) String 3dsEci flag from Payment Core.
-        :type threeDsEci: str
         :param participantId: String Only valid for marketplace payment:
             Channel Id(s) of marketplace's participant(s).
-        :type participantId: str
         """
         super().__init__(**kwargs)
-        self.creatorId = creatorId  # type:str
-        self.identification = identification  # type:str
-        self.iban = iban  # type:str
-        self.bic = bic  # type:str
-        self.bank = bank  # type:str
-        self.externalOrderId = externalOrderId  # type:str
-        self.zgReferenceId = zgReferenceId  # type:str
-        self.traceId = traceId  # type:str
-        self.basketId = basketId  # type:str
-        self.uniqueId = uniqueId  # type:str
-        self.shortId = shortId  # type:str
-        self.descriptor = descriptor  # type:str
-        self.holder = holder  # type:str
-        self.PDFLink = PDFLink  # type:str
-        self.paypalBuyerId = paypalBuyerId  # type:str
-        self.threeDsEci = threeDsEci  # type:str
-        self.participantId = participantId  # type:str
+        self.creatorId: str | None = creatorId
+        self.identification: str | None = identification
+        self.iban: str | None = iban
+        self.bic: str | None = bic
+        self.bank: str | None = bank
+        self.externalOrderId: str | None = externalOrderId
+        self.zgReferenceId: str | None = zgReferenceId
+        self.traceId: str | None = traceId
+        self.basketId: str | None = basketId
+        self.uniqueId: str | None = uniqueId
+        self.shortId: str | None = shortId
+        self.descriptor: str | None = descriptor
+        self.holder: str | None = holder
+        self.PDFLink: str | None = PDFLink
+        self.paypalBuyerId: str | None = paypalBuyerId
+        self.threeDsEci: str | None = threeDsEci
+        self.participantId: str | None = participantId
 
-    def serialize(self):
+    def serialize(self) -> dict[str, t.Any]:
         raise NotImplementedError("No serialisation for response models.")
 
     @classmethod
-    def fromDict(cls, data):
+    def fromDict(cls, data: dict[str, t.Any]) -> t.Self:
         data = data.copy()
         # Nobody, really nobody starts identifier with a digit. Unzer: here you have the 3dsEci flag
         data["threeDsEci"] = data.get("3dsEci")

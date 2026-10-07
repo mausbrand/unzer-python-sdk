@@ -6,11 +6,13 @@ see AGENTS.md on why the API, and not the documentation, is the reference.
 """
 
 import json
+import typing as t
 
 import pytest
 import requests
 import responses
 
+from unzer import UnzerClient
 from unzer.model import (
     Action,
     Address,
@@ -35,7 +37,11 @@ BASE = "https://api.unzer.com/v1"
 class TestPaymentPageWasUnusable:
     """The enum migration in 9fdc60c broke all three paypage paths."""
 
-    def test_action_enum_is_not_interpolated_into_the_url(self, client, fixture_json):
+    def test_action_enum_is_not_interpolated_into_the_url(
+            self,
+            client: UnzerClient,
+            fixture_json: t.Callable[[str], t.Any],
+    ) -> None:
         """Was "paypage/Action.CHARGE" -> HTTP 405 API.000.000.006 from the API."""
         responses.start()
         try:
@@ -48,26 +54,26 @@ class TestPaymentPageWasUnusable:
             responses.stop()
             responses.reset()
 
-    def test_response_with_upper_case_action_parses(self, fixture_json):
+    def test_response_with_upper_case_action_parses(self, fixture_json: t.Callable[[str], t.Any]) -> None:
         """The API answers action="CHARGE"; the constructor only took enum members."""
         assert fixture_json("paypage")["action"] == "CHARGE"
         page = PaymentPageResponse.fromDict(fixture_json("paypage"))
         assert page.action is Action.CHARGE
 
-    def test_card3ds_may_be_omitted(self):
+    def test_card3ds_may_be_omitted(self) -> None:
         """Default None hit `not isinstance(card3ds, bool)` -- every plain call raised."""
         page = PaymentPage(action=Action.CHARGE, amount=100.0, returnUrl="https://e.com/r")
         assert page.card3ds is None
 
-    def test_card3ds_still_rejects_nonsense(self):
+    def test_card3ds_still_rejects_nonsense(self) -> None:
         with pytest.raises(TypeError):
             PaymentPage(action=Action.CHARGE, amount=1.0, returnUrl="https://e.com/r",
-                        card3ds="yes")
+                        card3ds="yes")  # type: ignore[arg-type]
 
 
 class TestChargedTransactionsWereAlwaysEmpty:
 
-    def test_transaction_action_is_an_enum(self, fixture_json, client):
+    def test_transaction_action_is_an_enum(self, fixture_json: t.Callable[[str], t.Any], client: UnzerClient) -> None:
         """fromDict stored the lowercase string, so `txn.action == Action.CHARGE`
         was always False and getChargedTransactions() returned []."""
         payment = PaymentGetResponse.fromDict(fixture_json("payment_get"), client)
@@ -76,7 +82,11 @@ class TestChargedTransactionsWereAlwaysEmpty:
         assert charge[0].status is TransactionStatus.SUCCESS
 
     @responses.activate
-    def test_get_charged_transactions_finds_the_charge(self, fixture_json, client):
+    def test_get_charged_transactions_finds_the_charge(
+            self,
+            fixture_json: t.Callable[[str], t.Any],
+            client: UnzerClient,
+    ) -> None:
         responses.add(responses.GET, f"{BASE}/payments/s-pay-123456/charges/s-chg-1",
                       json=fixture_json("charge"))
         payment = PaymentGetResponse.fromDict(fixture_json("payment_get"), client)
@@ -85,21 +95,21 @@ class TestChargedTransactionsWereAlwaysEmpty:
 
 class TestCustomerWithoutAddresses:
 
-    def test_missing_addresses_serialise_to_none(self):
+    def test_missing_addresses_serialise_to_none(self) -> None:
         """Sending "" made the API answer HTTP 400 API.410.300.007 ("HTTP message
         not readable"), because the field is an object. null is accepted."""
         data = Customer(firstname="A", lastname="B").serialize()
         assert data["billingAddress"] is None
         assert data["shippingAddress"] is None
 
-    def test_present_addresses_still_serialise_to_objects(self):
+    def test_present_addresses_still_serialise_to_objects(self) -> None:
         customer = Customer(firstname="A", lastname="B",
                             billingAddress=Address(firstname="A", lastname="B", city="Berlin"))
         assert customer.serialize()["billingAddress"]["city"] == "Berlin"
 
-    def test_wrong_address_type_raises_instead_of_asserting(self):
+    def test_wrong_address_type_raises_instead_of_asserting(self) -> None:
         """Was a bare `assert`, which vanishes under `python -O`."""
-        customer = Customer(firstname="A", lastname="B", billingAddress="Hauptstr. 1")
+        customer = Customer(firstname="A", lastname="B", billingAddress="Hauptstr. 1")  # type: ignore[arg-type]
         with pytest.raises(TypeError, match="billingAddress"):
             customer.serialize()
 
@@ -110,7 +120,7 @@ class TestWebhookEvents:
         (Events.AUTHORIZE_PENDING, "authorize.pending"),
         (Events.CHARGE_PENDING, "charge.pending"),
     ])
-    def test_pending_events_are_spelled_correctly(self, member, expected):
+    def test_pending_events_are_spelled_correctly(self, member: Events, expected: str) -> None:
         """Were "authorize.pendin" and "charge.pendin" -- registered but never fired."""
         assert member == expected
 
@@ -119,10 +129,10 @@ class TestWebhookEvents:
         "preauthorize.pending", "preauthorize.canceled", "preauthorize.expired",
         "authorize.resumed", "charge.resumed",
     ])
-    def test_events_missing_before_are_available(self, name):
+    def test_events_missing_before_are_available(self, name: str) -> None:
         assert Events(name).value == name
 
-    def test_setter_no_longer_accepts_class_internals(self):
+    def test_setter_no_longer_accepts_class_internals(self) -> None:
         """Validation went against vars(Events).values(), which also contains
         __module__ and __qualname__, so those strings passed as valid events."""
         with pytest.raises(TypeError):
@@ -132,7 +142,7 @@ class TestWebhookEvents:
 class TestWebhookListsWereIterators:
 
     @responses.activate
-    def test_list_webhooks_can_be_used_twice(self, client, fixture_json):
+    def test_list_webhooks_can_be_used_twice(self, client: UnzerClient, fixture_json: t.Callable[[str], t.Any]) -> None:
         """Returned a map object: len() failed and a second pass was empty."""
         responses.add(responses.GET, f"{BASE}/webhooks", json=fixture_json("webhooks_list"))
         hooks = client.listWebhooks()
@@ -142,14 +152,14 @@ class TestWebhookListsWereIterators:
 
 class TestUnknownPaymentTypePlaceholder:
 
-    def test_placeholder_raises_a_readable_error(self):
+    def test_placeholder_raises_a_readable_error(self) -> None:
         """method_name used to be the plain string "N/A", so the client crashed
         with AttributeError: 'str' object has no attribute 'value'."""
         cls = PaymentType.construct(PaymentTypes.GIROPAY)
         with pytest.raises(NotImplementedError, match="no implementation"):
-            _ = cls.method_name.value
+            _ = cls.method_name.value  # type: ignore[attr-defined]
 
-    def test_placeholder_class_has_a_usable_name(self):
+    def test_placeholder_class_has_a_usable_name(self) -> None:
         """Was "Paymenttypes.Giropay"."""
         assert PaymentType.construct(PaymentTypes.GIROPAY).__name__ == "GiropayPaymentType"
 
@@ -158,14 +168,14 @@ class TestRetryOnNonIdempotentMethods:
     """Issue #7: a retried POST can repeat a payment operation."""
 
     @responses.activate
-    def test_post_is_not_repeated_after_a_timeout(self, retrying_client):
+    def test_post_is_not_repeated_after_a_timeout(self, retrying_client: UnzerClient) -> None:
         responses.add(responses.POST, f"{BASE}/customers", body=requests.exceptions.ReadTimeout())
         with pytest.raises(requests.exceptions.ReadTimeout):
             retrying_client.createCustomer(Customer(firstname="A", lastname="B"))
         assert len(responses.calls) == 1
 
     @responses.activate
-    def test_get_is_still_repeated(self, retrying_client, fixture_json):
+    def test_get_is_still_repeated(self, retrying_client: UnzerClient, fixture_json: t.Callable[[str], t.Any]) -> None:
         responses.add(responses.GET, f"{BASE}/payments/s-pay-1",
                       body=requests.exceptions.ReadTimeout())
         responses.add(responses.GET, f"{BASE}/payments/s-pay-1", json=fixture_json("payment_get"))
@@ -183,18 +193,20 @@ class TestTransactionUrlParsing:
         (f"{BASE}/payments/s-pay-1/charges/s-chg-1/due-date-extensions/s-dde-1",
          "due-date-extensions"),
     ])
-    def test_hyphenated_sub_operations_are_kept(self, url, expected):
+    def test_hyphenated_sub_operations_are_kept(self, url: str, expected: str) -> None:
         from unzer.model.payment import paymentUrlRe
-        assert paymentUrlRe.match(url).groupdict()["subSubOperation"] == expected
+        match = paymentUrlRe.match(url)
+        assert match is not None
+        assert match.groupdict()["subSubOperation"] == expected
 
     @pytest.mark.parametrize("host", ["api.unzer.com", "sbx-api.unzer.com"])
-    def test_host_is_not_pinned(self, host):
+    def test_host_is_not_pinned(self, host: str) -> None:
         """The pattern was anchored to api.unzer.com/v1 and failed on any other host."""
         from unzer.model.payment import paymentUrlRe
         url = f"https://{host}/v1/payments/s-pay-1/charges/s-chg-1"
         assert paymentUrlRe.match(url) is not None
 
-    def test_missing_url_raises_a_value_error(self, client):
+    def test_missing_url_raises_a_value_error(self, client: UnzerClient) -> None:
         """Was a bare `assert`, so it disappeared under `python -O`."""
         from unzer.model.payment import PaymentTransaction
         with pytest.raises(ValueError, match="no url"):
@@ -205,17 +217,17 @@ class TestTransactionUrlParsing:
 class TestTypeIdParsing:
 
     @pytest.mark.parametrize("type_id", ["nonsense", "s-crd", "x"])
-    def test_malformed_type_id_raises_value_error(self, type_id):
+    def test_malformed_type_id_raises_value_error(self, type_id: str) -> None:
         """"nonsense".split("-")[1] raised IndexError instead of a readable error."""
         with pytest.raises(ValueError, match="Invalid typeId"):
             PaymentGetResponse.getPaymentTypeFromTypeId(type_id)
 
     @pytest.mark.parametrize("type_id", ["", None])
-    def test_empty_type_id_raises(self, type_id):
+    def test_empty_type_id_raises(self, type_id: str | None) -> None:
         with pytest.raises(ValueError, match="Invalid typeId"):
             PaymentGetResponse.getPaymentTypeFromTypeId(type_id)
 
-    def test_unknown_short_code_says_what_to_do(self):
+    def test_unknown_short_code_says_what_to_do(self) -> None:
         """No placeholder return value: the message names the fix instead."""
         with pytest.raises(ValueError, match="has to be added to PaymentTypes"):
             PaymentGetResponse.getPaymentTypeFromTypeId("s-xyz-abc123")
@@ -226,14 +238,14 @@ class TestTypeIdParsing:
         ("s-pit-abc123", "PAYLATER_INSTALLMENT"),
         ("s-obp-abc123", "OPEN_BANKING"),
     ])
-    def test_known_short_codes(self, type_id, expected):
+    def test_known_short_codes(self, type_id: str, expected: str) -> None:
         assert PaymentGetResponse.getPaymentTypeFromTypeId(type_id).name == expected
 
 
 class TestKeypairWithSeveralConfigurations:
 
     @responses.activate
-    def test_all_configurations_are_returned(self, client):
+    def test_all_configurations_are_returned(self, client: UnzerClient) -> None:
         """A keypair can hold the same payment type more than once -- observed with
         card, twice, with different brands. get_configuration() silently returned
         whichever came first."""
@@ -245,7 +257,7 @@ class TestKeypairWithSeveralConfigurations:
         assert len(Card(client=client).get_configurations()) == 2
 
     @responses.activate
-    def test_casing_is_ignored(self, client):
+    def test_casing_is_ignored(self, client: UnzerClient) -> None:
         """The API answers "EPS" while the resource path is "eps"."""
         responses.add(responses.GET, f"{BASE}/keypair/types", json={"paymentTypes": [
             {"type": "EPS", "supports": [{"channel": "chan", "brands": []}]},
@@ -253,7 +265,7 @@ class TestKeypairWithSeveralConfigurations:
         from unzer.model import Eps
         assert Eps(client=client).get_configuration()["type"] == "EPS"
 
-    def test_missing_client_raises_runtime_error(self):
+    def test_missing_client_raises_runtime_error(self) -> None:
         """A payment type built without a client cannot read its configuration.
 
         That is a programming error, not an I/O problem — it used to raise
@@ -265,7 +277,7 @@ class TestKeypairWithSeveralConfigurations:
             Card().get_configuration()
 
     @responses.activate
-    def test_unconfigured_type_raises_lookup_error(self, client):
+    def test_unconfigured_type_raises_lookup_error(self, client: UnzerClient) -> None:
         responses.add(responses.GET, f"{BASE}/keypair/types", json={"paymentTypes": []})
         from unzer.model import Card
         with pytest.raises(LookupError):
@@ -278,41 +290,41 @@ class TestChannelPerBrand:
     wrong channel for every brand but the first."""
 
     @pytest.fixture
-    def keypair(self, fixture_json):
+    def keypair(self, fixture_json: t.Callable[[str], t.Any]) -> None:
         responses.add(responses.GET, f"{BASE}/keypair/types",
                       json=fixture_json("keypair_types_multi_card"))
 
     @responses.activate
-    def test_channel_is_selected_by_brand(self, client, keypair):
+    def test_channel_is_selected_by_brand(self, client: UnzerClient, keypair: None) -> None:
         from unzer.model import Card
         card = Card(client=client)
         assert card.get_channel_id(brand="VISA") == "a" * 32
         assert card.get_channel_id(brand="AMEX") == "b" * 32
 
     @responses.activate
-    def test_brand_matching_ignores_casing(self, client, keypair):
+    def test_brand_matching_ignores_casing(self, client: UnzerClient, keypair: None) -> None:
         from unzer.model import Card
         assert Card(client=client).get_channel_id(brand="amex") == "b" * 32
 
     @responses.activate
-    def test_brands_are_scoped_to_the_selected_configuration(self, client, keypair):
+    def test_brands_are_scoped_to_the_selected_configuration(self, client: UnzerClient, keypair: None) -> None:
         from unzer.model import Card
         assert Card(client=client).get_brands(brand="AMEX") == ["AMEX"]
 
     @responses.activate
-    def test_unknown_brand_names_the_available_ones(self, client, keypair):
+    def test_unknown_brand_names_the_available_ones(self, client: UnzerClient, keypair: None) -> None:
         from unzer.model import Card
         with pytest.raises(LookupError, match="AMEX"):
             Card(client=client).get_channel_id(brand="DINERS")
 
     @responses.activate
-    def test_without_brand_the_first_entry_still_wins(self, client, keypair):
+    def test_without_brand_the_first_entry_still_wins(self, client: UnzerClient, keypair: None) -> None:
         """Kept for backwards compatibility -- but it now logs a warning."""
         from unzer.model import Card
         assert Card(client=client).get_channel_id() == "a" * 32
 
     @responses.activate
-    def test_single_configuration_needs_no_brand(self, client, keypair):
+    def test_single_configuration_needs_no_brand(self, client: UnzerClient, keypair: None) -> None:
         from unzer.model import Eps
         assert Eps(client=client).get_channel_id() == "c" * 32
 
@@ -339,7 +351,7 @@ class TestTransactionTypesBeyondAuthorizeAndCharge:
         ("chargeback", Action.CHARGEBACK),
         ("strong_customer_authentication", Action.SCA),
     ])
-    def test_every_transaction_type_of_the_php_sdk_is_known(self, wire, expected):
+    def test_every_transaction_type_of_the_php_sdk_is_known(self, wire: str, expected: Action) -> None:
         transaction = self._transaction(wire)
         assert transaction.action is expected
 
@@ -349,7 +361,7 @@ class TestTransactionTypesBeyondAuthorizeAndCharge:
         ("error", TransactionStatus.ERROR),
         ("resumed", TransactionStatus.RESUMED),
     ])
-    def test_every_transaction_status_is_known(self, wire, expected):
+    def test_every_transaction_status_is_known(self, wire: str, expected: TransactionStatus) -> None:
         from unzer.model.payment import PaymentTransaction
         transaction = PaymentTransaction.fromDict({
             "type": "charge", "status": wire, "date": "2026-08-21 10:15:32",
@@ -359,11 +371,11 @@ class TestTransactionTypesBeyondAuthorizeAndCharge:
         assert transaction.status is expected
 
     @pytest.mark.parametrize("code", [0, 1, 2, 3, 4, 5, 6])
-    def test_known_payment_states(self, code):
+    def test_known_payment_states(self, code: int) -> None:
         from unzer.model import PaymentState
         assert PaymentState(code).value == code
 
-    def test_unknown_payment_state_raises(self, fixture_json, client):
+    def test_unknown_payment_state_raises(self, fixture_json: t.Callable[[str], t.Any], client: UnzerClient) -> None:
         """No fallback here, on purpose. There are seven states and they have been
         stable for years; an eighth is news, and swallowing it into UNKNOWN would
         surface later as "not COMPLETED, so not paid" without saying why."""
@@ -374,7 +386,7 @@ class TestTransactionTypesBeyondAuthorizeAndCharge:
             PaymentGetResponse.fromDict(data, client)
 
     @staticmethod
-    def _transaction(wire_type):
+    def _transaction(wire_type: str) -> PaymentTransaction:
         from unzer.model.payment import PaymentTransaction
         return PaymentTransaction.fromDict({
             "type": wire_type, "status": "success", "date": "2026-08-21 10:15:32",
@@ -393,11 +405,11 @@ class TestUnknownEnumValuesRaise:
     """
 
     @pytest.mark.parametrize("value", ["cancel-everything", "chrage", ""])
-    def test_unknown_action_raises(self, value):
+    def test_unknown_action_raises(self, value: str) -> None:
         with pytest.raises(ValueError):
             Action(value)
 
-    def test_action_covers_every_type_the_source_declares(self):
+    def test_action_covers_every_type_the_source_declares(self) -> None:
         """Nine, not eight: TransactionTypes.php also has SCA. A missing member
         makes getPayment() raise for the whole payment, so this list has to stay
         complete — there is no fallback to absorb an omission."""
@@ -407,11 +419,11 @@ class TestUnknownEnumValuesRaise:
             "strong_customer_authentication",
         }
 
-    def test_unknown_transaction_type_in_a_response_raises(self):
+    def test_unknown_transaction_type_in_a_response_raises(self) -> None:
         with pytest.raises(ValueError, match="brandnew"):
             self._transaction("brandnew")
 
-    def test_unknown_transaction_status_in_a_response_raises(self):
+    def test_unknown_transaction_status_in_a_response_raises(self) -> None:
         from unzer.model.payment import PaymentTransaction
         with pytest.raises(ValueError, match="half-done"):
             PaymentTransaction.fromDict({
@@ -420,18 +432,18 @@ class TestUnknownEnumValuesRaise:
                 "url": "https://api.unzer.com/v1/payments/s-pay-1/charges/s-chg-1",
             })
 
-    def test_caller_typo_raises(self):
+    def test_caller_typo_raises(self) -> None:
         with pytest.raises(TypeError):
             PaymentPage(action="chrage", amount=1.0, returnUrl="https://e.com/r")
 
-    def test_salutation_unknown_is_a_real_value_not_a_placeholder(self):
+    def test_salutation_unknown_is_a_real_value_not_a_placeholder(self) -> None:
         """The API sends it, and it carries meaning: no salutation is known."""
         from unzer.model.customer import Salutation
         customer = Customer(firstname="A", lastname="B", salutation=Salutation.UNKNOWN)
         assert customer.serialize()["salutation"] == "unknown"
 
     @staticmethod
-    def _transaction(wire_type):
+    def _transaction(wire_type: str) -> PaymentTransaction:
         from unzer.model.payment import PaymentTransaction
         return PaymentTransaction.fromDict({
             "type": wire_type, "status": "success", "date": "2026-08-21 10:15:32",
@@ -443,7 +455,7 @@ class TestUnknownEnumValuesRaise:
 class TestAmountRounding:
     """The API takes Decimal{10,4}. Floats do not cooperate."""
 
-    def test_floating_point_residue_becomes_zero(self):
+    def test_floating_point_residue_becomes_zero(self) -> None:
         """12.3 - 10.0 - 2.3 is 8.88e-16, and json.dumps writes that in scientific
         notation -- which is not a number this API accepts."""
         import json
@@ -455,24 +467,25 @@ class TestAmountRounding:
         assert request.serialize()["amount"] == 0.0
         assert "e-" not in json.dumps(request.serialize())
 
-    def test_amount_is_capped_at_four_decimals(self):
+    def test_amount_is_capped_at_four_decimals(self) -> None:
         from unzer.model import SepaDirectDebit
         request = PaymentRequest(paymentType=SepaDirectDebit(key="s-sdd-1"), amount=1.23456789)
         assert request.serialize()["amount"] == 1.2346
 
-    def test_paypage_amount_is_rounded(self):
+    def test_paypage_amount_is_rounded(self) -> None:
         page = PaymentPage(action=Action.CHARGE, amount=1.23456789,
                            returnUrl="https://e.com/r")
         assert page.serialize()["amount"] == 1.2346
 
     @pytest.mark.parametrize("field", ["amountTotalGross", "amountTotalVat",
                                        "amountTotalDiscount"])
-    def test_basket_v1_amounts_are_rounded(self, field):
+    def test_basket_v1_amounts_are_rounded(self, field: str) -> None:
         from unzer.model import Basket
-        basket = Basket(**{field: 1.23456789}, currencyCode="EUR")
+        kwargs: dict[str, t.Any] = {field: 1.23456789}
+        basket = Basket(**kwargs, currencyCode="EUR")
         assert basket.serialize()[field] == 1.2346
 
-    def test_basket_v3_amount_is_rounded(self):
+    def test_basket_v3_amount_is_rounded(self) -> None:
         from unzer.model import Basket
         basket = Basket(totalValueGross=1.23456789, currencyCode="EUR")
         assert basket.serialize()["totalValueGross"] == 1.2346
@@ -480,11 +493,15 @@ class TestAmountRounding:
     @pytest.mark.parametrize("value,expected", [
         (None, None), ("", None), ("1.5500", 1.55), (2, 2.0), (0, 0.0),
     ])
-    def test_round_amount_edge_cases(self, value, expected):
+    def test_round_amount_edge_cases(self, value: str | int | None, expected: float | None) -> None:
         from unzer.utils import roundAmount
         assert roundAmount(value) == expected
 
-    def test_amounts_arrive_as_strings_from_the_api(self, fixture_json, client):
+    def test_amounts_arrive_as_strings_from_the_api(
+            self,
+            fixture_json: t.Callable[[str], t.Any],
+            client: UnzerClient,
+    ) -> None:
         """Every amount in a response is a string with four decimals."""
         raw = fixture_json("charge")
         assert isinstance(raw["amount"], str)
@@ -501,14 +518,14 @@ class TestInstallmentPlansTimestamp:
     installment flow.
     """
 
-    def test_milliseconds_are_parsed(self, fixture_json):
+    def test_milliseconds_are_parsed(self, fixture_json: t.Callable[[str], t.Any]) -> None:
         import datetime
 
         from unzer.model import InstallmentPlans
         plans = InstallmentPlans.fromDict(fixture_json("installment_plans"))
         assert plans.expiresAt == datetime.datetime.fromtimestamp(1787349029.678)
 
-    def test_seconds_are_still_parsed(self, fixture_json):
+    def test_seconds_are_still_parsed(self, fixture_json: t.Callable[[str], t.Any]) -> None:
         """The reference shows seconds, so both units have to work."""
         import datetime
 
@@ -525,18 +542,18 @@ class TestInstallmentPlansTimestamp:
         ("1735689599", 1735689599),          # seconds, as the reference shows them
         (1735689599, 1735689599),
     ])
-    def test_parse_timestamp_handles_both_units(self, value, seconds):
+    def test_parse_timestamp_handles_both_units(self, value: str | int, seconds: float) -> None:
         import datetime
 
         from unzer.utils import parseTimestamp
         assert parseTimestamp(value) == datetime.datetime.fromtimestamp(seconds)
 
     @pytest.mark.parametrize("value", [None, ""])
-    def test_missing_timestamp_stays_none(self, value):
+    def test_missing_timestamp_stays_none(self, value: str | None) -> None:
         from unzer.utils import parseTimestamp
         assert parseTimestamp(value) is None
 
-    def test_plans_are_parsed(self, fixture_json):
+    def test_plans_are_parsed(self, fixture_json: t.Callable[[str], t.Any]) -> None:
         from unzer.model import InstallmentPlans
         plans = InstallmentPlans.fromDict(fixture_json("installment_plans"))
         assert plans.inquiryId
@@ -568,10 +585,14 @@ class TestEnumsStayComparableToTheirValue:
         (PaymentTypes.CARD, "crd"),
         (PaymentMethodTypes.CARD, "card"),
     ])
-    def test_member_equals_its_string_value(self, member, value):
+    def test_member_equals_its_string_value(
+            self,
+            member: Action | TransactionStatus | PaymentTypes | PaymentMethodTypes,
+            value: str,
+    ) -> None:
         assert member == value
 
-    def test_payment_state_equals_its_int_value(self):
+    def test_payment_state_equals_its_int_value(self) -> None:
         """``PaymentState`` carries ints, so it is an ``IntEnum`` rather than a ``StrEnum``."""
         assert PaymentState.COMPLETED == 1
         assert PaymentState.PENDING == 0
@@ -581,12 +602,16 @@ class TestEnumsStayComparableToTheirValue:
         (TransactionStatus.SUCCESS, "success"),
         (PaymentTypes.CARD, "crd"),
     ])
-    def test_interpolation_yields_the_value_not_the_member_name(self, member, expected):
+    def test_interpolation_yields_the_value_not_the_member_name(
+            self,
+            member: Action | TransactionStatus | PaymentTypes,
+            expected: str,
+    ) -> None:
         """``f"{Action.CHARGE}"`` used to render "Action.CHARGE" -- a silently wrong URL."""
         assert f"{member}" == expected
         assert str(member) == expected
 
-    def test_a_parsed_transaction_compares_to_plain_strings(self):
+    def test_a_parsed_transaction_compares_to_plain_strings(self) -> None:
         """The end-to-end case: what a consumer reads off a payment."""
         txn = PaymentTransaction.fromDict({
             "date": "2026-09-11 21:24:55",
@@ -600,7 +625,7 @@ class TestEnumsStayComparableToTheirValue:
         assert txn.action == Action.AUTHORIZE
         assert txn.status == TransactionStatus.SUCCESS
 
-    def test_enum_values_survive_json_serialisation(self):
+    def test_enum_values_survive_json_serialisation(self) -> None:
         """``json.dumps(..., default=str)`` turned a member into "Action.CHARGE"."""
         assert json.dumps(Action.CHARGE) == '"charge"'
         assert json.dumps(PaymentState.COMPLETED) == "1"
