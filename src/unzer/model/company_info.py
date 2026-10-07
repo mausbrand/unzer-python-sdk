@@ -175,7 +175,7 @@ class CompanyOwner(BaseModel):
         return {key: value for key, value in data.items() if value is not None}
 
     @classmethod
-    def fromDict(cls, data: dict[str, JSONValue], client: "UnzerClient | None" = None) -> t.Self:
+    def fromDict(cls, data: dict[str, t.Any], client: "UnzerClient | None" = None) -> t.Self:
         """Build an owner from the ``owner`` object of a customer response."""
         return cls(
             firstname=data.get("firstname") or None,
@@ -353,7 +353,7 @@ class CompanyInfo(BaseModel):
         return {key: value for key, value in data.items() if value not in (None, "")}
 
     @classmethod
-    def fromDict(cls, data: dict[str, JSONValue], client: "UnzerClient | None" = None) -> t.Self:
+    def fromDict(cls, data: dict[str, t.Any], client: "UnzerClient | None" = None) -> t.Self:
         """Build the company data from the ``companyInfo`` object of a customer response.
 
         An unset field may come as an empty string or be missing altogether -- the

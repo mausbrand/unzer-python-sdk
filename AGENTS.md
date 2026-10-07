@@ -67,7 +67,7 @@ sandbox tests:
 
 ```bash
 echo 'UNZER_PRIVATE_KEY=s-priv-...' > .env
-pytest -m sandbox
+uv run pytest -m sandbox
 ```
 
 Sandbox keys start with `s-priv-`, production keys with `p-priv-`. `tests/conftest.py` refuses
@@ -399,9 +399,11 @@ named after its subject, carries no date, and is edited when the code changes.
 Run the test suite before committing. Unit tests mock HTTP and never call the real API:
 
 ```bash
-pip install -e ".[testing]"
-pytest
-pycodestyle src/                    # full tree, not just the diff
+uv sync --extra testing --extra dev    # or: pip install -e ".[testing,dev]"
+uv run pytest                          # unit tests, mocked, no network
+uv run ruff check .                    # config in pyproject.toml
+uv run pycodestyle src/ tests/         # full tree, not just the diff
+uv run mypy                            # src/ and tests/, config in pyproject.toml
 ```
 
 Tests marked `@pytest.mark.sandbox` talk to the Unzer sandbox and skip unless

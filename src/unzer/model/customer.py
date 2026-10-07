@@ -4,7 +4,7 @@ import typing as t
 
 from ..utils import SENTINEL, Sentinel, format_birth_date, normalize_language, parse_birth_date
 from .address import Address
-from .base import BaseModel, JSONValue
+from .base import BaseModel
 from .company_info import CompanyInfo
 
 if t.TYPE_CHECKING:
@@ -74,53 +74,40 @@ class Customer(BaseModel):
 
     def __init__(
             self,
-            firstname,
-            lastname,
-            salutation=None,
-            key=None,
-            customerId=None,
-            birthDate=None,
-            email=None,
-            phone=None,
-            mobile=None,
-            billingAddress=None,
-            shippingAddress=None,
-            company=None,
-            companyData=None,
+            firstname: str,
+            lastname: str,
+            salutation: str | None = None,
+            key: str | None = None,
+            customerId: str | None = None,
+            birthDate: str | datetime.date | datetime.datetime | None = None,
+            email: str | None = None,
+            phone: str | None = None,
+            mobile: str | None = None,
+            billingAddress: Address | None = None,
+            shippingAddress: Address | None = None,
+            company: str | None = None,
+            companyData: t.Any = None,
             language: str | Sentinel | None = SENTINEL,
-            **kwargs
-    ):
+            **kwargs: t.Any,
+    ) -> None:
         """Create a new Customer.
 
         :param key: (optional) (original: id) Customer's generated code by Unzer's Payment
-        :type key: str
         :param firstname: Customer's first name
-        :type firstname: str
         :param lastname: Customer's last name
-        :type lastname: str
         :param salutation: (optional) Must be either 'mr', 'mrs' or 'unknown'
-        :type salutation: str | Salutation
         :param company: (optional) Company name (max. 256 chars). The sandbox asked
             for it with a B2B customer, i.e. one with ``companyData``.
-        :type company: str
         :param customerId: (optional) Must be unique and identifies the customer.
             Can be used in place of the resource id
-        :type customerId: str
         :param birthDate: (optional) Birthdate of the customer in format yyyy-mm-dd or dd.mm.yyyy
-        :type birthDate: datetime.datetime | datetime.date | str
         :param email: (optional) Customer's email
-        :type email: str
         :param phone: (optional) Customer's phone
-        :type phone: str
         :param mobile: (optional) Customer's mobile
-        :type mobile: str
         :param billingAddress: (optional) billing address
-        :type billingAddress: Address
         :param shippingAddress: (optional) shipping address
-        :type shippingAddress: Address
         :param companyData: (optional) Company data, which makes this a B2B
             customer. Sent as ``companyInfo``.
-        :type companyData: CompanyInfo
         :param language: (optional) Customer's language as ISO 639-1 code (e.g. ``de``).
             Used by Unzer for customer facing texts and mails.
             An uppercase code (``DE``) is accepted and lowercased, a locale (``de-DE``) is not:
@@ -135,19 +122,19 @@ class Customer(BaseModel):
             salutation = Salutation.UNKNOWN
         elif salutation not in {Salutation.MR, Salutation.MRS, Salutation.UNKNOWN}:
             raise TypeError("Invalid salutation")
-        self.key = key  # type: str
-        self.firstname = firstname  # type: str
-        self.lastname = lastname  # type: str
-        self.salutation = salutation  # type: Salutation
-        self.customerId = customerId  # type: str
-        self.birthDate = birthDate  # type: datetime.datetime
-        self.email = email  # type: str
-        self.phone = phone  # type: str
-        self.mobile = mobile  # type: str
-        self.billingAddress = billingAddress  # type: Address
-        self.shippingAddress = shippingAddress  # type: Address
-        self.company = company  # type: str
-        self.companyData = companyData  # type: CompanyInfo
+        self.key: str | None = key
+        self.firstname: str = firstname
+        self.lastname: str = lastname
+        self.salutation = salutation
+        self.customerId: str | None = customerId
+        self.birthDate = birthDate
+        self.email: str | None = email
+        self.phone = phone
+        self.mobile = mobile
+        self.billingAddress: Address | None = billingAddress
+        self.shippingAddress: Address | None = shippingAddress
+        self.company: str | None = company
+        self.companyData: t.Any = companyData
         self.language = language
 
     @property
@@ -238,7 +225,8 @@ class Customer(BaseModel):
         # The sentinel is kept as it is: assigning it means "not given" again, and
         # the getter turns it into the language of the client, or None without one.
         # It must not reach normalize_language(), which reads it as an empty value.
-        self._language = value if value is SENTINEL else normalize_language(value)
+        # TODO: mypy cannot narrow `is SENTINEL`; isinstance(value, Sentinel) would be equivalent.
+        self._language = value if value is SENTINEL else normalize_language(value)  # type: ignore[arg-type]
 
     def validateBeforeRequest(self) -> bool:
         """Validate the customer and the addresses it carries.
@@ -264,13 +252,13 @@ class Customer(BaseModel):
         """B2B for a customer with :attr:`companyData`, B2C otherwise."""
         return CustomerType.B2B if self.companyData is not None else CustomerType.B2C
 
-    def serialize(self):
+    def serialize(self) -> dict[str, t.Any]:
         birthDate = format_birth_date(self.birthDate)
 
         # An empty string is rejected by the API with API.410.300.007
         # ("HTTP message not readable") because the field is an object, not a
         # string. null is accepted, so missing addresses are sent as None.
-        addresses = {}
+        addresses: dict[str, dict[str, t.Any] | None] = {}
         for name in ("billingAddress", "shippingAddress"):
             address = getattr(self, name)
             if address is None:
@@ -307,7 +295,7 @@ class Customer(BaseModel):
         }
 
     @classmethod
-    def fromDict(cls, data: dict[str, JSONValue], client: "UnzerClient | None" = None) -> t.Self:
+    def fromDict(cls, data: dict[str, t.Any], client: "UnzerClient | None" = None) -> t.Self:
         """Build a customer from an API response.
 
         :param data: The customer resource as the API sent it.

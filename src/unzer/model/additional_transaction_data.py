@@ -4,7 +4,7 @@ import typing as t
 from datetime import date
 from datetime import datetime as dt
 
-from unzer.model.base import BaseModel, JSONValue
+from unzer.model.base import BaseModel
 
 logger = logging.getLogger("unzer-sdk").getChild(__name__)
 
@@ -22,8 +22,8 @@ class CardTransactionData(BaseModel):
             recurrenceType: t.Literal["scheduled", "unscheduled", "oneclick"] | None = None,
             liability: t.Literal["merchant", "issuer"] | None = None,
             exemptionType: str | None = None,
-            **kwargs,
-    ):
+            **kwargs: t.Any,
+    ) -> None:
         """
         Additional data for card transactions (e.g. for recurring payments, liability, exemptions).
 
@@ -31,18 +31,15 @@ class CardTransactionData(BaseModel):
             Must be either 'scheduled', 'unscheduled' or 'oneclick'.
         :param liability: Liability shift indicator (who is liable).
             (From API context, e.g. for 3DS liability handling.)
-        :type liability: str
-
         :param exemptionType: Exemption type for low-value payments, etc.
             (Used in specific regulatory or risk contexts.)
-        :type exemptionType: str
         """
         super().__init__(**kwargs)
         self.recurrenceType = recurrenceType
         self.liability = liability
         self.exemptionType = exemptionType
 
-    def serialize(self) -> dict[str, JSONValue]:
+    def serialize(self) -> dict[str, t.Any]:
         return {
             "recurrenceType": self.recurrenceType,
             "liability": self.liability,
@@ -50,7 +47,7 @@ class CardTransactionData(BaseModel):
         }
 
     @classmethod
-    def fromDict(cls, data: dict[str, JSONValue]) -> t.Self:
+    def fromDict(cls, data: dict[str, t.Any]) -> t.Self:
         raise NotImplementedError
 
 
@@ -62,8 +59,8 @@ class ShippingTransactionData(BaseModel):
             deliveryTrackingId: str | None = None,
             deliveryService: str | None = None,
             returnTrackingId: str | None = None,
-            **kwargs,
-    ):
+            **kwargs: t.Any,
+    ) -> None:
         """
         Additional data related to shipping info for a transaction.
 
@@ -76,7 +73,7 @@ class ShippingTransactionData(BaseModel):
         self.deliveryService = deliveryService
         self.returnTrackingId = returnTrackingId
 
-    def serialize(self) -> dict[str, JSONValue]:
+    def serialize(self) -> dict[str, t.Any]:
         return {
             "deliveryTrackingId": self.deliveryTrackingId,
             "deliveryService": self.deliveryService,
@@ -84,7 +81,7 @@ class ShippingTransactionData(BaseModel):
         }
 
     @classmethod
-    def fromDict(cls, data: dict[str, JSONValue]) -> t.Self:
+    def fromDict(cls, data: dict[str, t.Any]) -> t.Self:
         raise NotImplementedError
 
 
@@ -125,13 +122,13 @@ class RiskData(BaseModel):
             self,
             confirmedAmount: float | None = None,
             confirmedOrders: int | None = None,
-            customerGroup: CustomerGroup = None,
+            customerGroup: CustomerGroup | None = None,
             customerId: str | None = None,
             registrationDate: dt | date | None = None,
-            registrationLevel: RegistrationLevel = None,
+            registrationLevel: RegistrationLevel | None = None,
             threatMetrixId: str | None = None,
-            **kwargs
-    ):
+            **kwargs: t.Any,
+    ) -> None:
         """
         Additional risk-related data for the transaction (e.g. for fraud/risk assessments).
 
@@ -152,7 +149,7 @@ class RiskData(BaseModel):
         self.confirmedOrders = confirmedOrders
         self.confirmedAmount = confirmedAmount
 
-    def serialize(self) -> dict[str, JSONValue]:
+    def serialize(self) -> dict[str, t.Any]:
         return {
             "threatMetrixId": self.threatMetrixId,
             "registrationLevel": self.registrationLevel.value if self.registrationLevel is not None else None,
@@ -165,7 +162,7 @@ class RiskData(BaseModel):
         }
 
     @classmethod
-    def fromDict(cls, data: dict[str, JSONValue]) -> t.Self:
+    def fromDict(cls, data: dict[str, t.Any]) -> t.Self:
         raise NotImplementedError
 
 
@@ -175,24 +172,23 @@ class PaypalData(BaseModel):
     def __init__(
             self,
             checkoutType: t.Literal["EXPRESS"] | None = None,
-            **kwargs
-    ):
+            **kwargs: t.Any,
+    ) -> None:
         """
         Additional data for PayPal transactions (especially in context of recurring or one-click behavior).
 
         :param checkoutType: Checkout type for PayPal transaction.
-        :type checkoutType: str
         """
         super().__init__(**kwargs)
         self.checkoutType = checkoutType
 
-    def serialize(self) -> dict[str, JSONValue]:
+    def serialize(self) -> dict[str, t.Any]:
         return {
             "checkoutType": self.checkoutType,
         }
 
     @classmethod
-    def fromDict(cls, data: dict[str, JSONValue]) -> t.Self:
+    def fromDict(cls, data: dict[str, t.Any]) -> t.Self:
         raise NotImplementedError
 
 
@@ -210,12 +206,12 @@ class AdditionalTransactionData(BaseModel):
 
     def __init__(
             self,
-            card: CardTransactionData = None,
-            shipping: ShippingTransactionData = None,
-            risk_data: RiskData = None,
-            paypal: PaypalData = None,
-            **kwargs
-    ):
+            card: CardTransactionData | None = None,
+            shipping: ShippingTransactionData | None = None,
+            risk_data: RiskData | None = None,
+            paypal: PaypalData | None = None,
+            **kwargs: t.Any,
+    ) -> None:
         """
         Container for all types of additional transaction data (card, shipping, risk, PayPal).
 
@@ -235,7 +231,7 @@ class AdditionalTransactionData(BaseModel):
         self.risk_data = risk_data
         self.paypal = paypal
 
-    def serialize(self) -> dict[str, JSONValue]:
+    def serialize(self) -> dict[str, t.Any]:
         return {
             "card": self.card.serialize() if self.card else None,
             "shipping": self.shipping.serialize() if self.shipping else None,
@@ -244,5 +240,5 @@ class AdditionalTransactionData(BaseModel):
         }
 
     @classmethod
-    def fromDict(cls, data: dict[str, JSONValue]) -> t.Self:
+    def fromDict(cls, data: dict[str, t.Any]) -> t.Self:
         raise NotImplementedError

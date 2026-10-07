@@ -52,3 +52,30 @@ jobs:
         if: ${{ github.event_name == 'push' }}
         run: |
           git show -U0 ${GITHUB_SHA} | pycodestyle --diff --format='::error file=%(path)s,line=%(row)d,col=%(col)d::%(code)s: %(text)s'
+
+  type-checker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # mypy needs the package and the test dependencies importable to follow
+      # them; the config in pyproject.toml pins the checked version to 3.11.
+      - name: Install dependencies
+        run: |
+          python -m pip install -U pip
+          python -m pip install -e ".[testing,dev]"
+
+      # Rewritten into workflow commands, so findings show up inline in the PR.
+      # `shell: bash` runs with pipefail, otherwise sed would swallow the exit code.
+      - name: run mypy
+        shell: bash
+        run: |
+          mypy --no-pretty --no-error-summary \
+            | sed -E 's/^([^:]+):([0-9]+): error: (.*)$/::error file=\1,line=\2::\3/'

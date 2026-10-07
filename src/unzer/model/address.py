@@ -42,45 +42,38 @@ class Address(BaseModel):
 
     def __init__(
             self,
-            firstname,
-            lastname,
-            street=None,
-            state=None,
-            zipCode=None,
-            city=None,
-            country=None,
+            firstname: str,
+            lastname: str | None,
+            street: str | None = None,
+            state: str | None = None,
+            zipCode: str | None = None,
+            city: str | None = None,
+            country: str | None = None,
             company: str | None = None,
-            **kwargs
-    ):
+            **kwargs: t.Any,
+    ) -> None:
         """Create a new Address.
 
         :param firstname: Address first name. Together with the last name at most
             81 characters, because the wire format joins them into one ``name``.
-        :type firstname: str
         :param lastname: Address last name, see above.
-        :type lastname: str
         :param street: (optional) Address street (max. 64 chars). Required in case of billing address.
-        :type street: str
         :param state: (optional) Address state in ISO 3166-2 format (max. 8 chars). Required in case of billing address.
-        :type state: str
         :param zipCode: (optional) Address zip code (max. 10 chars). Required in case of billing address.
-        :type zipCode: str
         :param city: (optional) Address city (max. 30 chars). Required in case of billing address.
-        :type city: str
         :param country: (optional) Address country in ISO A2 format (max. 2 chars). Required in case of billing address.
-        :type country: str
         :param company: (optional) Company name (max. 256 chars). The sandbox kept
             it on a billing address only, see the class docstring.
         """
         super().__init__(**kwargs)
-        self.firstname = firstname  # type: str
-        self.lastname = lastname  # type: str
-        self.street = street  # type: str
-        self.state = state  # type: str
-        self.zipCode = zipCode  # type: str
-        self.city = city  # type: str
-        self.country = country  # type: str
-        self.company = company
+        self.firstname: str = firstname
+        self.lastname: str | None = lastname
+        self.street: str | None = street
+        self.state: str | None = state
+        self.zipCode: str | None = zipCode
+        self.city: str | None = city
+        self.country: str | None = country
+        self.company: str | None = company
 
     @property
     def name(self) -> str:
@@ -99,7 +92,7 @@ class Address(BaseModel):
         except ValueError:
             self.firstname, self.lastname = name, None
 
-    def serialize(self):
+    def serialize(self) -> dict[str, t.Any]:
         return {
             "name": self.getString(self.name),
             "street": self.getString(self.street),
@@ -111,7 +104,7 @@ class Address(BaseModel):
         }
 
     @classmethod
-    def fromDict(cls, data):
+    def fromDict(cls, data: dict[str, t.Any]) -> t.Self:
         try:
             firstname, lastname = data["name"].split(" ", 1)
         except ValueError:

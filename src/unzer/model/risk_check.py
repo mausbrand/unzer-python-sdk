@@ -2,7 +2,7 @@ import datetime
 import typing as t
 
 from ..utils import parseBool, parseDateTime
-from .base import BaseModel, JSONValue
+from .base import BaseModel
 
 
 class RiskCheckResponse(BaseModel):
@@ -20,8 +20,8 @@ class RiskCheckResponse(BaseModel):
             isPending: bool | None = None,
             isResumed: bool | None = None,
             isError: bool | None = None,
-            **kwargs,
-    ):
+            **kwargs: t.Any,
+    ) -> None:
         """Create a new RiskCheckResponse.
 
         :param key: (original: id) Id of this risk check (e.g. ``GHZC-PQVK-RLGP``).
@@ -42,11 +42,11 @@ class RiskCheckResponse(BaseModel):
         self.isResumed = isResumed
         self.isError = isError
 
-    def serialize(self) -> dict[str, JSONValue]:
+    def serialize(self) -> dict[str, t.Any]:
         raise NotImplementedError("No serialisation for response models.")
 
     @classmethod
-    def fromDict(cls, data: dict[str, JSONValue]) -> t.Self:
+    def fromDict(cls, data: dict[str, t.Any]) -> t.Self:
         data = data.copy()
         data["key"] = data["id"]
         data["timestamp"] = parseDateTime(data.get("timestamp"))

@@ -87,19 +87,16 @@ class Webhook(BaseModel):
 
     def __init__(
             self,
-            url,
-            event=Events.ALL,
-            webhookId=None,
-            **kwargs
-    ):
+            url: str,
+            event: Events | str | list[Events] | list[str] = Events.ALL,
+            webhookId: str | None = None,
+            **kwargs: t.Any,
+    ) -> None:
         """Create a new Webhook.
 
         :param webhookId: The id of the webhook
-        :type webhookId: str
         :param event: The or a list of events for this webhook
-        :type event: str
         :param url: The url of the webhook
-        :type url: str
         """
         super().__init__(**kwargs)
         self.webhookId = webhookId
@@ -112,7 +109,7 @@ class Webhook(BaseModel):
         return self._event
 
     @event.setter
-    def event(self, value: str | list[str]) -> None:
+    def event(self, value: Events | str | list[Events] | list[str]) -> None:
         """Set one event or several, always storing a list.
 
         A single event is wrapped, so the create call can treat both the same way
@@ -132,14 +129,14 @@ class Webhook(BaseModel):
                 raise TypeError(f"Invalid value {val!r} for event") from None
         self._event = events
 
-    def serialize(self):
+    def serialize(self) -> dict[str, t.Any]:
         return {
             "eventList": self.event,
             "url": self.url,
         }
 
     @classmethod
-    def fromDict(cls, data):
+    def fromDict(cls, data: dict[str, t.Any]) -> t.Self:
         data = data.copy()
         data["webhookId"] = data["id"]
         return cls(**data)

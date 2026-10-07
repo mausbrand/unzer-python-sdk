@@ -24,10 +24,12 @@ run. Only types whose fields the SDK actually sends are exercised below.
 ``keypair/types`` first and skips what the account cannot do.
 """
 
+import typing as t
 import uuid
 
 import pytest
 
+from unzer import UnzerClient
 from unzer.model import (
     Action,
     Address,
@@ -43,6 +45,7 @@ from unzer.model import (
     PaylaterInvoice,
     PaymentPage,
     PaymentRequest,
+    PaymentResponse,
     SepaDirectDebit,
 )
 
@@ -55,7 +58,7 @@ TEST_HOLDER = "Maximilian Mustermann"
 
 
 @pytest.fixture(scope="module")
-def enabled_methods(sandbox_client):
+def enabled_methods(sandbox_client: UnzerClient) -> set[str]:
     """The payment method slugs this account has enabled, lower cased.
 
     Unzer is inconsistent about the casing -- the API answers ``EPS`` while the
@@ -65,30 +68,30 @@ def enabled_methods(sandbox_client):
     return {entry["type"].lower() for entry in types}
 
 
-def requires(sandbox_client, enabled_methods, slug):
+def requires(sandbox_client: UnzerClient, enabled_methods: set[str], slug: str) -> None:
     if slug not in enabled_methods:
         pytest.skip(f"account has no {slug}; enabled: {sorted(enabled_methods)}")
 
 
 class TestKeypair:
 
-    def test_keypair_is_readable(self, sandbox_client):
+    def test_keypair_is_readable(self, sandbox_client: UnzerClient) -> None:
         assert sandbox_client.getKeyPair()["publicKey"].startswith("s-pub-")
 
-    def test_sandbox_key_reaches_the_default_endpoint(self, sandbox_client):
+    def test_sandbox_key_reaches_the_default_endpoint(self, sandbox_client: UnzerClient) -> None:
         """`sandbox=True` does not switch hosts: the key prefix decides the
         environment and api.unzer.com serves both."""
         assert sandbox_client.endpoint == "https://api.unzer.com"
         assert sandbox_client.getKeyPair()["publicKey"]
 
-    def test_keypair_types_may_repeat_a_payment_type(self, sandbox_client):
+    def test_keypair_types_may_repeat_a_payment_type(self, sandbox_client: UnzerClient) -> None:
         """Documented as one entry per type; some accounts return several."""
         types = [entry["type"] for entry in sandbox_client.getKeyPairTypes()["paymentTypes"]]
         assert types, "account has no payment types at all"
         # Not an assertion about duplicates -- just that reading them never crashes.
         assert all(isinstance(name, str) for name in types)
 
-    def test_every_configuration_is_reachable(self, sandbox_client, enabled_methods):
+    def test_every_configuration_is_reachable(self, sandbox_client: UnzerClient, enabled_methods: set[str]) -> None:
         """On an account that configures one type twice, both must be readable.
 
         Seen with `card`: MASTER/VISA on one channel, AMEX on another. Reading only
@@ -105,7 +108,7 @@ class TestKeypair:
             assert len(channels) == len(configurations), \
                 f"{name} has {len(configurations)} configurations but {len(channels)} channels"
 
-    def test_channel_can_be_picked_by_brand(self, sandbox_client, enabled_methods):
+    def test_channel_can_be_picked_by_brand(self, sandbox_client: UnzerClient, enabled_methods: set[str]) -> None:
         requires(sandbox_client, enabled_methods, "card")
         from unzer.model import Card
         card = Card(client=sandbox_client)
@@ -123,13 +126,13 @@ class TestKeypair:
         channels = {card.get_channel_id(brand=b) for b in brands}
         assert len(channels) >= 1
 
-    def test_unknown_brand_raises_lookup_error(self, sandbox_client, enabled_methods):
+    def test_unknown_brand_raises_lookup_error(self, sandbox_client: UnzerClient, enabled_methods: set[str]) -> None:
         requires(sandbox_client, enabled_methods, "card")
         from unzer.model import Card
         with pytest.raises(LookupError):
             Card(client=sandbox_client).get_channel_id(brand="NOT-A-BRAND")
 
-    def test_customer_types_is_a_comma_separated_string(self, sandbox_client):
+    def test_customer_types_is_a_comma_separated_string(self, sandbox_client: UnzerClient) -> None:
         """Not a list -- `B2B,B2C` arrives as one string."""
         for entry in sandbox_client.getKeyPairTypes()["paymentTypes"]:
             allowed = entry.get("allowCustomerTypes")
@@ -141,17 +144,18 @@ class TestKeypair:
 
 class TestCustomer:
 
-    def test_customer_without_addresses_is_accepted(self, sandbox_client):
+    def test_customer_without_addresses_is_accepted(self, sandbox_client: UnzerClient) -> None:
         """Sending "" for a missing address returns HTTP 400 API.410.300.007."""
         customer = sandbox_client.createCustomer(
             Customer(firstname="Maximilian", lastname="Mustermann",
                      email="maximilian.mustermann@example.com")
         )
+        assert customer.key is not None
         assert customer.key.startswith("s-cst-")
         # The API answers with an empty address object, never with a string.
         assert isinstance(customer.billingAddress, Address)
 
-    def test_customer_with_addresses_round_trips(self, sandbox_client):
+    def test_customer_with_addresses_round_trips(self, sandbox_client: UnzerClient) -> None:
         address = Address(firstname="Maximilian", lastname="Mustermann",
                           street="Hugo-Junkers-Str. 3", zipCode="60386",
                           city="Frankfurt am Main", country="DE")
@@ -160,10 +164,11 @@ class TestCustomer:
                      birthDate="1980-11-22", email="maximilian.mustermann@example.com",
                      billingAddress=address)
         )
+        assert customer.billingAddress is not None
         assert customer.billingAddress.city == "Frankfurt am Main"
         assert customer.billingAddress.zipCode == "60386"
 
-    def test_empty_state_is_accepted(self, sandbox_client):
+    def test_empty_state_is_accepted(self, sandbox_client: UnzerClient) -> None:
         """The docs list state as required for a billing address; it is not."""
         address = Address(firstname="Maximilian", lastname="Mustermann",
                           street="Hugo-Junkers-Str. 3", zipCode="60386",
@@ -173,7 +178,7 @@ class TestCustomer:
         )
         assert customer.key
 
-    def test_create_or_update_recovers_from_a_duplicate(self, sandbox_client):
+    def test_create_or_update_recovers_from_a_duplicate(self, sandbox_client: UnzerClient) -> None:
         """The second call must not fail on the duplicate customerId.
 
         A fresh id per run on purpose: a fixed one would make the test depend on
@@ -205,12 +210,12 @@ class TestB2BCustomer:
     """
 
     @staticmethod
-    def _address(**kwargs) -> Address:
+    def _address(**kwargs: t.Any) -> Address:
         return Address(firstname="Maximilian", lastname="Mustermann",
                        street="Hugo-Junkers-Str. 3", zipCode="60386",
                        city="Frankfurt am Main", country="DE", **kwargs)
 
-    def test_registered_company_round_trips(self, sandbox_client):
+    def test_registered_company_round_trips(self, sandbox_client: UnzerClient) -> None:
         customer = sandbox_client.createCustomer(Customer(
             firstname="Maximilian", lastname="Mustermann", company="Mustermann GmbH",
             billingAddress=self._address(),
@@ -223,7 +228,7 @@ class TestB2BCustomer:
         assert customer.companyData.owner is None
         assert customer.customer_type == "B2B"
 
-    def test_unregistered_sole_proprietor_with_owner_round_trips(self, sandbox_client):
+    def test_unregistered_sole_proprietor_with_owner_round_trips(self, sandbox_client: UnzerClient) -> None:
         customer = sandbox_client.createCustomer(Customer(
             firstname="Maximilian", lastname="Mustermann", company="Mustermann Consulting",
             email="maximilian.mustermann@example.com", birthDate="1980-11-22",
@@ -239,14 +244,14 @@ class TestB2BCustomer:
         # Sent as dd.mm.yyyy, answered in ISO form.
         assert info.owner.birthdate.strftime("%Y-%m-%d") == "1980-11-22"
 
-    def test_a_consumer_has_no_company_data(self, sandbox_client):
+    def test_a_consumer_has_no_company_data(self, sandbox_client: UnzerClient) -> None:
         """companyInfo null makes a B2C customer, and it comes back without the key."""
         customer = sandbox_client.createCustomer(
             Customer(firstname="Maximilian", lastname="Mustermann"))
         assert customer.companyData is None
         assert customer.customer_type == "B2C"
 
-    def test_registered_without_register_number_is_refused(self, sandbox_client):
+    def test_registered_without_register_number_is_refused(self, sandbox_client: UnzerClient) -> None:
         with pytest.raises(ErrorResponse) as excinfo:
             sandbox_client.request("customers", "POST", {
                 "firstname": "Maximilian", "lastname": "Mustermann", "company": "Mustermann GmbH",
@@ -255,7 +260,7 @@ class TestB2BCustomer:
             })
         assert "API.410.100.110" in {error.code for error in excinfo.value.errors}
 
-    def test_sole_proprietor_needs_the_customers_birth_date(self, sandbox_client):
+    def test_sole_proprietor_needs_the_customers_birth_date(self, sandbox_client: UnzerClient) -> None:
         """The owner's birthdate does not stand in for it."""
         customer = Customer(
             firstname="Maximilian", lastname="Mustermann", company="Mustermann Consulting",
@@ -269,7 +274,7 @@ class TestB2BCustomer:
             sandbox_client.request("customers", "POST", customer.serialize())
         assert "API.410.100.111" in {error.code for error in excinfo.value.errors}
 
-    def test_b2b_needs_a_complete_billing_address(self, sandbox_client):
+    def test_b2b_needs_a_complete_billing_address(self, sandbox_client: UnzerClient) -> None:
         customer = Customer(
             firstname="Maximilian", lastname="Mustermann", company="Mustermann GmbH",
             billingAddress=Address(firstname="Maximilian", lastname="Mustermann", country="DE"),
@@ -279,7 +284,7 @@ class TestB2BCustomer:
             sandbox_client.request("customers", "POST", customer.serialize())
         assert "API.410.100.107" in {error.code for error in excinfo.value.errors}
 
-    def test_unregistered_company_drops_the_register_number(self, sandbox_client):
+    def test_unregistered_company_drops_the_register_number(self, sandbox_client: UnzerClient) -> None:
         """Accepted without an error, and not stored."""
         info = CompanyInfo.not_registered(commercialRegisterNumber="HRB 12345")
         customer = sandbox_client.createCustomer(Customer(
@@ -289,7 +294,7 @@ class TestB2BCustomer:
         ))
         assert customer.companyData.commercialRegisterNumber is None
 
-    def test_free_text_is_stored_where_the_docs_list_values(self, sandbox_client):
+    def test_free_text_is_stored_where_the_docs_list_values(self, sandbox_client: UnzerClient) -> None:
         """function, commercialSector and companyType are not checked by the API."""
         customer = sandbox_client.createCustomer(Customer(
             firstname="Maximilian", lastname="Mustermann", company="Mustermann GmbH",
@@ -300,12 +305,14 @@ class TestB2BCustomer:
         info = customer.companyData
         assert (info.function, info.commercialSector, info.companyType) == ("Owner", "nonsense", "nonsense")
 
-    def test_address_company_is_stored_on_the_billing_address_only(self, sandbox_client):
+    def test_address_company_is_stored_on_the_billing_address_only(self, sandbox_client: UnzerClient) -> None:
         customer = sandbox_client.createCustomer(Customer(
             firstname="Maximilian", lastname="Mustermann",
             billingAddress=self._address(company="Billing GmbH"),
             shippingAddress=self._address(company="Shipping GmbH"),
         ))
+        assert customer.billingAddress is not None
+        assert customer.shippingAddress is not None
         assert customer.billingAddress.company == "Billing GmbH"
         assert customer.shippingAddress.company is None
 
@@ -336,20 +343,20 @@ class TestBasket:
     DISCOUNT = 90.78
     TOTAL = 817.02
 
-    def goods_v1(self, **overrides):
+    def goods_v1(self, **overrides: t.Any) -> BasketItem:
         """A v1 line item, overridable per test."""
         return BasketItem(
             basketItemReferenceId="item-1", title="T-Shirt", quantity=1, kind="goods",
             vat=self.VAT_PERCENT, amountPerUnit=self.NET, amountNet=self.NET,
             amountVat=self.VAT_AMOUNT, amountGross=self.GROSS, **overrides)
 
-    def goods_v3(self, **overrides):
+    def goods_v3(self, **overrides: t.Any) -> BasketItem:
         """A v3 line item, overridable per test."""
         return BasketItem(
             basketItemReferenceId="item-1", title="T-Shirt", quantity=1, kind="goods",
             vat=self.VAT_PERCENT, amountPerUnitGross=self.GROSS, **overrides)
 
-    def test_v1_basket(self, sandbox_client):
+    def test_v1_basket(self, sandbox_client: UnzerClient) -> None:
         basket = sandbox_client.createBasket(Basket(
             amountTotalGross=100.0, amountTotalVat=15.97, amountTotalDiscount=0,
             currencyCode="EUR", orderId="sdk-test-basket-v1",
@@ -360,7 +367,7 @@ class TestBasket:
         assert basket.key
         assert not basket.isV3()
 
-    def test_v3_basket(self, sandbox_client):
+    def test_v3_basket(self, sandbox_client: UnzerClient) -> None:
         basket = sandbox_client.createBasket(Basket(
             totalValueGross=100.0, currencyCode="EUR", orderId="sdk-test-basket-v3",
             basketItems=[BasketItem(
@@ -373,7 +380,7 @@ class TestBasket:
         assert basket.isV3()
         assert len(basket.key) > len("s-bsk-999")
 
-    def test_v1_rejects_negative_item_amounts(self, sandbox_client):
+    def test_v1_rejects_negative_item_amounts(self, sandbox_client: UnzerClient) -> None:
         """A discount as its own negative line item is refused, not merely discouraged.
 
         This is the shape a consumer arrives at naturally -- one item per article, one
@@ -393,7 +400,7 @@ class TestBasket:
         assert "API.600.410.018" in codes, codes  # basket item has negative amount gross
         assert "API.600.200.131" in codes, codes  # amount has to be positive
 
-    def test_v3_rejects_negative_item_amounts(self, sandbox_client):
+    def test_v3_rejects_negative_item_amounts(self, sandbox_client: UnzerClient) -> None:
         """v3 refuses them as well, so the schema switch alone is no way around it."""
         with pytest.raises(ErrorResponse) as excinfo:
             sandbox_client.createBasket(Basket(
@@ -405,7 +412,7 @@ class TestBasket:
             ))
         assert "API.600.200.131" in {error.code for error in excinfo.value.errors}
 
-    def test_v1_discount_goes_into_amount_discount(self, sandbox_client):
+    def test_v1_discount_goes_into_amount_discount(self, sandbox_client: UnzerClient) -> None:
         """The v1 way: a positive ``amountDiscount`` on the item it reduces.
 
         Reading the basket back shows that the API stores both values untouched --
@@ -426,7 +433,7 @@ class TestBasket:
         assert item.amountGross == self.GROSS, "the API does not subtract the discount"
         assert item.kind == "goods", "the item type is sent as `type`, not as `kind`"
 
-    def test_v3_discount_goes_into_amount_discount_per_unit_gross(self, sandbox_client):
+    def test_v3_discount_goes_into_amount_discount_per_unit_gross(self, sandbox_client: UnzerClient) -> None:
         """The v3 way: a positive ``amountDiscountPerUnitGross``, per unit."""
         basket = sandbox_client.createBasket(Basket(
             totalValueGross=self.TOTAL, currencyCode="EUR",
@@ -436,7 +443,7 @@ class TestBasket:
         assert basket.key
         assert basket.isV3()
 
-    def test_v3_multiplies_the_discount_by_the_quantity(self, sandbox_client):
+    def test_v3_multiplies_the_discount_by_the_quantity(self, sandbox_client: UnzerClient) -> None:
         """``amountDiscountPerUnitGross`` is per unit, not per line.
 
         Three units at 100.00 with a per-unit discount of 10.00 reconcile against a
@@ -453,7 +460,7 @@ class TestBasket:
         ))
         assert basket.key
 
-    def test_v3_reconciles_the_total_to_the_cent(self, sandbox_client):
+    def test_v3_reconciles_the_total_to_the_cent(self, sandbox_client: UnzerClient) -> None:
         """v3 enforces ``totalValueGross == sum((perUnit - discount) * quantity)``.
 
         A single cent is enough to be refused, so a discount spread over several items
@@ -467,7 +474,7 @@ class TestBasket:
             ))
         assert "API.600.410.062" in {error.code for error in excinfo.value.errors}
 
-    def test_v1_does_not_reconcile_the_total(self, sandbox_client):
+    def test_v1_does_not_reconcile_the_total(self, sandbox_client: UnzerClient) -> None:
         """v1 accepts a basket whose items contradict its own total.
 
         Documented as a warning, not as a licence: the value is passed on to the
@@ -481,7 +488,7 @@ class TestBasket:
         assert basket.key
         assert sandbox_client.getBasket(basket.key).amountTotalGross == 1.00
 
-    def test_v3_requires_vat_on_every_item(self, sandbox_client):
+    def test_v3_requires_vat_on_every_item(self, sandbox_client: UnzerClient) -> None:
         """``vat`` is mandatory in v3 -- the v1 endpoint takes items without it."""
         with pytest.raises(ErrorResponse) as excinfo:
             sandbox_client.createBasket(Basket(
@@ -493,7 +500,7 @@ class TestBasket:
             ))
         assert "API.600.410.052" in {error.code for error in excinfo.value.errors}
 
-    def test_v1_takes_items_without_vat(self, sandbox_client):
+    def test_v1_takes_items_without_vat(self, sandbox_client: UnzerClient) -> None:
         """The counterpart: v1 accepts the same item without ``vat`` and stores 0."""
         basket = sandbox_client.createBasket(Basket(
             amountTotalGross=self.GROSS, currencyCode="EUR",
@@ -502,9 +509,10 @@ class TestBasket:
                 basketItemReferenceId="item-1", title="T-Shirt", quantity=1, kind="goods",
                 amountPerUnit=self.NET, amountNet=self.NET, amountGross=self.GROSS)],
         ))
+        assert basket.key is not None
         assert sandbox_client.getBasket(basket.key).basketItems[0].vat == 0.0
 
-    def test_v3_discount_must_not_exceed_the_unit_price(self, sandbox_client):
+    def test_v3_discount_must_not_exceed_the_unit_price(self, sandbox_client: UnzerClient) -> None:
         """The per-item result must stay positive, which caps the discount per item.
 
         A discount bigger than the item it sits on therefore has to be spread across
@@ -531,7 +539,7 @@ class TestBasket:
             ))
         assert "API.600.410.064" in {error.code for error in excinfo.value.errors}
 
-    def test_v1_accepts_a_discount_larger_than_its_item(self, sandbox_client):
+    def test_v1_accepts_a_discount_larger_than_its_item(self, sandbox_client: UnzerClient) -> None:
         """v1 does not cap it, the counterpart to the v3 test above.
 
         Another consequence of v1 checking nothing: the item is left at an effective
@@ -548,38 +556,41 @@ class TestBasket:
 class TestPaymentPage:
     """Paypage v1 is tagged [Deprecated] in the spec but still works."""
 
-    def test_create_and_fetch(self, sandbox_client):
+    def test_create_and_fetch(self, sandbox_client: UnzerClient) -> None:
         page = sandbox_client.createPaymentPage(PaymentPage(
             action=Action.CHARGE, amount=100.0, currency="EUR",
             returnUrl="https://shop.example.com/return", orderId="sdk-test-paypage",
         ))
+        assert page.payPageId is not None
         assert page.payPageId.startswith("s-ppg-")
         assert page.action is Action.CHARGE
         fetched = sandbox_client.getPaymentPage(page.payPageId)
         assert fetched.payPageId == page.payPageId
         assert fetched.action is Action.CHARGE
 
-    def test_redirect_url_points_at_the_sandbox(self, sandbox_client):
+    def test_redirect_url_points_at_the_sandbox(self, sandbox_client: UnzerClient) -> None:
         """The host differs between sandbox and production, which is the reason
         consumers need to know which mode they are in."""
         page = sandbox_client.createPaymentPage(PaymentPage(
             action=Action.CHARGE, amount=100.0, currency="EUR",
             returnUrl="https://shop.example.com/return",
         ))
+        assert page.redirectUrl is not None
         assert "sbx-" in page.redirectUrl, page.redirectUrl
 
 
 class TestSepaDirectDebit:
     """SEPA direct debit is created server-side, so it can be exercised here."""
 
-    def test_create_payment_type(self, sandbox_client, enabled_methods):
+    def test_create_payment_type(self, sandbox_client: UnzerClient, enabled_methods: set[str]) -> None:
         requires(sandbox_client, enabled_methods, "sepa-direct-debit")
         created = sandbox_client.createPaymentType(
             SepaDirectDebit(iban=TEST_IBAN, bic=TEST_BIC, holder=TEST_HOLDER))
+        assert created.key is not None
         assert created.key.startswith("s-sdd-")
         assert created.iban == TEST_IBAN
 
-    def test_charge_and_read_back(self, sandbox_client, enabled_methods):
+    def test_charge_and_read_back(self, sandbox_client: UnzerClient, enabled_methods: set[str]) -> None:
         requires(sandbox_client, enabled_methods, "sepa-direct-debit")
         response = sandbox_client.charge(PaymentRequest(
             paymentType=SepaDirectDebit(iban=TEST_IBAN, bic=TEST_BIC, holder=TEST_HOLDER),
@@ -587,6 +598,9 @@ class TestSepaDirectDebit:
             orderId="sdk-test-sdd-charge",
         ))
         assert response.isSuccess
+        assert response.transactionId is not None
+        assert response.processing is not None
+        assert response.paymentId is not None
         assert response.transactionId.startswith("s-chg-")
         assert response.processing.shortId, "processing must carry the short id"
 
@@ -596,7 +610,11 @@ class TestSepaDirectDebit:
         assert len(charged) == 1, "getChargedTransactions used to return []"
         assert charged[0].transactionId == response.transactionId
 
-    def test_b2b_customer_is_charged_despite_a_b2c_keypair(self, sandbox_client, enabled_methods):
+    def test_b2b_customer_is_charged_despite_a_b2c_keypair(
+            self,
+            sandbox_client: UnzerClient,
+            enabled_methods: set[str],
+    ) -> None:
         """`allowCustomerTypes` is not enforced here, unlike for the Pay later methods."""
         requires(sandbox_client, enabled_methods, "sepa-direct-debit")
         allowed = SepaDirectDebit(client=sandbox_client).get_allowed_customer_types()
@@ -615,17 +633,18 @@ class TestSepaDirectDebit:
         ))
         assert response.isSuccess
 
-    def test_transaction_actions_are_enums(self, sandbox_client, enabled_methods):
+    def test_transaction_actions_are_enums(self, sandbox_client: UnzerClient, enabled_methods: set[str]) -> None:
         requires(sandbox_client, enabled_methods, "sepa-direct-debit")
         response = sandbox_client.charge(PaymentRequest(
             paymentType=SepaDirectDebit(iban=TEST_IBAN, bic=TEST_BIC, holder=TEST_HOLDER),
             amount=1.0, currency="EUR", returnUrl="https://shop.example.com/return",
         ))
+        assert response.paymentId is not None
         payment = sandbox_client.getPayment(response.paymentId)
         assert all(isinstance(txn.action, Action) for txn in payment.transactions)
 
 
-def requires_b2b(sandbox_client, enabled_methods, payment_type):
+def requires_b2b(sandbox_client: UnzerClient, enabled_methods: set[str], payment_type: type[PaylaterInvoice]) -> None:
     """Skip unless the keypair allows B2B customers for `payment_type`."""
     requires(sandbox_client, enabled_methods, payment_type.method_name.value)
     allowed = payment_type(client=sandbox_client).get_allowed_customer_types()
@@ -642,7 +661,7 @@ class TestPaylaterB2B:
     """
 
     @staticmethod
-    def _authorize(sandbox_client, customer: Customer):
+    def _authorize(sandbox_client: UnzerClient, customer: Customer) -> PaymentResponse:
         customer = sandbox_client.createCustomer(customer)
         basket = sandbox_client.createBasket(Basket(
             amountTotalGross=119.0, currencyCode="EUR", orderId=f"sdk-test-{uuid.uuid4().hex[:12]}",
@@ -657,7 +676,7 @@ class TestPaylaterB2B:
         ), headers={"CLIENTIP": "203.0.113.10", "X-CLIENTIP": "203.0.113.10"})
 
     @staticmethod
-    def _customer(info: CompanyInfo, **kwargs) -> Customer:
+    def _customer(info: CompanyInfo, **kwargs: t.Any) -> Customer:
         address = Address(firstname="Maximilian", lastname="Mustermann", street="Hugo-Junkers-Str. 3",
                           zipCode="60386", city="Frankfurt am Main", country="DE")
         fields = {
@@ -677,21 +696,35 @@ class TestPaylaterB2B:
         CompanyInfo.registered("HRB 12345", companyType=CompanyType.COMPANY),
         CompanyInfo.not_registered(companyType=CompanyType.COMPANY),
     ], ids=["registered", "not_registered"])
-    def test_invoice_authorizes_a_b2b_customer(self, sandbox_client, enabled_methods, info):
+    def test_invoice_authorizes_a_b2b_customer(
+            self,
+            sandbox_client: UnzerClient,
+            enabled_methods: set[str],
+            info: CompanyInfo,
+    ) -> None:
         requires_b2b(sandbox_client, enabled_methods, PaylaterInvoice)
         assert self._authorize(sandbox_client, self._customer(info)).isSuccess
 
     @pytest.mark.parametrize("company_type", [None, "COMPANY", "nonsense"])
-    def test_invoice_needs_a_valid_company_type(self, sandbox_client, enabled_methods, company_type):
+    def test_invoice_needs_a_valid_company_type(
+            self,
+            sandbox_client: UnzerClient,
+            enabled_methods: set[str],
+            company_type: str | None,
+    ) -> None:
         """Optional on the customer, but the authorize refuses it missing or unknown -- in any
         case but lower case."""
         requires_b2b(sandbox_client, enabled_methods, PaylaterInvoice)
         customer = self._customer(CompanyInfo.registered("HRB 12345", companyType=company_type))
         with pytest.raises(ErrorResponse) as excinfo:
             self._authorize(sandbox_client, customer)
-        assert any("customer.company.type" in error.merchantMessage for error in excinfo.value.errors)
+        assert any("customer.company.type" in (error.merchantMessage or "") for error in excinfo.value.errors)
 
-    def test_invoice_needs_function_owner_when_not_registered(self, sandbox_client, enabled_methods):
+    def test_invoice_needs_function_owner_when_not_registered(
+            self,
+            sandbox_client: UnzerClient,
+            enabled_methods: set[str],
+    ) -> None:
         """The customer resource stores any text; the authorize wants OWNER."""
         requires_b2b(sandbox_client, enabled_methods, PaylaterInvoice)
         customer = self._customer(CompanyInfo.not_registered(companyType=CompanyType.COMPANY, function="nonsense"))
@@ -699,7 +732,11 @@ class TestPaylaterB2B:
             self._authorize(sandbox_client, customer)
         assert "API.410.100.108" in {error.code for error in excinfo.value.errors}
 
-    def test_invoice_owner_must_carry_the_customers_name(self, sandbox_client, enabled_methods):
+    def test_invoice_owner_must_carry_the_customers_name(
+            self,
+            sandbox_client: UnzerClient,
+            enabled_methods: set[str],
+    ) -> None:
         requires_b2b(sandbox_client, enabled_methods, PaylaterInvoice)
         customer = self._customer(CompanyInfo.not_registered(
             companyType=CompanyType.SOLE, owner=CompanyOwner("Erika", "Musterfrau", "1985-01-01")))
@@ -707,20 +744,32 @@ class TestPaylaterB2B:
             self._authorize(sandbox_client, customer)
         assert "API.320.100.135" in {error.code for error in excinfo.value.errors}
 
-    def test_invoice_config_differs_per_customer_type(self, sandbox_client, enabled_methods):
+    def test_invoice_config_differs_per_customer_type(
+            self,
+            sandbox_client: UnzerClient,
+            enabled_methods: set[str],
+    ) -> None:
         requires_b2b(sandbox_client, enabled_methods, PaylaterInvoice)
         b2b = sandbox_client.get_paylater_config(PaylaterInvoice, CustomerType.B2B)
         b2c = sandbox_client.get_paylater_config(PaylaterInvoice, CustomerType.B2C)
         assert set(b2b) >= {"dataPrivacyConsent", "dataPrivacyDeclaration", "termsAndConditions"}
         assert b2b["termsAndConditions"] != b2c["termsAndConditions"]
 
-    def test_invoice_config_requires_the_customer_type(self, sandbox_client, enabled_methods):
+    def test_invoice_config_requires_the_customer_type(
+            self,
+            sandbox_client: UnzerClient,
+            enabled_methods: set[str],
+    ) -> None:
         requires(sandbox_client, enabled_methods, "paylater-invoice")
         with pytest.raises(ErrorResponse) as excinfo:
             sandbox_client.get_paylater_config(PaylaterInvoice)
         assert "API.901.300.999" in {error.code for error in excinfo.value.errors}
 
-    def test_installment_plans_refuse_b2b_where_it_is_not_configured(self, sandbox_client, enabled_methods):
+    def test_installment_plans_refuse_b2b_where_it_is_not_configured(
+            self,
+            sandbox_client: UnzerClient,
+            enabled_methods: set[str],
+    ) -> None:
         requires(sandbox_client, enabled_methods, "paylater-installment")
         allowed = PaylaterInstallment(client=sandbox_client).get_allowed_customer_types()
         if allowed is None or CustomerType.B2B in allowed:
@@ -733,7 +782,7 @@ class TestPaylaterB2B:
 
 class TestErrorShape:
 
-    def test_unknown_payment_raises_error_response(self, sandbox_client):
+    def test_unknown_payment_raises_error_response(self, sandbox_client: UnzerClient) -> None:
         with pytest.raises(ErrorResponse) as excinfo:
             sandbox_client.getPayment("s-pay-does-not-exist")
         error = excinfo.value
@@ -742,7 +791,7 @@ class TestErrorShape:
         assert error.errors[0].code
         assert error.errors[0].merchantMessage
 
-    def test_error_carries_a_trace_id(self, sandbox_client):
+    def test_error_carries_a_trace_id(self, sandbox_client: UnzerClient) -> None:
         with pytest.raises(ErrorResponse) as excinfo:
             sandbox_client.getPayment("s-pay-does-not-exist")
         assert excinfo.value.errorId or excinfo.value.traceId
@@ -786,7 +835,7 @@ class TestFieldLengths:
     """
 
     @staticmethod
-    def _payload(owner: str, field: str, length: int) -> dict:
+    def _payload(owner: str, field: str, length: int) -> dict[str, t.Any]:
         """Build a valid customer payload with one field stretched to `length`."""
         value = ("1" if field == "zip" else "a") * length
         address = {"name": "Probe Tester", "street": "Teststrasse 1", "state": "",
@@ -803,8 +852,13 @@ class TestFieldLengths:
         company_info = {"registrationType": "registered", "commercialRegisterNumber": "HRB 12345",
                         "function": "OWNER", "commercialSector": "OTHER",
                         "companyType": "company", "owner": company_owner}
-        target = {"customer": customer, "address": address,
-                  "companyInfo": company_info, "owner": company_owner}[owner]
+        targets: dict[str, dict[str, t.Any]] = {
+            "customer": customer,
+            "address": address,
+            "companyInfo": company_info,
+            "owner": company_owner,
+        }
+        target = targets[owner]
         target[field] = value
         body = {**customer, "billingAddress": address, "shippingAddress": address}
         if owner in {"companyInfo", "owner"}:
@@ -814,19 +868,32 @@ class TestFieldLengths:
 
     @pytest.mark.parametrize(("owner", "attr", "field", "limit"), FIELD_LENGTH_CASES,
                              ids=FIELD_LENGTH_IDS)
-    def test_a_value_at_the_limit_is_accepted(self, sandbox_client, owner, attr, field, limit):
+    def test_a_value_at_the_limit_is_accepted(
+            self,
+            sandbox_client: UnzerClient,
+            owner: str,
+            attr: str,
+            field: str,
+            limit: int,
+    ) -> None:
         assert sandbox_client.request("customers", "POST",
                                       self._payload(owner, field, limit))["id"]
 
     @pytest.mark.parametrize(("owner", "attr", "field", "limit"), FIELD_LENGTH_CASES,
                              ids=FIELD_LENGTH_IDS)
-    def test_one_character_over_the_limit_is_rejected(self, sandbox_client, owner, attr,
-                                                      field, limit):
+    def test_one_character_over_the_limit_is_rejected(
+            self,
+            sandbox_client: UnzerClient,
+            owner: str,
+            attr: str,
+            field: str,
+            limit: int,
+    ) -> None:
         with pytest.raises(ErrorResponse) as excinfo:
             sandbox_client.request("customers", "POST", self._payload(owner, field, limit + 1))
         # Two wordings, depending on the field: "<field> has invalid length." and,
         # for the address company, the company type and the owner names,
         # "<path>: size must be between 0 and 256".
-        assert any("invalid length" in error.merchantMessage
-                   or "size must be between" in error.merchantMessage
+        assert any("invalid length" in (error.merchantMessage or "")
+                   or "size must be between" in (error.merchantMessage or "")
                    for error in excinfo.value.errors)

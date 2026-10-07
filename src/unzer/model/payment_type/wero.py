@@ -1,6 +1,5 @@
 import typing as t
 
-from unzer.model.base import JSONValue
 from unzer.model.payment import PaymentMethodTypes, PaymentTypes
 
 from .abstract_paymenttype import PaymentType
@@ -19,8 +18,8 @@ class Wero(PaymentType):
             self,
             key: str | None = None,
             walletId: str | None = None,
-            **kwargs,
-    ):
+            **kwargs: t.Any,
+    ) -> None:
         """Create a new Wero paymentType resource.
 
         :param key: (optional) (original: id) ID for this payment type
@@ -29,12 +28,12 @@ class Wero(PaymentType):
         super().__init__(key=key, **kwargs)
         self.walletId = walletId
 
-    def serialize(self) -> dict[str, JSONValue]:
+    def serialize(self) -> dict[str, t.Any]:
         # Only send what is set: an empty body is valid, a null value is not
         return {key: value for key, value in (("walletId", self.walletId),) if value is not None}
 
     @classmethod
-    def fromDict(cls, data: dict[str, JSONValue]) -> t.Self:
+    def fromDict(cls, data: dict[str, t.Any]) -> t.Self:
         data = data.copy()
         data["key"] = data["id"]
         return cls(**data)

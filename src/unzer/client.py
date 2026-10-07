@@ -22,6 +22,8 @@ logger = logging.getLogger("unzer-sdk").getChild(__name__)
 HttpMethod = t.Literal["GET", "POST", "PUT", "PATCH", "DELETE"]
 
 LanguageSource: t.TypeAlias = str | t.Callable[[], str | None] | None
+
+PaymentTypeT = t.TypeVar("PaymentTypeT", bound=PaymentType)
 """A language code, or something that returns one when called."""
 
 
@@ -45,13 +47,13 @@ class UnzerClient:
     apiVersion = "v1"
     """Default API version, used unless a request asks for another one."""
 
-    retryDelays = (1, 2, 4, 8)
+    retryDelays: tuple[float, ...] = (1, 2, 4, 8)
     """Delays in seconds between the retries of a failed request.
 
     Only applies to the methods in :attr:`retryableMethods`.
     """
 
-    retryableMethods = ("GET", "HEAD")
+    retryableMethods: tuple[str, ...] = ("GET", "HEAD")
     """HTTP methods that may be retried after a timeout or a server error.
 
     Deliberately excludes POST, PUT and DELETE. A timed out POST may well have been
@@ -80,7 +82,7 @@ class UnzerClient:
             language: LanguageSource = None,
             client_ip: str | None = None,
             timeout: int | None = None,
-    ):
+    ) -> None:
         """Create a new client for the unzer-api.
 
         :param private_key: The private key of the keypair.
@@ -198,15 +200,19 @@ class UnzerClient:
             auth=(self.private_key, "")
         )
 
-    def _request(self, url: str, method: str,
-                 headers: list[tuple] | dict[str, str], payload: t.Any,
-                 auth: tuple[str, str]) -> t.Any:
+    def _request(
+            self,
+            url: str,
+            method: str,
+            headers: dict[str, str],
+            payload: t.Any,
+            auth: tuple[str, str],
+    ) -> t.Any:
         """Helper method to perform the request with throttling.
 
         :param url: The complete URL.
         :param method: The HTTP method (e.g. POST, GET).
         :param headers: The HTTP headers.
-        :type headers: list[tuple] | dict[str, str]
         :param payload: The HTTP payload (will be json encoded).
         :param auth: The authentication for this request.
         :return: The json decoded response
@@ -289,7 +295,7 @@ class UnzerClient:
                 raise errorResponse
         raise ErrorResponse("All request attempts failed", srcResponse=r)
 
-    def getKeyPair(self) -> dict:
+    def getKeyPair(self) -> dict[str, t.Any]:
         """Provide the public key of the used private key
         as well as a list of the payment types available for the merchant.
 
@@ -323,7 +329,7 @@ class UnzerClient:
             "GET",
         )
 
-    def getError(self, errorId: str) -> dict:
+    def getError(self, errorId: str) -> dict[str, t.Any]:
         """Get information about an error
 
         :param errorId: The error id (e.g. p-err-abcdefghij1234567rstuvwyxyz)
@@ -335,13 +341,11 @@ class UnzerClient:
             "GET",
         )
 
-    def createCustomer(self, customer):
+    def createCustomer(self, customer: Customer) -> Customer:
         """Creating a customer
 
         :param customer: Customer object
-        :type customer: Customer
         :return: The created customer object
-        :rtype: Customer
         """
         if not isinstance(customer, Customer):
             raise TypeError(f"Expected a Customer object. Got {type(customer)!r}")
@@ -358,14 +362,12 @@ class UnzerClient:
         # API docs wrong: we get only a dict with the id back
         return self.getCustomer(data["id"])
 
-    def updateCustomer(self, customer):
+    def updateCustomer(self, customer: Customer) -> Customer:
         """Update a customer using unique customerId or the resource id from the customers resource.
         The customer MUST have customerId oder key (id)
 
         :param customer: Customer object
-        :type customer: Customer
         :return: The updated customer object
-        :rtype: Customer
         """
         if not isinstance(customer, Customer):
             raise TypeError(f"Expected a Customer object. Got {type(customer)!r}")
@@ -381,7 +383,7 @@ class UnzerClient:
         # API docs wrong: we get only a dict with the id back
         return self.getCustomer(data["id"])
 
-    def createOrUpdateCustomer(self, customer):
+    def createOrUpdateCustomer(self, customer: Customer) -> Customer:
         """Create the customer, or update the existing one with the same id.
 
         Convenience for the common case where it does not matter which of the two
@@ -389,9 +391,7 @@ class UnzerClient:
         that is already taken, and falls back to :meth:`updateCustomer` then.
 
         :param customer: Customer object, with ``customerId`` set.
-        :type customer: Customer
         :return: The created or updated customer.
-        :rtype: Customer
         """
         try:
             return self.createCustomer(customer)
@@ -400,14 +400,12 @@ class UnzerClient:
                 return self.updateCustomer(customer)
             raise er
 
-    def deleteCustomer(self, customer):
+    def deleteCustomer(self, customer: Customer | str) -> str:
         """Delete a customer using unique customerId or the resource id from the customers resource.
         The customer MUST have customerId oder key (id)
 
         :param customer: Customer object, customerId or id (key)
-        :type customer: Customer or str
         :return: The id of the customer
-        :rtype: str
         """
         if isinstance(customer, Customer):
             if not customer.key and not customer.customerId:
@@ -423,13 +421,11 @@ class UnzerClient:
         )
         return data["id"]
 
-    def getCustomer(self, codeOrExternalId):
+    def getCustomer(self, codeOrExternalId: str) -> Customer:
         """Fetch a customer using unique customerId or the resource id from the customers resource.
 
         :param codeOrExternalId: customerId or id (key)
-        :type codeOrExternalId: str
         :return: The fetched customer object
-        :rtype: Customer
         """
         data = self.request(
             f"customers/{codeOrExternalId}",
@@ -437,13 +433,11 @@ class UnzerClient:
         )
         return Customer.fromDict(data, client=self)
 
-    def createBasket(self, basket):
+    def createBasket(self, basket: Basket) -> Basket:
         """Creating a basket
 
         :param basket: Basket object
-        :type basket: Basket
         :return: The created Basket object
-        :rtype: Basket
         """
         if not isinstance(basket, Basket):
             raise TypeError(f"Expected a Basket object. Got {type(basket)!r}")
@@ -455,14 +449,12 @@ class UnzerClient:
         )
         return self.getBasket(data["id"], api_version=basket.apiVersion)
 
-    def updateBasket(self, basket):
+    def updateBasket(self, basket: Basket) -> Basket:
         """Update a basket.
         The basket MUST have key (id)
 
         :param basket: Basket object
-        :type basket: Basket
         :return: The updated basket object
-        :rtype: Basket
         """
         if not isinstance(basket, Basket):
             raise TypeError(f"Expected a Basket object. Got {type(basket)!r}")
@@ -476,15 +468,13 @@ class UnzerClient:
         )
         return self.getBasket(data["id"], api_version=basket.apiVersion)
 
-    def getBasket(self, basketId, api_version: str | None = None):
+    def getBasket(self, basketId: str, api_version: str | None = None) -> Basket:
         """Fetch a basket.
 
         :param basketId: basket's id (key)
-        :type basketId: str
         :param api_version: (optional) The API version of the basket schema to fetch.
             A basket created with the v3 schema should also be fetched with ``v3``.
         :return: The fetched basket object
-        :rtype: Basket
         """
         data = self.request(
             f"baskets/{basketId}",
@@ -493,15 +483,13 @@ class UnzerClient:
         )
         return Basket.fromDict(data)
 
-    def createPaymentType(self, paymentType):
+    def createPaymentType(self, paymentType: PaymentTypeT) -> PaymentTypeT:
         """Create a new PaymentType at Unzer.
 
         This can be any Object which inherits the abstract class PaymentType.
 
         :param paymentType: The PaymentPage model
-        :type paymentType: PaymentType
         :return: The paymentType response
-        :rtype: PaymentType
         """
         if not isinstance(paymentType, PaymentType):
             raise TypeError(f"Expected a PaymentType object. Got {type(paymentType)!r}")
@@ -570,7 +558,10 @@ class UnzerClient:
 
     def get_paylater_config(
             self,
-            paymentType: PaylaterInvoice | PaylaterInstallment | PaylaterDirectDebit | type[PaymentType],
+            paymentType: (
+                PaylaterInvoice | PaylaterInstallment | PaylaterDirectDebit
+                | type[PaylaterInvoice] | type[PaylaterInstallment] | type[PaylaterDirectDebit]
+            ),
             customerType: CustomerType | str | None = None,
             country: str | None = None,
     ) -> dict[str, t.Any]:
@@ -661,13 +652,11 @@ class UnzerClient:
             raise ErrorResponse.fromDict(data)
         return RiskCheckResponse.fromDict(data)
 
-    def createPaymentPage(self, paymentPage):
+    def createPaymentPage(self, paymentPage: PaymentPage) -> PaymentPageResponse:
         """The initialize payment page call with direct charge purpose.
 
         :param paymentPage: The PaymentPage model
-        :type paymentPage: PaymentPage
         :return: The PaymentPageResponse
-        :rtype: PaymentPageResponse
         """
         if not isinstance(paymentPage, PaymentPage) or isinstance(paymentPage, PaymentPageResponse):
             raise TypeError(f"Expected a PaymentPage object. Got {type(paymentPage)!r}")
@@ -679,13 +668,11 @@ class UnzerClient:
         )
         return PaymentPageResponse.fromDict(data)
 
-    def getPaymentPage(self, payPageId):
+    def getPaymentPage(self, payPageId: str) -> PaymentPageResponse:
         """Fetch the payment resource. Provides an overview about a payment.
 
         :param payPageId: The related payment page id.
-        :type payPageId: str
         :return: The PaymentPage ressource
-        :rtype: PaymentPageResponse
         """
         if not isinstance(payPageId, str):
             raise TypeError(f"Expected a payPageId of type str. Got {type(payPageId)!r}")
@@ -695,13 +682,11 @@ class UnzerClient:
         )
         return PaymentPageResponse.fromDict(data)
 
-    def getPayment(self, codeOrOrderId):
+    def getPayment(self, codeOrOrderId: str) -> PaymentGetResponse:
         """Fetch the payment resource. Provides an overview about a payment.
 
         :param codeOrOrderId: The id of the order
-        :type codeOrOrderId: str
         :return: Payment ressource
-        :rtype: PaymentGetResponse
         """
         if not isinstance(codeOrOrderId, str):
             raise TypeError(f"Expected a codeOrOrderId of type str. Got {type(codeOrOrderId)!r}")
@@ -711,29 +696,25 @@ class UnzerClient:
         )
         return PaymentGetResponse.fromDict(data, self)
 
-    def authorize(self, payment, **kwargs) -> PaymentResponse:
+    def authorize(self, payment: PaymentRequest, **kwargs: t.Any) -> PaymentResponse:
         """Authorize call for redirect payments.
 
         The paymentType will be created within this method,
         if not already created.
 
         :param payment: The PaymentRequest model
-        :type payment: PaymentRequest
         :return: The paymentType response
-        :rtype: PaymentResponse
         """
         return self._authorize_or_charge("authorize", payment, **kwargs)
 
-    def charge(self, payment, **kwargs):
+    def charge(self, payment: PaymentRequest, **kwargs: t.Any) -> PaymentResponse:
         """Charge call for redirect payments.
 
         The paymentType will be created within this method,
         if not already created.
 
         :param payment: The PaymentRequest model
-        :type payment: PaymentRequest
         :return: The paymentType response
-        :rtype: PaymentResponse
         """
         return self._authorize_or_charge("charges", payment, **kwargs)
 
@@ -764,17 +745,14 @@ class UnzerClient:
             raise ErrorResponse.fromDict(data)
         return PaymentResponse.fromDict(data, self)
 
-    def getChargedTransaction(self, codeOrOrderId, txnCode):
+    def getChargedTransaction(self, codeOrOrderId: str, txnCode: str | None) -> PaymentResponse:
         """Fetch the corresponding charged transaction.
         The first found charged transaction will be returned if the <txnCode> = null.
 
         :param codeOrOrderId: The id of the payment
-        :type codeOrOrderId: str
         :param txnCode: The id of the transaction
-        :type txnCode: str
 
         :return: PaymentResponse ressource
-        :rtype: PaymentResponse
         """
         if not isinstance(codeOrOrderId, str):
             raise TypeError(f"Expected a codeOrOrderId of type str. Got {type(codeOrOrderId)!r}")
@@ -786,11 +764,10 @@ class UnzerClient:
         )
         return PaymentResponse.fromDict(data, self)
 
-    def listWebhooks(self):
+    def listWebhooks(self) -> list[Webhook]:
         """Get all webhook resources.
 
         :return: A list of Webhooks
-        :rtype: list[Webhook]
         """
         data = self.request(
             "webhooks",
@@ -798,13 +775,11 @@ class UnzerClient:
         )
         return self._loadWebhookResponse(data)
 
-    def getWebhook(self, webhookId):
+    def getWebhook(self, webhookId: str) -> Webhook:
         """Get one specific webhook resource.
 
         :param webhookId: The id of the webhook.
-        :type webhookId: str
         :return: The webhook resource.
-        :rtype: Webhook
         """
         data = self.request(
             f"webhooks/{webhookId}",
@@ -812,12 +787,11 @@ class UnzerClient:
         )
         return Webhook.fromDict(data)
 
-    def createWebhook(self, webhook):
+    def createWebhook(self, webhook: Webhook) -> list[Webhook]:
         """Create a new webhook.
 
         :param webhook: The webhook mode
         :return: A list of created Webhooks models (each for each event-type)
-        :rtype: list[Webhook]
         """
         if not isinstance(webhook, Webhook):
             raise TypeError(f"Expected a Webhook object. Got {type(webhook)!r}")
@@ -832,14 +806,12 @@ class UnzerClient:
         )
         return self._loadWebhookResponse(data)
 
-    def updateWebhook(self, webhook):
+    def updateWebhook(self, webhook: Webhook) -> Webhook:
         """Update the URL for an existing webhook.
         Will not change the event (not supported by unzer-api)!
 
         :param webhook: The webhook resource to be updated
-        :type webhook: Webhook
         :return: The updated webhook
-        :rtype: Webhook
         """
         if not isinstance(webhook, Webhook):
             raise TypeError(f"Expected a Webhook object. Got {type(webhook)!r}")
@@ -854,40 +826,34 @@ class UnzerClient:
         )
         return Webhook.fromDict(data)
 
-    def _loadWebhookResponse(self, data):
+    def _loadWebhookResponse(self, data: dict[str, t.Any]) -> list[Webhook]:
         """Helper method load webhook responses.
 
         :param data: The data from the request.
-        :type data: dict
         :return: A list of Webhooks
-        :rtype: list[Webhook]
         """
         # A single webhook comes back as the object itself, several are wrapped
         # in an `events` property.
         webhooks = data.get("events", [data])
         return [Webhook.fromDict(webhook) for webhook in webhooks]
 
-    def deleteWebhook(self, webhookOrId):
+    def deleteWebhook(self, webhookOrId: str | Webhook) -> str:
         """Delete a specific webhook.
 
         :param webhookOrId: A webhook id or webhook model
-        :type webhookOrId: str | Webhook
         :return: The id of the deleted webhook
-        :type: str
         """
-        if isinstance(webhookOrId, Webhook):
-            webhookOrId = webhookOrId.webhookId
+        webhookId = webhookOrId.webhookId if isinstance(webhookOrId, Webhook) else webhookOrId
         data = self.request(
-            f"webhooks/{webhookOrId}",
+            f"webhooks/{webhookId}",
             "DELETE",
         )
         return data["id"]
 
-    def deleteAllWebhooks(self):
+    def deleteAllWebhooks(self) -> list[dict[str, t.Any]]:
         """Delete all webhooks
 
         :return: A list of the deleted webhooks
-        :rtype: list[dict]
         """
         data = self.request(
             "webhooks",

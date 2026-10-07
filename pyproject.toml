@@ -43,9 +43,11 @@ testing = [
 ]
 dev = [
     "build",
+    "mypy",
     "pycodestyle",
     "ruff",
     "twine>=6",
+    "types-requests",
 ]
 
 [tool.setuptools.dynamic]
@@ -109,3 +111,15 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 # Tests import inside functions on purpose, to keep each case readable on its own.
 "tests/*" = ["PLC0415"]
+
+[tool.mypy]
+# Checked against the oldest supported version, so newer syntax is caught.
+python_version = "3.11"
+files = ["src", "tests"]
+mypy_path = "src"
+ignore_missing_imports = true
+disallow_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+# A bare `# type: ignore` would silence every error on its line, not just the expected one.
+enable_error_code = ["ignore-without-code"]

@@ -54,10 +54,11 @@ drive-by version bumps, no unrelated reformatting.
 ## Setup and tests
 
 ```bash
-uv sync --extra testing          # or: pip install -e ".[testing]"
-uv run pytest                    # unit tests, mocked, no network
-uv run ruff check .              # linting; the config lives in pyproject.toml
-uv run pycodestyle src/ tests/   # the CI checks the full tree, not just the diff
+uv sync --extra testing --extra dev   # or: pip install -e ".[testing,dev]"
+uv run pytest                         # unit tests, mocked, no network
+uv run ruff check .                   # linting; the config lives in pyproject.toml
+uv run pycodestyle src/ tests/        # the CI checks the full tree, not just the diff
+uv run mypy                           # type check; the config lives in pyproject.toml
 ```
 
 ruff catches what pycodestyle structurally cannot — unused imports, outdated syntax,
@@ -65,6 +66,11 @@ implicit Optional, likely bugs. Where this project deviates from a rule on purpo
 `ignore` list in `pyproject.toml` says which rule and why; add to it with a reason rather
 than sprinkling `# noqa`. And note that a `# noqa` inside a docstring is just prose: it
 does nothing, and one of them hid six over-long lines in this repository for months.
+
+mypy checks `src/` and `tests/` with `disallow_untyped_defs`, so every new function needs
+its annotations. A `# type: ignore` always names its error code
+(`# type: ignore[arg-type]`). It belongs where a test passes a wrong type on purpose, or
+over a known gap in `src/` — then with a `TODO` above it saying what is wrong.
 
 Unit tests mock HTTP with [responses](https://pypi.org/project/responses/) and read their
 payloads from `tests/fixtures/`. **Build fixtures from real captured responses**, never by

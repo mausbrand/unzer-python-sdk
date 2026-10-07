@@ -2,7 +2,7 @@ import datetime
 import typing as t
 
 from ..utils import parseBool, parseDate, parseFloat, parseTimestamp
-from .base import BaseModel, JSONValue
+from .base import BaseModel
 
 
 class InstallmentRate(BaseModel):
@@ -12,8 +12,8 @@ class InstallmentRate(BaseModel):
             self,
             date: datetime.date | None = None,
             rate: float | None = None,
-            **kwargs,
-    ):
+            **kwargs: t.Any,
+    ) -> None:
         """Create a new InstallmentRate.
 
         :param date: Due date of this rate.
@@ -23,11 +23,11 @@ class InstallmentRate(BaseModel):
         self.date = date
         self.rate = rate
 
-    def serialize(self) -> dict[str, JSONValue]:
+    def serialize(self) -> dict[str, t.Any]:
         raise NotImplementedError("No serialisation for response models.")
 
     @classmethod
-    def fromDict(cls, data: dict[str, JSONValue]) -> t.Self:
+    def fromDict(cls, data: dict[str, t.Any]) -> t.Self:
         data = data.copy()
         data["date"] = parseDate(data.get("date"))
         data["rate"] = parseFloat(data.get("rate"))
@@ -47,8 +47,8 @@ class InstallmentPlan(BaseModel):
             minimumInstallmentFee: float | None = None,
             secciUrl: str | None = None,
             installmentRates: list[InstallmentRate] | None = None,
-            **kwargs,
-    ):
+            **kwargs: t.Any,
+    ) -> None:
         """Create a new InstallmentPlan.
 
         :param numberOfRates: Duration of this plan in months.
@@ -75,11 +75,11 @@ class InstallmentPlan(BaseModel):
         self.secciUrl = secciUrl
         self.installmentRates = installmentRates
 
-    def serialize(self) -> dict[str, JSONValue]:
+    def serialize(self) -> dict[str, t.Any]:
         raise NotImplementedError("No serialisation for response models.")
 
     @classmethod
-    def fromDict(cls, data: dict[str, JSONValue]) -> t.Self:
+    def fromDict(cls, data: dict[str, t.Any]) -> t.Self:
         data = data.copy()
         if data.get("numberOfRates") is not None:
             data["numberOfRates"] = int(data["numberOfRates"])
@@ -115,8 +115,8 @@ class InstallmentPlans(BaseModel):
             isPending: bool | None = None,
             isResumed: bool | None = None,
             isError: bool | None = None,
-            **kwargs,
-    ):
+            **kwargs: t.Any,
+    ) -> None:
         """Create a new InstallmentPlans.
 
         :param inquiryId: (original: id) Id of this inquiry (e.g. ``Tx-vyexxxzzy8p``).
@@ -143,11 +143,11 @@ class InstallmentPlans(BaseModel):
         self.isResumed = isResumed
         self.isError = isError
 
-    def serialize(self) -> dict[str, JSONValue]:
+    def serialize(self) -> dict[str, t.Any]:
         raise NotImplementedError("No serialisation for response models.")
 
     @classmethod
-    def fromDict(cls, data: dict[str, JSONValue]) -> t.Self:
+    def fromDict(cls, data: dict[str, t.Any]) -> t.Self:
         data = data.copy()
         data["inquiryId"] = data["id"]
         data["amount"] = parseFloat(data.get("amount"))

@@ -18,10 +18,11 @@ import sys
 
 from _common import build_client
 
-from unzer.model import PaymentRequest, PaymentType
+from unzer import UnzerClient
+from unzer.model import PaymentRequest, PaymentResponse, PaymentType
 
 
-def charge_existing_type(client, payment_type: PaymentType, amount: float):
+def charge_existing_type(client: UnzerClient, payment_type: PaymentType, amount: float) -> PaymentResponse:
     """Charge a payment type the frontend already created."""
     return client.charge(PaymentRequest(
         paymentType=payment_type,

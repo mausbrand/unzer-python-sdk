@@ -60,7 +60,7 @@ def parseDateTime(value: str | datetime.datetime | None) -> datetime.datetime | 
     raise TypeError(f"Invalid date format of {value!r}")
 
 
-def parseDate(value):
+def parseDate(value: str | datetime.date | None) -> datetime.date | None:
     """Parse a date without a time part (e.g. ``2023-08-20``)."""
     if not value:
         return None
@@ -108,7 +108,7 @@ def format_birth_date(value: datetime.date | str | None) -> str | None:
     return value
 
 
-def parseFloat(value):
+def parseFloat(value: str | int | float | None) -> float | None:
     """Parse an optional amount, which the API sends as string."""
     if value is None or value == "":
         return None

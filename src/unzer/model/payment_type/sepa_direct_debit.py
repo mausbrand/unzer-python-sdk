@@ -1,6 +1,5 @@
 import typing as t
 
-from unzer.model.base import JSONValue
 from unzer.model.payment import PaymentMethodTypes, PaymentTypes
 
 from .abstract_paymenttype import PaymentType
@@ -26,8 +25,8 @@ class SepaDirectDebit(PaymentType):
             iban: str | None = None,
             bic: str | None = None,
             holder: str | None = None,
-            **kwargs,
-    ):
+            **kwargs: t.Any,
+    ) -> None:
         """Create a new SEPA Direct Debit paymentType resource.
 
         :param key: (optional) (original: id) ID for this payment type
@@ -42,7 +41,7 @@ class SepaDirectDebit(PaymentType):
         self.bic = bic
         self.holder = holder
 
-    def serialize(self) -> dict[str, JSONValue]:
+    def serialize(self) -> dict[str, t.Any]:
         data = {
             "iban": self.iban,
             "bic": self.bic,
@@ -52,7 +51,7 @@ class SepaDirectDebit(PaymentType):
         return {key: value for key, value in data.items() if value is not None}
 
     @classmethod
-    def fromDict(cls, data: dict[str, JSONValue]) -> t.Self:
+    def fromDict(cls, data: dict[str, t.Any]) -> t.Self:
         data = data.copy()
         data["key"] = data["id"]
         return cls(**data)
