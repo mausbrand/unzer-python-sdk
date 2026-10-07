@@ -51,6 +51,13 @@ had been believed:
 | A discount can be sent as its own negative basket item (a `voucher` line) | Both schemas reject negative item amounts — `API.600.200.131`, plus `API.600.410.018` on v1. A discount belongs in `amountDiscount` (v1) or `amountDiscountPerUnitGross` (v3), positive |
 | The basket endpoint checks its own arithmetic | Only v3 does, to the cent (`API.600.410.062`). v1 accepts items that contradict `amountTotalGross`, and a charge does not compare the basket to the payment amount either — measured with Prepayment: amounts of 817.02, 726.24, 907.80 and 1.00 are all accepted against the same basket worth 817.02 |
 | Any `returnUrl` the API accepts is fine for local development | A gateway in front of the API refuses `localhost`, `127.0.0.1` and private IPs with a **403 and an nginx HTML page** — the API never sees the request. Hostnames that merely *resolve* to 127.0.0.1 (`lvh.me`, `localtest.me`, `127-0-0-1.nip.io`) pass, so the block is on the string, not the resolved address |
+| `companyType` is mandatory for a B2B customer (docs) | Optional on the customer resource; the `paylater-invoice` authorize requires it, lower case and from the documented list (`COR.100.301.111`) |
+| A sole proprietor needs the `owner` object | The customer resource wants the customer's own `birthDate` (`API.410.100.111`); an owner with a birthdate does not replace it |
+| `commercialSector`, `function`, `companyType` take the listed values | The customer resource stores any text. Only `registrationType` is checked (`API.410.200.026`); `function` must be `OWNER` at the invoice authorize |
+| The owner's date of birth is `birthDate` (invoice docs table) | It is `birthdate`; `birthDate` is dropped without an error |
+| `allowCustomerTypes` of the keypair restricts which customers a method accepts | Only the Pay later methods enforce it (installment: `COR.600.200.201` for a B2B customer on a `B2C` keypair). SEPA direct debit, EPS and prepayment accept a B2B customer on a `B2C` keypair |
+| `salutation` takes `"diverse"` (docs of the B2B customer UI component) | Refused for B2C and B2B customers alike: `API.410.200.007` *salutation is invalid: must be mr, mrs or unknown.* `Salutation` keeps its three values, and a "diverse" salutation of a consuming system maps to `unknown` |
+| `company` exists on billing and shipping address (OpenAPI) | Stored on the billing address only; on the shipping address it is accepted and dropped |
 | An id field takes any value the resource accepts | A value that looks like a card number is refused with `API.500.560.003` *"Your request is containing the sensitive card information in BODY"*, and the whole request fails. Measured: the check reads each string value **as a whole**, strips separators, and rejects it when the remainder is a Luhn-valid digit string in a card BIN range — so a plain numeric id can trip it |
 
 ### How to verify
@@ -83,7 +90,23 @@ For finding out *what to try*, in this order:
 3. **`https://api.unzer.com/swagger-ui/api-docs`** — the full OpenAPI spec; the API reference
    page is only a ReDoc wrapper around it. Incomplete: `clicktopay` and `sofort` are missing
    although both exist. Still the best written source for `additionalTransactionData`.
-4. `docs.unzer.com` — last, and only for prose and flow descriptions.
+4. **The official shop plugins** under `github.com/unzerdev` — `woocommerce`, `shopware6`,
+   `magento2`, `jtl5`, `oxid7`, `plentymarket`, `commercetools`, `integration-core`. They show
+   what Unzer itself sends in production, which the SDKs do not. Treat them as hints like
+   the rest: they disagree with each other and with the sandbox. Measured examples from B2B:
+   - WooCommerce, Shopware 6, OXID 7 and Plentymarkets send the literal placeholder
+     `companyType: "Company Type"`, which the sandbox's `paylater-invoice` authorize refuses
+     (`COR.100.301.111` *must be a valid type*).
+   - JTL5 is the only one sending `registrationType: "registered"` — with the VAT ID as
+     `commercialRegisterNumber`.
+   - commercetools is the only one filtering methods by the keypair's `allowCustomerTypes`;
+     the older plugins hardcode B2C-only lists and keep separate B2B keypairs for invoice.
+
+   A shallow clone and a local `grep` beat GitHub's code search, which misses matches.
+5. `docs.unzer.com` — last, and only for prose and flow descriptions. Exception: the feature
+   table on each `payment-methods/<method>/` page states B2B/B2C support per method
+   (`pt-feature-row-… supported`/`unsupported` in the HTML) — a statement about the method
+   in general, not about what a keypair has enabled.
 
 Where sources contradict each other, resolve it with a sandbox call and note in the docstring
 which one turned out right — otherwise the next person cannot tell a decision from a mistake.
@@ -110,6 +133,10 @@ not yet verified against the API:
 
 Payment Page attribute keys, as a live generator:
   https://demo.unzer.com/demo/resources/paypage_manual.html
+
+B2B customer UI component, as a live demo (shows the "no commercial register number" toggle
+and the customer payload it sends -- created with the demo's public key, so no authorize):
+  https://sbx-static.unzer.com/demo/resources/b2b_customer.html
 
 When a docs URL 404s — the site was restructured in April 2026:
   https://docs.unzer.com/sitemap.xml
@@ -150,11 +177,19 @@ a browser and would place a real order on every run.
 Do not add fields to these classes. Server-side fields belong only to types that are actually
 created server-side — Installment, SEPA Direct Debit, Direct Bank Transfer.
 
-**camelCase is the current public API, on purpose for now.** Method and attribute names mirror
-the Unzer JSON payload (`getPayment`, `paymentId`, `amountTotalGross`). This is scheduled to
-change to snake_case in 2.0, together with a move to dataclasses. Until then: do not rename
-anything, and keep new *parameters* snake_case only where that is already the local convention
-(`api_version`, `client_ip`, `additional_transaction_data`).
+**Existing camelCase names stay until 2.0; new methods are always snake_case.** Much of the
+public API is camelCase (`getPayment`, `createCustomer`, `fromDict`), and 2.0 moves it to
+snake_case together with dataclasses. Until then:
+
+- **Existing names:** do not rename them — that breaks every caller, viur-shop included.
+- **New methods, properties and helpers:** snake_case, always — even next to camelCase
+  neighbours (`get_paylater_config`, `get_allowed_customer_types`, `CompanyInfo.not_registered`,
+  `Customer.customer_type`).
+- **Attributes that mirror a payload field:** keep the field's name, i.e. camelCase
+  (`paymentId`, `amountTotalGross`, `registrationType`). The same goes for constructor
+  parameters that set such a field.
+- **Other new parameters:** snake_case (`api_version`, `client_ip`,
+  `additional_transaction_data`).
 
 **Unzer offers no idempotency keys.** Neither OpenAPI spec contains an `Idempotency-Key`
 header, and `docs.unzer.com` has no mention of idempotency at all. A retried `POST` can

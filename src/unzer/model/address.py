@@ -16,6 +16,10 @@ class Address(BaseModel):
     and ``lastname`` as two fields. They are limited accordingly -- 81 characters for
     the joined name here, 40 per field there -- so the same person can pass one check
     and fail the other.
+
+    In the sandbox :attr:`company` was stored for a billing address only. Sent on a
+    shipping address, it was accepted and dropped: the customer read back with an
+    empty ``company`` there.
     """
 
     MAX_LENGTHS: t.ClassVar[dict[str, int]] = {
@@ -27,6 +31,7 @@ class Address(BaseModel):
         "street": 64,
         "zipCode": 10,
         "city": 30,
+        "company": 256,
     }
     """Measured against the sandbox; see ``examples/06_probe_field_limits.py``.
 
@@ -44,6 +49,7 @@ class Address(BaseModel):
             zipCode: str | None = None,
             city: str | None = None,
             country: str | None = None,
+            company: str | None = None,
             **kwargs: t.Any,
     ) -> None:
         """Create a new Address.
@@ -56,6 +62,8 @@ class Address(BaseModel):
         :param zipCode: (optional) Address zip code (max. 10 chars). Required in case of billing address.
         :param city: (optional) Address city (max. 30 chars). Required in case of billing address.
         :param country: (optional) Address country in ISO A2 format (max. 2 chars). Required in case of billing address.
+        :param company: (optional) Company name (max. 256 chars). The sandbox kept
+            it on a billing address only, see the class docstring.
         """
         super().__init__(**kwargs)
         self.firstname: str = firstname
@@ -65,6 +73,7 @@ class Address(BaseModel):
         self.zipCode: str | None = zipCode
         self.city: str | None = city
         self.country: str | None = country
+        self.company: str | None = company
 
     @property
     def name(self) -> str:
@@ -91,6 +100,7 @@ class Address(BaseModel):
             "zip": self.getString(self.zipCode),
             "city": self.getString(self.city),
             "country": self.getString(self.country),
+            "company": self.getString(self.company),
         }
 
     @classmethod
@@ -107,4 +117,6 @@ class Address(BaseModel):
             zipCode=data["zip"],
             city=data["city"],
             country=data["country"],
+            # Not in every captured response (tests/fixtures/customer.json lacks it).
+            company=data.get("company") or None,
         )

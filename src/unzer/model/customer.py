@@ -1,9 +1,11 @@
 import datetime
+import enum
 import typing as t
 
-from ..utils import SENTINEL, Sentinel, normalize_language
+from ..utils import SENTINEL, Sentinel, format_birth_date, normalize_language, parse_birth_date
 from .address import Address
 from .base import BaseModel
+from .company_info import CompanyInfo
 
 if t.TYPE_CHECKING:
     from ..client import UnzerClient
@@ -23,6 +25,21 @@ class Salutation:
     UNKNOWN = "unknown"
 
 
+class CustomerType(enum.StrEnum):
+    """Whether a customer is a consumer or a business.
+
+    Customers do not carry this field -- a customer is a B2B customer by carrying
+    :class:`~unzer.model.company_info.CompanyInfo`. It is used where the API asks
+    for it separately: the installment plans, the Pay later configuration, and the
+    ``allowCustomerTypes`` of a keypair.
+
+    .. seealso:: https://github.com/unzerdev/php-sdk/blob/main/src/Constants/CustomerTypes.php
+    """
+
+    B2C = "B2C"
+    B2B = "B2B"
+
+
 class Customer(BaseModel):
     """A customer resource.
 
@@ -37,6 +54,12 @@ class Customer(BaseModel):
     :class:`~unzer.model.address.Address` it carries, which joins them into a single
     ``name``. That is the API's inconsistency, not a choice of this SDK, and it matters
     because the two are limited separately.
+
+    A customer with :attr:`companyData` is a B2B customer, sent as ``companyInfo``.
+    The API asks more of it than of a consumer; what was observed in the sandbox is
+    listed at :class:`~unzer.model.company_info.CompanyInfo`. This SDK does not check
+    those rules -- the API does, and answers with an
+    :class:`~unzer.model.error.ErrorResponse`.
     """
 
     MAX_LENGTHS: t.ClassVar[dict[str, int]] = {
@@ -45,6 +68,7 @@ class Customer(BaseModel):
         # (API.410.200.005 and .002, neither prefixed with an address).
         "firstname": 40,
         "lastname": 40,
+        "company": 256,
     }
     """Measured against the sandbox; see ``examples/06_probe_field_limits.py``."""
 
@@ -72,7 +96,8 @@ class Customer(BaseModel):
         :param firstname: Customer's first name
         :param lastname: Customer's last name
         :param salutation: (optional) Must be either 'mr', 'mrs' or 'unknown'
-        :param company: (optional) Company name
+        :param company: (optional) Company name (max. 256 chars). The sandbox asked
+            for it with a B2B customer, i.e. one with ``companyData``.
         :param customerId: (optional) Must be unique and identifies the customer.
             Can be used in place of the resource id
         :param birthDate: (optional) Birthdate of the customer in format yyyy-mm-dd or dd.mm.yyyy
@@ -81,7 +106,8 @@ class Customer(BaseModel):
         :param mobile: (optional) Customer's mobile
         :param billingAddress: (optional) billing address
         :param shippingAddress: (optional) shipping address
-        :param companyData: (optional)
+        :param companyData: (optional) Company data, which makes this a B2B
+            customer. Sent as ``companyInfo``.
         :param language: (optional) Customer's language as ISO 639-1 code (e.g. ``de``).
             Used by Unzer for customer facing texts and mails.
             An uppercase code (``DE``) is accepted and lowercased, a locale (``de-DE``) is not:
@@ -155,18 +181,7 @@ class Customer(BaseModel):
 
         :raises TypeError: For a string in neither format, or an unusable type.
         """
-        if not value:
-            value = None
-        elif isinstance(value, str):
-            if "-" in value:  # ISO Date
-                value = datetime.datetime.strptime(value, "%Y-%m-%d")
-            elif "." in value:  # European Date
-                value = datetime.datetime.strptime(value, "%d.%m.%Y")
-            else:
-                raise TypeError(f"Invalid date format of {value!r}")
-        elif not isinstance(value, (datetime.datetime, datetime.date)):
-            raise TypeError(f"Invalid value {value!r}")
-        self._birthDate = value
+        self._birthDate = parse_birth_date(value)
 
     @property
     def phone(self) -> str | None:
@@ -226,12 +241,19 @@ class Customer(BaseModel):
         for attr in ("billingAddress", "shippingAddress"):
             if (address := getattr(self, attr)) is not None:
                 address.validateBeforeRequest()
+        if self.companyData is not None:
+            if not isinstance(self.companyData, CompanyInfo):
+                raise TypeError(f"Expected a CompanyInfo object for companyData. Got {type(self.companyData)!r}")
+            self.companyData.validateBeforeRequest()
         return True
 
+    @property
+    def customer_type(self) -> CustomerType:
+        """B2B for a customer with :attr:`companyData`, B2C otherwise."""
+        return CustomerType.B2B if self.companyData is not None else CustomerType.B2C
+
     def serialize(self) -> dict[str, t.Any]:
-        birthDate: datetime.date | str | None = self.birthDate
-        if isinstance(birthDate, (datetime.datetime, datetime.date)):
-            birthDate = birthDate.strftime("%Y-%m-%d")
+        birthDate = format_birth_date(self.birthDate)
 
         # An empty string is rejected by the API with API.410.300.007
         # ("HTTP message not readable") because the field is an object, not a
@@ -250,6 +272,9 @@ class Customer(BaseModel):
         billingAddress = addresses["billingAddress"]
         shippingAddress = addresses["shippingAddress"]
 
+        if self.companyData is not None and not isinstance(self.companyData, CompanyInfo):
+            raise TypeError(f"Expected a CompanyInfo object for companyData. Got {type(self.companyData)!r}")
+
         return {
             "lastname": self.lastname,
             "firstname": self.firstname,
@@ -264,18 +289,9 @@ class Customer(BaseModel):
             "language": self.getString(self.language),
             "billingAddress": billingAddress,
             "shippingAddress": shippingAddress,
-
-            # Additional information for B2B Customer #ToDo
-            # "companyInfo": {
-            # 	# Mandatory in case companyInfo is existing, restrict '<' and '>'
-            # 	"registrationType": "registered|not_registered",
-            # 	# Mandatory for REGISTERED, restrict '<' and '>'
-            # 	"commercialRegisterNumber": "...",
-            # 	# Mandatory must be the value "OWNER" for NOT_REGISTERED, restrict '<' and '>'
-            # 	"function": "...",
-            # 	# Mandatory for NOT_REGISTERED, restrict '<' and '>'
-            # 	"commercialSector": "..."
-            # }
+            # null made a B2C customer in the sandbox. An empty object did not: it was
+            # read as B2B and refused for its missing registrationType.
+            "companyInfo": self.companyData.serialize() if self.companyData is not None else None,
         }
 
     @classmethod
@@ -290,4 +306,7 @@ class Customer(BaseModel):
         data["key"] = data["id"]
         data["billingAddress"] = Address.fromDict(data["billingAddress"])
         data["shippingAddress"] = Address.fromDict(data["shippingAddress"])
+        # A B2C customer came back without the key at all in the sandbox.
+        company_info = data.pop("companyInfo", None)
+        data["companyData"] = CompanyInfo.fromDict(company_info, client=client) if company_info else None
         return cls(**data, client=client)

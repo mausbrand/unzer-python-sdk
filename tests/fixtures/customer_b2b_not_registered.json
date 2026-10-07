@@ -1,0 +1,47 @@
+{
+  "id": "s-cst-62t16k93dl1f",
+  "lastname": "Tester",
+  "firstname": "Probe",
+  "salutation": "mr",
+  "company": "Probe GmbH",
+  "customerId": "probe-87415ba7-9e4e-457c-b93b-b3e515eb1b8b",
+  "birthDate": "1980-01-01",
+  "email": "probe@example.org",
+  "phone": "",
+  "mobile": "",
+  "language": "",
+  "billingAddress": {
+    "name": "Probe Tester",
+    "street": "Teststrasse 1",
+    "state": "",
+    "zip": "44135",
+    "city": "Dortmund",
+    "country": "DE",
+    "company": ""
+  },
+  "shippingAddress": {
+    "name": "Probe Tester",
+    "street": "Teststrasse 1",
+    "state": "",
+    "zip": "44135",
+    "city": "Dortmund",
+    "country": "DE",
+    "company": "",
+    "shippingType": ""
+  },
+  "companyInfo": {
+    "registrationType": "not_registered",
+    "function": "OWNER",
+    "commercialSector": "OTHER",
+    "companyType": "sole",
+    "owner": {
+      "firstname": "Probe",
+      "lastname": "Tester",
+      "birthdate": "1980-01-01"
+    }
+  },
+  "geoLocation": {
+    "clientIp": "203.0.113.10",
+    "countryIsoA2": "DE"
+  }
+}

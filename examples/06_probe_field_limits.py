@@ -27,17 +27,28 @@ from _common import build_client
 
 import unzer
 
-#: Upper bound for the search. No sane field accepts more than this.
-SEARCH_CEILING: t.Final[int] = 200
+#: Upper bound for the search. No sane field accepts more than this -- the OpenAPI
+#: spec documents 256 for the ``companyInfo`` fields, so the bound sits above that.
+SEARCH_CEILING: t.Final[int] = 1000
 
-#: Serialized field name -> whether it sits on the customer or in its addresses.
+#: Serialized field name -> where it sits: on the customer, in its addresses, in its
+#: ``companyInfo`` or in the owner inside that. The last two are written as dotted
+#: paths, because ``firstname`` exists on the customer and on the owner alike.
 FIELDS: t.Final[dict[str, str]] = {
     "firstname": "customer",
     "lastname": "customer",
+    "company": "customer",
     "name": "address",
     "street": "address",
     "zip": "address",
     "city": "address",
+    "address.company": "address",
+    "companyInfo.commercialRegisterNumber": "companyInfo",
+    "companyInfo.function": "companyInfo",
+    "companyInfo.commercialSector": "companyInfo",
+    "companyInfo.companyType": "companyInfo",
+    "companyInfo.owner.firstname": "owner",
+    "companyInfo.owner.lastname": "owner",
 }
 
 #: Fields the API wants to look like a number rather than a word.
@@ -81,12 +92,25 @@ def payload(field: str, length: int) -> dict[str, t.Any]:
         "birthDate": "1980-01-01", "email": "probe@example.org",
         "phone": "", "mobile": "",
     }
+    owner = {"firstname": "Probe", "lastname": "Tester", "birthdate": "1980-01-01"}
+    # A registered company with an owner, so that every companyInfo field has a
+    # valid baseline to stretch -- a registered one without a register number is
+    # refused (API.410.100.110).
+    company_info = {
+        "registrationType": "registered", "commercialRegisterNumber": "HRB 12345",
+        "function": "OWNER", "commercialSector": "OTHER", "companyType": "company",
+        "owner": owner,
+    }
     value = filler(field, length)
-    if FIELDS[field] == "customer":
-        customer[field] = value
-    else:
-        address[field] = value
-    return {**customer, "billingAddress": address, "shippingAddress": address}
+    leaf = field.rsplit(".", 1)[-1]
+    target = {"customer": customer, "address": address,
+              "companyInfo": company_info, "owner": owner}[FIELDS[field]]
+    target[leaf] = value
+    body = {**customer, "billingAddress": address, "shippingAddress": address}
+    if FIELDS[field] in {"companyInfo", "owner"}:
+        body["company"] = "Probe GmbH"
+        body["companyInfo"] = company_info
+    return body
 
 
 def try_length(client: unzer.UnzerClient, field: str, length: int, *, execute: bool) -> None:
@@ -117,7 +141,9 @@ def probe(client: unzer.UnzerClient, field: str, *, execute: bool) -> dict[str, 
     :param execute: Perform real calls.
     :return: The last accepted and first rejected length, plus the error codes.
     """
-    print(f"--- probing {FIELDS[field]}.{field} ---")
+    # Dotted fields already name their place; the others get it prefixed.
+    label = field if "." in field else f"{FIELDS[field]}.{field}"
+    print(f"--- probing {label} ---")
     low, high = 1, SEARCH_CEILING
     last_ok: int | None = None
     first_bad: int | None = None
@@ -167,9 +193,9 @@ def main() -> None:
     results = [probe(client, field, execute=args.execute) for field in fields]
 
     print("\n=== measured limits (POST /v1/customers) ===")
-    print(f"{'field':<12} {'max accepted':>12} {'first rejected':>15}  codes")
+    print(f"{'field':<36} {'max accepted':>12} {'first rejected':>15}  codes")
     for result in results:
-        print(f"{result['field']:<12} {result['last_ok']!s:>12} "
+        print(f"{result['field']:<36} {result['last_ok']!s:>12} "
               f"{result['first_bad']!s:>15}  {','.join(result['codes'])}")
     for result in results:
         if result["messages"]:
