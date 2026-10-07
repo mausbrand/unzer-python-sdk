@@ -41,14 +41,14 @@ class BaseModel(abc.ABC):
 
     def __init__(
             self,
-            client: "UnzerClient" = None,
-            **kwargs,
-    ):
+            client: "UnzerClient | None" = None,
+            **kwargs: t.Any,
+    ) -> None:
         """
         :param client: (optional) The client instance.
         """
         super().__init__()
-        self._client: UnzerClient = client
+        self._client: UnzerClient | None = client
 
     def bind_client(self, client: "UnzerClient") -> t.Self:
         """Attach a client to this model, unless it already has one.
@@ -87,12 +87,12 @@ class BaseModel(abc.ABC):
         return value
 
     @abc.abstractmethod
-    def serialize(self) -> dict[str, JSONValue]:
+    def serialize(self) -> dict[str, t.Any]:
         """Serialize data from an object as dict for the request-payload."""
 
     @classmethod
     @abc.abstractmethod
-    def fromDict(cls, data: dict[str, JSONValue]) -> t.Self:
+    def fromDict(cls, data: dict[str, t.Any]) -> t.Self:
         """Unserialize data from a dict from a response to new object"""
 
     def validateBeforeRequest(self) -> bool:
@@ -137,6 +137,6 @@ class BaseModel(abc.ABC):
                 data[k] = getattr(self, k)
         return data
 
-    def __iter__(self):
+    def __iter__(self) -> t.Iterator[tuple[str, t.Any]]:
         """Yield the attributes of the model"""
         yield from self.asDict().items()

@@ -24,10 +24,12 @@ run. Only types whose fields the SDK actually sends are exercised below.
 ``keypair/types`` first and skips what the account cannot do.
 """
 
+import typing as t
 import uuid
 
 import pytest
 
+from unzer import UnzerClient
 from unzer.model import (
     Action,
     Address,
@@ -49,7 +51,7 @@ TEST_HOLDER = "Maximilian Mustermann"
 
 
 @pytest.fixture(scope="module")
-def enabled_methods(sandbox_client):
+def enabled_methods(sandbox_client: UnzerClient) -> set[str]:
     """The payment method slugs this account has enabled, lower cased.
 
     Unzer is inconsistent about the casing -- the API answers ``EPS`` while the
@@ -59,30 +61,30 @@ def enabled_methods(sandbox_client):
     return {entry["type"].lower() for entry in types}
 
 
-def requires(sandbox_client, enabled_methods, slug):
+def requires(sandbox_client: UnzerClient, enabled_methods: set[str], slug: str) -> None:
     if slug not in enabled_methods:
         pytest.skip(f"account has no {slug}; enabled: {sorted(enabled_methods)}")
 
 
 class TestKeypair:
 
-    def test_keypair_is_readable(self, sandbox_client):
+    def test_keypair_is_readable(self, sandbox_client: UnzerClient) -> None:
         assert sandbox_client.getKeyPair()["publicKey"].startswith("s-pub-")
 
-    def test_sandbox_key_reaches_the_default_endpoint(self, sandbox_client):
+    def test_sandbox_key_reaches_the_default_endpoint(self, sandbox_client: UnzerClient) -> None:
         """`sandbox=True` does not switch hosts: the key prefix decides the
         environment and api.unzer.com serves both."""
         assert sandbox_client.endpoint == "https://api.unzer.com"
         assert sandbox_client.getKeyPair()["publicKey"]
 
-    def test_keypair_types_may_repeat_a_payment_type(self, sandbox_client):
+    def test_keypair_types_may_repeat_a_payment_type(self, sandbox_client: UnzerClient) -> None:
         """Documented as one entry per type; some accounts return several."""
         types = [entry["type"] for entry in sandbox_client.getKeyPairTypes()["paymentTypes"]]
         assert types, "account has no payment types at all"
         # Not an assertion about duplicates -- just that reading them never crashes.
         assert all(isinstance(name, str) for name in types)
 
-    def test_every_configuration_is_reachable(self, sandbox_client, enabled_methods):
+    def test_every_configuration_is_reachable(self, sandbox_client: UnzerClient, enabled_methods: set[str]) -> None:
         """On an account that configures one type twice, both must be readable.
 
         Seen with `card`: MASTER/VISA on one channel, AMEX on another. Reading only
@@ -99,7 +101,7 @@ class TestKeypair:
             assert len(channels) == len(configurations), \
                 f"{name} has {len(configurations)} configurations but {len(channels)} channels"
 
-    def test_channel_can_be_picked_by_brand(self, sandbox_client, enabled_methods):
+    def test_channel_can_be_picked_by_brand(self, sandbox_client: UnzerClient, enabled_methods: set[str]) -> None:
         requires(sandbox_client, enabled_methods, "card")
         from unzer.model import Card
         card = Card(client=sandbox_client)
@@ -117,13 +119,13 @@ class TestKeypair:
         channels = {card.get_channel_id(brand=b) for b in brands}
         assert len(channels) >= 1
 
-    def test_unknown_brand_raises_lookup_error(self, sandbox_client, enabled_methods):
+    def test_unknown_brand_raises_lookup_error(self, sandbox_client: UnzerClient, enabled_methods: set[str]) -> None:
         requires(sandbox_client, enabled_methods, "card")
         from unzer.model import Card
         with pytest.raises(LookupError):
             Card(client=sandbox_client).get_channel_id(brand="NOT-A-BRAND")
 
-    def test_customer_types_is_a_comma_separated_string(self, sandbox_client):
+    def test_customer_types_is_a_comma_separated_string(self, sandbox_client: UnzerClient) -> None:
         """Not a list -- `B2B,B2C` arrives as one string."""
         for entry in sandbox_client.getKeyPairTypes()["paymentTypes"]:
             allowed = entry.get("allowCustomerTypes")
@@ -135,17 +137,18 @@ class TestKeypair:
 
 class TestCustomer:
 
-    def test_customer_without_addresses_is_accepted(self, sandbox_client):
+    def test_customer_without_addresses_is_accepted(self, sandbox_client: UnzerClient) -> None:
         """Sending "" for a missing address returns HTTP 400 API.410.300.007."""
         customer = sandbox_client.createCustomer(
             Customer(firstname="Maximilian", lastname="Mustermann",
                      email="maximilian.mustermann@example.com")
         )
+        assert customer.key is not None
         assert customer.key.startswith("s-cst-")
         # The API answers with an empty address object, never with a string.
         assert isinstance(customer.billingAddress, Address)
 
-    def test_customer_with_addresses_round_trips(self, sandbox_client):
+    def test_customer_with_addresses_round_trips(self, sandbox_client: UnzerClient) -> None:
         address = Address(firstname="Maximilian", lastname="Mustermann",
                           street="Hugo-Junkers-Str. 3", zipCode="60386",
                           city="Frankfurt am Main", country="DE")
@@ -154,10 +157,11 @@ class TestCustomer:
                      birthDate="1980-11-22", email="maximilian.mustermann@example.com",
                      billingAddress=address)
         )
+        assert customer.billingAddress is not None
         assert customer.billingAddress.city == "Frankfurt am Main"
         assert customer.billingAddress.zipCode == "60386"
 
-    def test_empty_state_is_accepted(self, sandbox_client):
+    def test_empty_state_is_accepted(self, sandbox_client: UnzerClient) -> None:
         """The docs list state as required for a billing address; it is not."""
         address = Address(firstname="Maximilian", lastname="Mustermann",
                           street="Hugo-Junkers-Str. 3", zipCode="60386",
@@ -167,7 +171,7 @@ class TestCustomer:
         )
         assert customer.key
 
-    def test_create_or_update_recovers_from_a_duplicate(self, sandbox_client):
+    def test_create_or_update_recovers_from_a_duplicate(self, sandbox_client: UnzerClient) -> None:
         """The second call must not fail on the duplicate customerId.
 
         A fresh id per run on purpose: a fixed one would make the test depend on
@@ -217,20 +221,20 @@ class TestBasket:
     DISCOUNT = 90.78
     TOTAL = 817.02
 
-    def goods_v1(self, **overrides):
+    def goods_v1(self, **overrides: t.Any) -> BasketItem:
         """A v1 line item, overridable per test."""
         return BasketItem(
             basketItemReferenceId="item-1", title="T-Shirt", quantity=1, kind="goods",
             vat=self.VAT_PERCENT, amountPerUnit=self.NET, amountNet=self.NET,
             amountVat=self.VAT_AMOUNT, amountGross=self.GROSS, **overrides)
 
-    def goods_v3(self, **overrides):
+    def goods_v3(self, **overrides: t.Any) -> BasketItem:
         """A v3 line item, overridable per test."""
         return BasketItem(
             basketItemReferenceId="item-1", title="T-Shirt", quantity=1, kind="goods",
             vat=self.VAT_PERCENT, amountPerUnitGross=self.GROSS, **overrides)
 
-    def test_v1_basket(self, sandbox_client):
+    def test_v1_basket(self, sandbox_client: UnzerClient) -> None:
         basket = sandbox_client.createBasket(Basket(
             amountTotalGross=100.0, amountTotalVat=15.97, amountTotalDiscount=0,
             currencyCode="EUR", orderId="sdk-test-basket-v1",
@@ -241,7 +245,7 @@ class TestBasket:
         assert basket.key
         assert not basket.isV3()
 
-    def test_v3_basket(self, sandbox_client):
+    def test_v3_basket(self, sandbox_client: UnzerClient) -> None:
         basket = sandbox_client.createBasket(Basket(
             totalValueGross=100.0, currencyCode="EUR", orderId="sdk-test-basket-v3",
             basketItems=[BasketItem(
@@ -254,7 +258,7 @@ class TestBasket:
         assert basket.isV3()
         assert len(basket.key) > len("s-bsk-999")
 
-    def test_v1_rejects_negative_item_amounts(self, sandbox_client):
+    def test_v1_rejects_negative_item_amounts(self, sandbox_client: UnzerClient) -> None:
         """A discount as its own negative line item is refused, not merely discouraged.
 
         This is the shape a consumer arrives at naturally -- one item per article, one
@@ -274,7 +278,7 @@ class TestBasket:
         assert "API.600.410.018" in codes, codes  # basket item has negative amount gross
         assert "API.600.200.131" in codes, codes  # amount has to be positive
 
-    def test_v3_rejects_negative_item_amounts(self, sandbox_client):
+    def test_v3_rejects_negative_item_amounts(self, sandbox_client: UnzerClient) -> None:
         """v3 refuses them as well, so the schema switch alone is no way around it."""
         with pytest.raises(ErrorResponse) as excinfo:
             sandbox_client.createBasket(Basket(
@@ -286,7 +290,7 @@ class TestBasket:
             ))
         assert "API.600.200.131" in {error.code for error in excinfo.value.errors}
 
-    def test_v1_discount_goes_into_amount_discount(self, sandbox_client):
+    def test_v1_discount_goes_into_amount_discount(self, sandbox_client: UnzerClient) -> None:
         """The v1 way: a positive ``amountDiscount`` on the item it reduces.
 
         Reading the basket back shows that the API stores both values untouched --
@@ -307,7 +311,7 @@ class TestBasket:
         assert item.amountGross == self.GROSS, "the API does not subtract the discount"
         assert item.kind == "goods", "the item type is sent as `type`, not as `kind`"
 
-    def test_v3_discount_goes_into_amount_discount_per_unit_gross(self, sandbox_client):
+    def test_v3_discount_goes_into_amount_discount_per_unit_gross(self, sandbox_client: UnzerClient) -> None:
         """The v3 way: a positive ``amountDiscountPerUnitGross``, per unit."""
         basket = sandbox_client.createBasket(Basket(
             totalValueGross=self.TOTAL, currencyCode="EUR",
@@ -317,7 +321,7 @@ class TestBasket:
         assert basket.key
         assert basket.isV3()
 
-    def test_v3_multiplies_the_discount_by_the_quantity(self, sandbox_client):
+    def test_v3_multiplies_the_discount_by_the_quantity(self, sandbox_client: UnzerClient) -> None:
         """``amountDiscountPerUnitGross`` is per unit, not per line.
 
         Three units at 100.00 with a per-unit discount of 10.00 reconcile against a
@@ -334,7 +338,7 @@ class TestBasket:
         ))
         assert basket.key
 
-    def test_v3_reconciles_the_total_to_the_cent(self, sandbox_client):
+    def test_v3_reconciles_the_total_to_the_cent(self, sandbox_client: UnzerClient) -> None:
         """v3 enforces ``totalValueGross == sum((perUnit - discount) * quantity)``.
 
         A single cent is enough to be refused, so a discount spread over several items
@@ -348,7 +352,7 @@ class TestBasket:
             ))
         assert "API.600.410.062" in {error.code for error in excinfo.value.errors}
 
-    def test_v1_does_not_reconcile_the_total(self, sandbox_client):
+    def test_v1_does_not_reconcile_the_total(self, sandbox_client: UnzerClient) -> None:
         """v1 accepts a basket whose items contradict its own total.
 
         Documented as a warning, not as a licence: the value is passed on to the
@@ -362,7 +366,7 @@ class TestBasket:
         assert basket.key
         assert sandbox_client.getBasket(basket.key).amountTotalGross == 1.00
 
-    def test_v3_requires_vat_on_every_item(self, sandbox_client):
+    def test_v3_requires_vat_on_every_item(self, sandbox_client: UnzerClient) -> None:
         """``vat`` is mandatory in v3 -- the v1 endpoint takes items without it."""
         with pytest.raises(ErrorResponse) as excinfo:
             sandbox_client.createBasket(Basket(
@@ -374,7 +378,7 @@ class TestBasket:
             ))
         assert "API.600.410.052" in {error.code for error in excinfo.value.errors}
 
-    def test_v1_takes_items_without_vat(self, sandbox_client):
+    def test_v1_takes_items_without_vat(self, sandbox_client: UnzerClient) -> None:
         """The counterpart: v1 accepts the same item without ``vat`` and stores 0."""
         basket = sandbox_client.createBasket(Basket(
             amountTotalGross=self.GROSS, currencyCode="EUR",
@@ -383,9 +387,10 @@ class TestBasket:
                 basketItemReferenceId="item-1", title="T-Shirt", quantity=1, kind="goods",
                 amountPerUnit=self.NET, amountNet=self.NET, amountGross=self.GROSS)],
         ))
+        assert basket.key is not None
         assert sandbox_client.getBasket(basket.key).basketItems[0].vat == 0.0
 
-    def test_v3_discount_must_not_exceed_the_unit_price(self, sandbox_client):
+    def test_v3_discount_must_not_exceed_the_unit_price(self, sandbox_client: UnzerClient) -> None:
         """The per-item result must stay positive, which caps the discount per item.
 
         A discount bigger than the item it sits on therefore has to be spread across
@@ -412,7 +417,7 @@ class TestBasket:
             ))
         assert "API.600.410.064" in {error.code for error in excinfo.value.errors}
 
-    def test_v1_accepts_a_discount_larger_than_its_item(self, sandbox_client):
+    def test_v1_accepts_a_discount_larger_than_its_item(self, sandbox_client: UnzerClient) -> None:
         """v1 does not cap it, the counterpart to the v3 test above.
 
         Another consequence of v1 checking nothing: the item is left at an effective
@@ -429,38 +434,41 @@ class TestBasket:
 class TestPaymentPage:
     """Paypage v1 is tagged [Deprecated] in the spec but still works."""
 
-    def test_create_and_fetch(self, sandbox_client):
+    def test_create_and_fetch(self, sandbox_client: UnzerClient) -> None:
         page = sandbox_client.createPaymentPage(PaymentPage(
             action=Action.CHARGE, amount=100.0, currency="EUR",
             returnUrl="https://shop.example.com/return", orderId="sdk-test-paypage",
         ))
+        assert page.payPageId is not None
         assert page.payPageId.startswith("s-ppg-")
         assert page.action is Action.CHARGE
         fetched = sandbox_client.getPaymentPage(page.payPageId)
         assert fetched.payPageId == page.payPageId
         assert fetched.action is Action.CHARGE
 
-    def test_redirect_url_points_at_the_sandbox(self, sandbox_client):
+    def test_redirect_url_points_at_the_sandbox(self, sandbox_client: UnzerClient) -> None:
         """The host differs between sandbox and production, which is the reason
         consumers need to know which mode they are in."""
         page = sandbox_client.createPaymentPage(PaymentPage(
             action=Action.CHARGE, amount=100.0, currency="EUR",
             returnUrl="https://shop.example.com/return",
         ))
+        assert page.redirectUrl is not None
         assert "sbx-" in page.redirectUrl, page.redirectUrl
 
 
 class TestSepaDirectDebit:
     """SEPA direct debit is created server-side, so it can be exercised here."""
 
-    def test_create_payment_type(self, sandbox_client, enabled_methods):
+    def test_create_payment_type(self, sandbox_client: UnzerClient, enabled_methods: set[str]) -> None:
         requires(sandbox_client, enabled_methods, "sepa-direct-debit")
         created = sandbox_client.createPaymentType(
             SepaDirectDebit(iban=TEST_IBAN, bic=TEST_BIC, holder=TEST_HOLDER))
+        assert created.key is not None
         assert created.key.startswith("s-sdd-")
         assert created.iban == TEST_IBAN
 
-    def test_charge_and_read_back(self, sandbox_client, enabled_methods):
+    def test_charge_and_read_back(self, sandbox_client: UnzerClient, enabled_methods: set[str]) -> None:
         requires(sandbox_client, enabled_methods, "sepa-direct-debit")
         response = sandbox_client.charge(PaymentRequest(
             paymentType=SepaDirectDebit(iban=TEST_IBAN, bic=TEST_BIC, holder=TEST_HOLDER),
@@ -468,6 +476,9 @@ class TestSepaDirectDebit:
             orderId="sdk-test-sdd-charge",
         ))
         assert response.isSuccess
+        assert response.transactionId is not None
+        assert response.processing is not None
+        assert response.paymentId is not None
         assert response.transactionId.startswith("s-chg-")
         assert response.processing.shortId, "processing must carry the short id"
 
@@ -477,19 +488,20 @@ class TestSepaDirectDebit:
         assert len(charged) == 1, "getChargedTransactions used to return []"
         assert charged[0].transactionId == response.transactionId
 
-    def test_transaction_actions_are_enums(self, sandbox_client, enabled_methods):
+    def test_transaction_actions_are_enums(self, sandbox_client: UnzerClient, enabled_methods: set[str]) -> None:
         requires(sandbox_client, enabled_methods, "sepa-direct-debit")
         response = sandbox_client.charge(PaymentRequest(
             paymentType=SepaDirectDebit(iban=TEST_IBAN, bic=TEST_BIC, holder=TEST_HOLDER),
             amount=1.0, currency="EUR", returnUrl="https://shop.example.com/return",
         ))
+        assert response.paymentId is not None
         payment = sandbox_client.getPayment(response.paymentId)
         assert all(isinstance(txn.action, Action) for txn in payment.transactions)
 
 
 class TestErrorShape:
 
-    def test_unknown_payment_raises_error_response(self, sandbox_client):
+    def test_unknown_payment_raises_error_response(self, sandbox_client: UnzerClient) -> None:
         with pytest.raises(ErrorResponse) as excinfo:
             sandbox_client.getPayment("s-pay-does-not-exist")
         error = excinfo.value
@@ -498,7 +510,7 @@ class TestErrorShape:
         assert error.errors[0].code
         assert error.errors[0].merchantMessage
 
-    def test_error_carries_a_trace_id(self, sandbox_client):
+    def test_error_carries_a_trace_id(self, sandbox_client: UnzerClient) -> None:
         with pytest.raises(ErrorResponse) as excinfo:
             sandbox_client.getPayment("s-pay-does-not-exist")
         assert excinfo.value.errorId or excinfo.value.traceId
@@ -535,7 +547,7 @@ class TestFieldLengths:
     """
 
     @staticmethod
-    def _payload(owner: str, field: str, length: int) -> dict:
+    def _payload(owner: str, field: str, length: int) -> dict[str, t.Any]:
         """Build a valid customer payload with one field stretched to `length`."""
         value = ("1" if field == "zip" else "a") * length
         address = {"name": "Probe Tester", "street": "Teststrasse 1", "state": "",
@@ -551,14 +563,27 @@ class TestFieldLengths:
 
     @pytest.mark.parametrize(("owner", "attr", "field", "limit"), FIELD_LENGTH_CASES,
                              ids=FIELD_LENGTH_IDS)
-    def test_a_value_at_the_limit_is_accepted(self, sandbox_client, owner, attr, field, limit):
+    def test_a_value_at_the_limit_is_accepted(
+            self,
+            sandbox_client: UnzerClient,
+            owner: str,
+            attr: str,
+            field: str,
+            limit: int,
+    ) -> None:
         assert sandbox_client.request("customers", "POST",
                                       self._payload(owner, field, limit))["id"]
 
     @pytest.mark.parametrize(("owner", "attr", "field", "limit"), FIELD_LENGTH_CASES,
                              ids=FIELD_LENGTH_IDS)
-    def test_one_character_over_the_limit_is_rejected(self, sandbox_client, owner, attr,
-                                                      field, limit):
+    def test_one_character_over_the_limit_is_rejected(
+            self,
+            sandbox_client: UnzerClient,
+            owner: str,
+            attr: str,
+            field: str,
+            limit: int,
+    ) -> None:
         with pytest.raises(ErrorResponse) as excinfo:
             sandbox_client.request("customers", "POST", self._payload(owner, field, limit + 1))
-        assert any("invalid length" in error.merchantMessage for error in excinfo.value.errors)
+        assert any("invalid length" in (error.merchantMessage or "") for error in excinfo.value.errors)

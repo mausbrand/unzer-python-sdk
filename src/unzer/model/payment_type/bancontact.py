@@ -22,8 +22,8 @@ class Bancontact(PaymentType):
     def __init__(
             self,
             holder: str | None = None,
-            **kwargs
-    ):
+            **kwargs: t.Any,
+    ) -> None:
         """Create a new Bancontact paymentType ressource.
 
         :param holder: The holder name.
@@ -31,7 +31,7 @@ class Bancontact(PaymentType):
         super().__init__(**kwargs)
         self.holder: str | None = holder
 
-    def serialize(self) -> dict:
+    def serialize(self) -> dict[str, t.Any]:
         if not self.holder:
             return super().serialize()
 
@@ -40,7 +40,7 @@ class Bancontact(PaymentType):
         }
 
     @classmethod
-    def fromDict(cls, data: dict) -> t.Self:
+    def fromDict(cls, data: dict[str, t.Any]) -> t.Self:
         data = data.copy()
         data["key"] = data["id"]
         return cls(**data)

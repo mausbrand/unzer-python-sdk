@@ -1,7 +1,7 @@
 import typing as t
 
 from ..utils import parseFloat, roundAmount
-from .base import BaseModel, JSONValue
+from .base import BaseModel
 from .basketItem import BasketItem
 
 
@@ -30,51 +30,42 @@ class Basket(BaseModel):
 
     def __init__(
             self,
-            key=None,
-            amountTotalGross=None,
-            amountTotalVat=None,
-            amountTotalDiscount=None,
-            totalValueGross=None,
-            currencyCode=None,
-            orderId=None,
-            note=None,
-            basketItems=None,
-            **kwargs
-    ):
+            key: str | None = None,
+            amountTotalGross: float | None = None,
+            amountTotalVat: float | None = None,
+            amountTotalDiscount: float | None = None,
+            totalValueGross: float | None = None,
+            currencyCode: str | None = None,
+            orderId: str | None = None,
+            note: str | None = None,
+            basketItems: list[BasketItem] | None = None,
+            **kwargs: t.Any,
+    ) -> None:
         """Create a new Basket.
 
         :param key: (optional)
-        :type key: str
         :param amountTotalGross: (optional) (v1) Total gross amount of the basket
-        :type amountTotalGross: float
         :param amountTotalVat: (optional) (v1)
-        :type amountTotalVat: float
         :param amountTotalDiscount: (optional) (v1)
-        :type amountTotalDiscount: float
         :param totalValueGross: (v3) Total gross amount of the basket.
             Setting it switches this basket to the v3 schema.
-        :type totalValueGross: float
         :param currencyCode: (optional) example: EUR
-        :type currencyCode: str
         :param orderId: example: s-bsk-XXX
-        :type orderId: str
         :param note: (optional)
-        :type note: str
         :param basketItems: (optional)
-        :type basketItems: list[BasketItem]
         """
         super().__init__(**kwargs)
         if basketItems is None:
             basketItems = []
-        self.key = key  # type:str
-        self.amountTotalGross = amountTotalGross  # type:float
-        self.amountTotalVat = amountTotalVat  # type:float
-        self.amountTotalDiscount = amountTotalDiscount  # type:float
-        self.totalValueGross = totalValueGross  # type:float
-        self.currencyCode = currencyCode  # type:str
-        self.orderId = orderId  # type:str
-        self.note = note  # type:str
-        self.basketItems = basketItems  # type:list[BasketItem]
+        self.key: str | None = key
+        self.amountTotalGross: float | None = amountTotalGross
+        self.amountTotalVat: float | None = amountTotalVat
+        self.amountTotalDiscount: float | None = amountTotalDiscount
+        self.totalValueGross: float | None = totalValueGross
+        self.currencyCode: str | None = currencyCode
+        self.orderId: str | None = orderId
+        self.note: str | None = note
+        self.basketItems: list[BasketItem] = basketItems
 
     def isV3(self) -> bool:
         """Tell whether this basket uses the v3 schema, i.e. :attr:`totalValueGross`."""
@@ -85,7 +76,7 @@ class Basket(BaseModel):
         """Provide the API version of the endpoint this basket has to be sent to."""
         return "v3" if self.isV3() else "v1"
 
-    def serialize(self) -> dict[str, JSONValue]:
+    def serialize(self) -> dict[str, t.Any]:
         """Serialize this basket in the schema implied by :meth:`isV3`."""
         data = {
             "id": self.key,
@@ -107,7 +98,7 @@ class Basket(BaseModel):
         return data
 
     @classmethod
-    def fromDict(cls, data: dict[str, JSONValue]) -> t.Self:
+    def fromDict(cls, data: dict[str, t.Any]) -> t.Self:
         """Unserialize a basket of either schema; missing amounts stay ``None``."""
         data = data.copy()
         data["key"] = data["id"]
