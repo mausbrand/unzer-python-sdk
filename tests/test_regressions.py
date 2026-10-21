@@ -16,6 +16,8 @@ from unzer import UnzerClient
 from unzer.model import (
     Action,
     Address,
+    Basket,
+    BasketItem,
     Customer,
     Events,
     PaymentGetResponse,
@@ -629,3 +631,57 @@ class TestEnumsStayComparableToTheirValue:
         """``json.dumps(..., default=str)`` turned a member into "Action.CHARGE"."""
         assert json.dumps(Action.CHARGE) == '"charge"'
         assert json.dumps(PaymentState.COMPLETED) == "1"
+
+
+class TestMixedBasketSchemasAreRefused:
+    """#16: a basket and its items picked their schema independently, unchecked.
+
+    Measured against the sandbox: a v3 item in a v1 basket is accepted with a 201 and
+    every item amount stored as ``0.0000``; a v1 item in a v3 basket is refused with
+    ``API.600.410.051``. Both are refused before the request now, naming the item.
+    """
+
+    @staticmethod
+    def _v1_item(reference: str = "item-1") -> BasketItem:
+        return BasketItem(basketItemReferenceId=reference, quantity=1, vat=19,
+                          amountPerUnit=84.03, amountNet=84.03, amountVat=15.97, amountGross=100.0)
+
+    @staticmethod
+    def _v3_item(reference: str = "item-1") -> BasketItem:
+        return BasketItem(basketItemReferenceId=reference, quantity=1, vat=19, amountPerUnitGross=100.0)
+
+    def test_v3_item_in_v1_basket_is_refused(self) -> None:
+        """The silent one: the API would store every amount of the item as zero."""
+        basket = Basket(amountTotalGross=200.0, basketItems=[self._v1_item("a"), self._v3_item("b")])
+        with pytest.raises(ValueError, match=r"v1 schema, but basketItems\[1\] \(basketItemReferenceId='b'\) uses v3"):
+            basket.validateBeforeRequest()
+
+    def test_v1_item_in_v3_basket_is_refused(self) -> None:
+        basket = Basket(totalValueGross=100.0, basketItems=[self._v1_item("a")])
+        with pytest.raises(ValueError, match=r"v3 schema, but basketItems\[0\] \(basketItemReferenceId='a'\) uses v1"):
+            basket.validateBeforeRequest()
+
+    def test_a_discount_alone_makes_an_item_v3(self) -> None:
+        """``amountDiscountPerUnitGross`` switches the item too, even next to v1 amounts."""
+        item = self._v1_item()
+        item.amountDiscountPerUnitGross = 10.0
+        with pytest.raises(ValueError, match="uses v3"):
+            Basket(amountTotalGross=90.0, basketItems=[item]).validateBeforeRequest()
+
+    @pytest.mark.parametrize("basket", [
+        Basket(amountTotalGross=100.0, basketItems=[_v1_item()]),
+        Basket(totalValueGross=100.0, basketItems=[_v3_item()]),
+        Basket(amountTotalGross=0.0),
+        Basket(totalValueGross=0.0),
+    ], ids=["v1", "v3", "v1-empty", "v3-empty"])
+    def test_same_schema_baskets_pass(self, basket: Basket) -> None:
+        assert basket.validateBeforeRequest()
+
+    @pytest.mark.parametrize("method", ["createBasket", "updateBasket"])
+    def test_client_refuses_before_sending(self, client: UnzerClient, method: str) -> None:
+        """``createBasket`` and ``updateBasket`` never called the validation at all."""
+        basket = Basket(key="s-bsk-1", amountTotalGross=100.0, basketItems=[self._v3_item()])
+        with responses.RequestsMock() as mock:  # fails on any request that is sent
+            with pytest.raises(ValueError, match="uses v3"):
+                getattr(client, method)(basket)
+            assert not mock.calls

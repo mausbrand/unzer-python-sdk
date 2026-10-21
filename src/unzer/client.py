@@ -441,6 +441,7 @@ class UnzerClient:
         """
         if not isinstance(basket, Basket):
             raise TypeError(f"Expected a Basket object. Got {type(basket)!r}")
+        basket.validateBeforeRequest()
         data = self.request(
             "baskets",
             "POST",
@@ -460,6 +461,7 @@ class UnzerClient:
             raise TypeError(f"Expected a Basket object. Got {type(basket)!r}")
         if not basket.key:
             raise TypeError("Basket has no key (id)")
+        basket.validateBeforeRequest()
         data = self.request(
             f"baskets/{basket.key}",
             "PUT",
