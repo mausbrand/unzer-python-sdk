@@ -122,7 +122,8 @@ def roundAmount(value: float | int | str | None) -> float | None:
     this. Floating point arithmetic produces residues -- ``12.3 - 10.0 - 2.3`` is
     ``8.88e-16``, not ``0`` -- and :func:`json.dumps` writes those in scientific
     notation, which is not a number the API accepts. And an amount carrying more
-    than four decimals is silently truncated on their side.
+    than four decimals is refused outright, with ``API.600.200.133`` (measured on a
+    basket item, sandbox).
 
     :param value: The amount, or ``None``.
     :return: The rounded amount, or ``None`` if there was none.
