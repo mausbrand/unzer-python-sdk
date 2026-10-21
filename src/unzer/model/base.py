@@ -75,6 +75,25 @@ class BaseModel(abc.ABC):
             self._client = client
         return self
 
+    def _require_client(self, action: str) -> "UnzerClient":
+        """Return the attached client, or raise if there is none.
+
+        For methods that perform a request of their own. A model built by hand
+        has no client, and without this check such a method would fail with an
+        ``AttributeError`` on ``None`` that names neither cause nor remedy.
+
+        :param action: What the method wanted to do, completing the sentence
+            "... so it cannot <action>".
+        :raises RuntimeError: If the model has no client.
+        """
+        if self._client is None:
+            raise RuntimeError(
+                f"{type(self).__name__} was created without a client, so it cannot "
+                f"{action}. Pass client= to the constructor, call bind_client(), "
+                f"or use the instance the client returned."
+            )
+        return self._client
+
     def getString(self, value: object) -> object:
         """Turn ``None`` into an empty string for fields the API wants as text.
 

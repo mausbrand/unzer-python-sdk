@@ -225,8 +225,9 @@ class Customer(BaseModel):
         # The sentinel is kept as it is: assigning it means "not given" again, and
         # the getter turns it into the language of the client, or None without one.
         # It must not reach normalize_language(), which reads it as an empty value.
-        # TODO: mypy cannot narrow `is SENTINEL`; isinstance(value, Sentinel) would be equivalent.
-        self._language = value if value is SENTINEL else normalize_language(value)  # type: ignore[arg-type]
+        # isinstance() instead of `is SENTINEL`: equivalent, as there is only one
+        # instance, but mypy can narrow it.
+        self._language = value if isinstance(value, Sentinel) else normalize_language(value)
 
     def validateBeforeRequest(self) -> bool:
         """Validate the customer and the addresses it carries.

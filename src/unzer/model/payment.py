@@ -286,13 +286,19 @@ class PaymentGetResponse(BaseModel):
         raise NotImplementedError("No serialisation for response models.")
 
     # noinspection PyMethodOverriding
-    # TODO: Requires a client, which BaseModel.fromDict does not have -- violates the base signature.
     @classmethod
-    def fromDict(  # type: ignore[override]
+    def fromDict(
             cls,
             data: dict[str, t.Any],
-            client: "UnzerClient",
+            client: "UnzerClient | None" = None,
     ) -> t.Self:
+        """Build a payment from an API response.
+
+        :param data: The payment resource as the API sent it.
+        :param client: The client that fetched it. Optional only to keep the
+            signature of :meth:`BaseModel.fromDict`: :meth:`charge` and
+            :meth:`getChargedTransactions` raise without one.
+        """
         data = data.copy()
         data["paymentId"] = data["id"]
         if data["resources"].get("typeId"):
@@ -320,16 +326,15 @@ class PaymentGetResponse(BaseModel):
 
         :return:  List of charged transaction resources.
         """
-        transactions = []
-        for txn in filter(lambda txn_: txn_.action == Action.CHARGE, self.transactions):
-            # TODO: Fails on None, with no client or no paymentId.
-            transactions.append(
-                self._client.getChargedTransaction(  # type: ignore[union-attr]
-                    self.paymentId,  # type: ignore[arg-type]
-                    txn.transactionId,
-                )
+        charges = [txn for txn in self.transactions if txn.action == Action.CHARGE]
+        if not charges:
+            return []
+        client = self._require_client("fetch its charged transactions")
+        if self.paymentId is None:
+            raise ValueError(
+                f"{type(self).__name__} has no paymentId, so it cannot fetch its charged transactions."
             )
-        return transactions
+        return [client.getChargedTransaction(self.paymentId, txn.transactionId) for txn in charges]
 
     @staticmethod
     def getPaymentTypeFromTypeId(typeId: str | None) -> PaymentTypes:
@@ -368,13 +373,14 @@ class PaymentGetResponse(BaseModel):
             amount; the rest stays open.
         :return: The transaction that was created.
         """
+        client = self._require_client("charge")
+        if self.paymentType is None:
+            raise ValueError(f"{type(self).__name__} has no paymentType, so it cannot charge.")
         req_kwargs = self.__dict__.copy()
-        # TODO: paymentType may be None, which construct() does not handle.
-        req_kwargs["paymentType"] = PaymentType.construct(self.paymentType)(self.typeId)  # type: ignore[arg-type]
+        req_kwargs["paymentType"] = PaymentType.construct(self.paymentType)(self.typeId)
         req_kwargs["amount"] = amount
         req = PaymentRequest(**req_kwargs)
-        # TODO: Fails with an AttributeError on None when the model was not read through a client.
-        return self._client.charge(req)  # type: ignore[union-attr]
+        return client.charge(req)
 
 
 class PaymentTransaction(BaseModel):
@@ -662,13 +668,19 @@ class PaymentResponse(BaseModel):
     def serialize(self) -> dict[str, t.Any]:
         raise NotImplementedError("No serialisation for response models.")
 
-    # TODO: Requires a client, which BaseModel.fromDict does not have -- violates the base signature.
     @classmethod
-    def fromDict(  # type: ignore[override]
+    def fromDict(
             cls,
             data: dict[str, t.Any],
-            client: "UnzerClient",
+            client: "UnzerClient | None" = None,
     ) -> t.Self:
+        """Build a transaction from an API response.
+
+        :param data: The transaction resource as the API sent it.
+        :param client: The client that fetched it. Optional only to keep the
+            signature of :meth:`BaseModel.fromDict`: :meth:`charge` raises
+            without one.
+        """
         data = data.copy()
         data["transactionId"] = data["id"]
         data["isSuccess"] = parseBool(data["isSuccess"])
@@ -703,13 +715,13 @@ class PaymentResponse(BaseModel):
         :param amount: The amount to capture.
         :return: The transaction that was created.
         """
+        client = self._require_client("charge")
         req_kwargs = self.__dict__.copy()
-        paymentTypeName = PaymentGetResponse.getPaymentTypeFromTypeId(self.typeId)
-        req_kwargs["paymentType"] = PaymentType.construct(paymentTypeName)(self.typeId)
+        payment_type_name = PaymentGetResponse.getPaymentTypeFromTypeId(self.typeId)
+        req_kwargs["paymentType"] = PaymentType.construct(payment_type_name)(self.typeId)
         req_kwargs["amount"] = amount
         req = PaymentRequest(**req_kwargs)
-        # TODO: Fails with an AttributeError on None when the model was not read through a client.
-        return self._client.charge(req)  # type: ignore[union-attr]
+        return client.charge(req)
 
 
 class PaymentResponseMetadata(BaseModel):
