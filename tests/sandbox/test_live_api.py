@@ -583,6 +583,40 @@ class TestPaymentPage:
         assert page.redirectUrl is not None
         assert "sbx-" in page.redirectUrl, page.redirectUrl
 
+    def _page(self, **kwargs: t.Any) -> PaymentPage:
+        return PaymentPage(action=Action.CHARGE, amount=1.0, currency="EUR",
+                           returnUrl="https://shop.example.com/return", **kwargs)
+
+    def test_additional_attributes_are_stored_as_strings(self, sandbox_client: UnzerClient) -> None:
+        page = sandbox_client.createPaymentPage(self._page(
+            additionalAttributes={"effectiveInterestRate": 4.99, "flag": True, "count": 42},
+        ))
+        assert page.additionalAttributes == {"effectiveInterestRate": "4.99", "flag": "true", "count": "42"}
+
+    @pytest.mark.parametrize("value", [{"nested": "x"}, ["a", "b"]])
+    def test_additional_attributes_take_no_structures(
+            self,
+            sandbox_client: UnzerClient,
+            value: dict[str, str] | list[str],
+    ) -> None:
+        with pytest.raises(ErrorResponse) as excinfo:
+            sandbox_client.createPaymentPage(self._page(
+                additionalAttributes={"foo": value},
+            ))
+        assert excinfo.value.errors[0].code == "API.610.300.007"
+
+    @pytest.mark.parametrize("value", ["nonsense", "color: #000;} body {display: none;"])
+    def test_css_values_are_checked_as_css(self, sandbox_client: UnzerClient, value: str) -> None:
+        with pytest.raises(ErrorResponse) as excinfo:
+            sandbox_client.createPaymentPage(self._page(css={"header": value}))
+        assert excinfo.value.errors[0].code == "API.610.620.042"
+
+    def test_unknown_css_keys_are_dropped(self, sandbox_client: UnzerClient) -> None:
+        page = sandbox_client.createPaymentPage(self._page(
+            css={"header": "color: #000;", "nonsense": "color: #000;"},
+        ))
+        assert page.css == {"header": "color: #000;"}
+
 
 class TestSepaDirectDebit:
     """SEPA direct debit is created server-side, so it can be exercised here."""
