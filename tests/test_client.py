@@ -360,6 +360,82 @@ class TestAllowedCustomerTypes:
             Card(client=client).get_allowed_customer_types()
 
 
+class TestChannelByCustomerTypeAndThreeDs:
+    """Two ``card`` configurations with identical brands on different channels.
+
+    The fixture is the ``card`` part of a captured ``keypair/types`` answer of a
+    sandbox account, with the channels replaced: the brand lists, ``3ds`` (a JSON
+    bool) and ``allowCustomerTypes`` (a comma-separated string) are as the API
+    sent them. Only the 3DS flag or the customer type tells the entries apart.
+    """
+
+    @pytest.fixture
+    def keypair(self, fixture_json: t.Callable[[str], t.Any]) -> None:
+        responses.add(responses.GET, f"{BASE}/keypair/types",
+                      json=fixture_json("keypair_types_card_same_brands"))
+
+    @responses.activate
+    def test_without_filters_the_first_entry_wins_with_a_warning(
+            self,
+            client: UnzerClient,
+            keypair: None,
+            caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        from unzer.model import Card
+        with caplog.at_level("WARNING", logger="unzer-sdk"):
+            assert Card(client=client).get_channel_id(brand="VISA") == "e" * 32
+        assert "has 2 configurations" in caplog.text
+
+    @responses.activate
+    def test_three_ds_selects_the_configuration(self, client: UnzerClient, keypair: None) -> None:
+        from unzer.model import Card
+        card = Card(client=client)
+        assert card.get_channel_id(brand="VISA", three_ds=True) == "e" * 32
+        assert card.get_channel_id(brand="VISA", three_ds=False) == "f" * 32
+
+    @responses.activate
+    def test_customer_type_selects_the_configuration(self, client: UnzerClient, keypair: None) -> None:
+        from unzer.model import Card, CustomerType
+        assert Card(client=client).get_channel_id(customer_type=CustomerType.B2B) == "e" * 32
+
+    @responses.activate
+    def test_filters_combine(self, client: UnzerClient, keypair: None) -> None:
+        from unzer.model import Card, CustomerType
+        card = Card(client=client)
+        assert card.get_channel_id(customer_type=CustomerType.B2C, three_ds=False) == "f" * 32
+        with pytest.raises(LookupError, match="three_ds=False"):
+            card.get_channel_id(customer_type=CustomerType.B2B, three_ds=False)
+
+    @responses.activate
+    def test_brands_follow_the_filters(self, client: UnzerClient, keypair: None) -> None:
+        from unzer.model import Card
+        assert Card(client=client).get_brands(three_ds=False)[0] == "DANKORT"
+
+    @responses.activate
+    def test_a_configuration_without_the_fields_is_kept(self, client: UnzerClient) -> None:
+        """Keypairs differ in which fields they carry; a missing field is "not known"."""
+        from unzer.model import Card, CustomerType
+        responses.add(responses.GET, f"{BASE}/keypair/types", json={"paymentTypes": [
+            {"type": "card", "supports": [{"brands": ["VISA"], "channel": "chan"}]},
+        ]})
+        assert Card(client=client).get_channel_id(customer_type=CustomerType.B2B, three_ds=True) == "chan"
+
+    @responses.activate
+    def test_filters_apply_before_the_brand(
+            self,
+            client: UnzerClient,
+            fixture_json: t.Callable[[str], t.Any],
+    ) -> None:
+        """On the keypair whose card entries differ by brand, the filters change nothing."""
+        from unzer.model import Card, CustomerType
+        responses.add(responses.GET, f"{BASE}/keypair/types",
+                      json=fixture_json("keypair_types_multi_card"))
+        card = Card(client=client)
+        assert card.get_channel_id(brand="AMEX", customer_type=CustomerType.B2C, three_ds=True) == "b" * 32
+        with pytest.raises(LookupError, match="customer_type"):
+            card.get_channel_id(brand="AMEX", customer_type=CustomerType.B2B)
+
+
 class TestPaylaterConfig:
     """``types/<paylater method>/config``; the fixture is a captured answer, with the
     merchant's channel name replaced."""
