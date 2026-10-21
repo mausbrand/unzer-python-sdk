@@ -552,6 +552,31 @@ class TestBasket:
         ))
         assert basket.key
 
+    def test_v1_basket_zeroes_a_v3_item(self, sandbox_client: UnzerClient) -> None:
+        """Why :meth:`Basket.validateBeforeRequest` refuses mixed schemas (#16).
+
+        Sent through :meth:`UnzerClient.request` to get past that check: the v1 endpoint
+        answers 201 and stores every amount of the v3 item as zero, while the basket
+        total survives.
+        """
+        payload = Basket(amountTotalGross=self.GROSS, currencyCode="EUR",
+                         orderId="sdk-test-basket-v1-with-v3-item").serialize()
+        payload["basketItems"] = [self.goods_v3().serialize()]
+        data = sandbox_client.request("baskets", "POST", payload, api_version="v1")
+        stored = sandbox_client.getBasket(data["id"])
+        assert stored.amountTotalGross == self.GROSS
+        item = stored.basketItems[0]
+        assert (item.amountGross, item.amountNet, item.amountPerUnit) == (0.0, 0.0, 0.0)
+
+    def test_v3_basket_refuses_a_v1_item(self, sandbox_client: UnzerClient) -> None:
+        """The other direction is refused by the API itself."""
+        payload = Basket(totalValueGross=self.GROSS, currencyCode="EUR",
+                         orderId="sdk-test-basket-v3-with-v1-item").serialize()
+        payload["basketItems"] = [self.goods_v1().serialize()]
+        with pytest.raises(ErrorResponse) as excinfo:
+            sandbox_client.request("baskets", "POST", payload, api_version="v3")
+        assert "API.600.410.051" in {error.code for error in excinfo.value.errors}
+
 
 class TestPaymentPage:
     """Paypage v1 is tagged [Deprecated] in the spec but still works."""

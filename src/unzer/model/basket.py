@@ -15,7 +15,8 @@ class Basket(BaseModel):
     (see :class:`unzer.model.BasketItem`), so don't mix the schemas within one basket.
     Measured: a v3 item in a v1 basket is accepted with a 201 and every item amount
     stored as ``0.0000``, silently, while a v1 item in a v3 basket is refused with
-    ``API.600.410.051``. A basket is also only readable through the schema it was
+    ``API.600.410.051``. :meth:`validateBeforeRequest` therefore refuses a mixed basket
+    in both directions. A basket is also only readable through the schema it was
     created with, ``API.600.410.024`` otherwise.
 
     Both schemas are accepted by every payment method measured so far -- a sandbox
@@ -75,6 +76,29 @@ class Basket(BaseModel):
     def apiVersion(self) -> str:
         """Provide the API version of the endpoint this basket has to be sent to."""
         return "v3" if self.isV3() else "v1"
+
+    def validateBeforeRequest(self) -> bool:
+        """Validate the basket and refuse items in the other schema.
+
+        The basket picks the endpoint, every item picks its fields, and the API does not
+        reliably refuse a mismatch: a v3 item in a v1 basket is accepted with a 201 and
+        stored with every amount as ``0.0000``. So the mismatch is refused here, in both
+        directions, before anything is sent.
+
+        :raises ValueError: If the basket is invalid or an item uses the other schema.
+        """
+        super().validateBeforeRequest()
+        basket_version = self.apiVersion
+        for index, item in enumerate(self.basketItems):
+            item_version = "v3" if item.isV3() else "v1"
+            if item_version != basket_version:
+                raise ValueError(
+                    f"Basket uses the {basket_version} schema, but basketItems[{index}] "
+                    f"(basketItemReferenceId={item.basketItemReferenceId!r}) uses {item_version}. "
+                    f"Do not mix the schemas within one basket."
+                )
+            item.validateBeforeRequest()
+        return True
 
     def serialize(self) -> dict[str, t.Any]:
         """Serialize this basket in the schema implied by :meth:`isV3`."""

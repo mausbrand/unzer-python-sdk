@@ -269,8 +269,10 @@ not a requirement:
 loudly. Measured: a v3 item in a v1 basket is accepted with a 201 and every item amount
 stored as `0.0000`, while the basket-level total survives, so the basket looks plausible
 and every line is worth nothing. A v1 item in a v3 basket is refused with
-`API.600.410.051`. `Basket.isV3()` and `BasketItem.isV3()` decide independently and
-nothing checks that they agree (#16). A basket is also only readable through the schema it
+`API.600.410.051`. `Basket.isV3()` and `BasketItem.isV3()` decide independently, so
+`Basket.validateBeforeRequest()` (called by `createBasket`/`updateBasket`) refuses a
+mismatch in both directions, naming the item. The two sandbox tests that document the API
+behaviour go through `client.request` to get past it. A basket is also only readable through the schema it
 was created with — `API.600.410.024` otherwise — and the ids differ visibly: v1 gives
 `s-bsk-72`, v3 a UUID.
 
