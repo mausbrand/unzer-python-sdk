@@ -17,6 +17,7 @@ from unzer.model import (
     Action,
     Address,
     Customer,
+    ErrorResponse,
     Events,
     PaymentGetResponse,
     PaymentMethodTypes,
@@ -629,3 +630,94 @@ class TestEnumsStayComparableToTheirValue:
         """``json.dumps(..., default=str)`` turned a member into "Action.CHARGE"."""
         assert json.dumps(Action.CHARGE) == '"charge"'
         assert json.dumps(PaymentState.COMPLETED) == "1"
+
+
+class TestRequestErrorBranches:
+    """Issue #15: the branches of `_request` besides 4xx lost the status code or parsed unguarded."""
+
+    ERROR_ENVELOPE: t.ClassVar[dict[str, t.Any]] = {
+        "id": "s-err-1",
+        "url": "u",
+        "timestamp": "2026-08-21 10:15:32",
+        "errors": [{"code": "API.900.100.100", "merchantMessage": "m", "customerMessage": "c"}],
+    }
+
+    @pytest.mark.parametrize("body", [
+        pytest.param("<html><head><title>502 Bad Gateway</title></head><body>nginx</body></html>", id="html"),
+        pytest.param('{"message": "Bad Gateway"}', id="foreign-json"),
+        # `Error(**"Bad Gateway")` is a TypeError, which escaped the old `except ValueError`.
+        pytest.param('{"errors": ["Bad Gateway"]}', id="error-entry-not-an-object"),
+    ])
+    @responses.activate
+    def test_exhausted_retries_keep_the_status_code(self, client: UnzerClient, body: str) -> None:
+        """The last 5xx ended as ``statusCode: 0`` -- or as a bare ``TypeError`` from ``fromDict``."""
+        responses.add(responses.GET, f"{BASE}/payments/s-pay-1", status=502, body=body)
+        with pytest.raises(ErrorResponse) as excinfo:
+            client.getPayment("s-pay-1")
+        error = excinfo.value
+        assert error.statusCode == 502
+        assert error.srcResponse is not None
+        assert str(error).startswith("All request attempts failed: HTTP 502 Bad Gateway with a")
+
+    @responses.activate
+    def test_exhausted_retries_still_read_an_error_envelope(self, client: UnzerClient) -> None:
+        responses.add(responses.GET, f"{BASE}/payments/s-pay-1", status=500, json=self.ERROR_ENVELOPE)
+        with pytest.raises(ErrorResponse) as excinfo:
+            client.getPayment("s-pay-1")
+        error = excinfo.value
+        assert str(error) == "All request attempts failed"
+        assert error.statusCode == 500
+        assert error.errors[0].code == "API.900.100.100"
+
+    @responses.activate
+    def test_non_json_success_body_raises_an_error_response(self, client: UnzerClient) -> None:
+        """A proxy interstitial with a 200 escaped as a bare ``JSONDecodeError``."""
+        responses.add(responses.GET, f"{BASE}/payments/s-pay-1", status=200,
+                      body="<html><body>Maintenance</body></html>")
+        with pytest.raises(ErrorResponse) as excinfo:
+            client.getPayment("s-pay-1")
+        error = excinfo.value
+        assert error.statusCode == 200
+        assert error.srcResponse is not None
+        assert str(error).startswith("HTTP 200 OK with a non-JSON body:")
+        assert "Maintenance" in str(error)
+
+    @responses.activate
+    def test_success_body_is_decoded_once(self, client: UnzerClient, monkeypatch: pytest.MonkeyPatch) -> None:
+        """``r.json()`` ran twice per successful call, once only for a debug line."""
+        calls: list[requests.Response] = []
+        original = requests.Response.json
+
+        def counting_json(self: requests.Response, **kwargs: t.Any) -> t.Any:
+            calls.append(self)
+            return original(self, **kwargs)
+
+        monkeypatch.setattr(requests.Response, "json", counting_json)
+        responses.add(responses.GET, f"{BASE}/keypair", json={"publicKey": "s-pub-1"})
+        assert client.getKeyPair() == {"publicKey": "s-pub-1"}
+        assert len(calls) == 1
+
+    @responses.activate
+    def test_every_2xx_is_a_success(self, client: UnzerClient) -> None:
+        """Only 200 and 201 were; a 204 raised an ErrorResponse indistinguishable from a rejection."""
+        responses.add(responses.DELETE, f"{BASE}/customers/s-cst-1", status=204)
+        responses.add(responses.POST, f"{BASE}/customers", status=202, json={"id": "s-cst-2"})
+        assert client.request("customers/s-cst-1", "DELETE") == {}
+        assert client.request("customers", "POST", {}) == {"id": "s-cst-2"}
+
+    @responses.activate
+    def test_final_error_is_not_built_from_an_earlier_attempt(self, retrying_client: UnzerClient) -> None:
+        """``500 -> timeout x4`` reported the 500 of attempt one, which looked trustworthy."""
+        url = f"{BASE}/payments/s-pay-1"
+        responses.add(responses.GET, url, status=500, json=self.ERROR_ENVELOPE)
+        for _ in retrying_client.retryDelays:
+            responses.add(responses.GET, url, body=requests.exceptions.ReadTimeout())
+        with pytest.raises(ErrorResponse) as excinfo:
+            retrying_client.getPayment("s-pay-1")
+        error = excinfo.value
+        assert len(responses.calls) == 1 + len(retrying_client.retryDelays)
+        assert error.statusCode == 0
+        assert error.srcResponse is None
+        assert error.errors == []
+        assert "no response" in str(error)
+        assert isinstance(error.__cause__, requests.exceptions.ReadTimeout)

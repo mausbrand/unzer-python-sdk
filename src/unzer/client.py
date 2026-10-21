@@ -215,12 +215,16 @@ class UnzerClient:
         :param headers: The HTTP headers.
         :param payload: The HTTP payload (will be json encoded).
         :param auth: The authentication for this request.
-        :return: The json decoded response
+        :return: The json decoded response. Every 2xx status counts as success;
+            one without a body (``204 No Content``) returns an empty dict.
 
-        :raises: :exc:`ErrorResponse` in case of an client error
-            or after last retry failed.
+        :raises: :exc:`ErrorResponse` in case of an client error, a 2xx response
+            whose body is not JSON, or after last retry failed. The status code
+            is the one of the last attempt -- ``0`` if that attempt got no
+            response at all, with the transport exception as ``__cause__``.
         """
-        r = None
+        r: requests.Response | None = None
+        transport_error: requests.exceptions.RequestException | None = None
         retryable = method.upper() in self.retryableMethods
         delays = (0,) + (self.retryDelays if retryable else ())
         for idx, delay in enumerate(delays):
@@ -239,15 +243,27 @@ class UnzerClient:
                     verify=True,
                     timeout=self.timeout,
                 )
-            except (requests.exceptions.Timeout, requests.exceptions.ConnectionError):
+            except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as exc:
                 # Timeout covers both ConnectTimeout and ReadTimeout.
                 logger.exception("Request failed on the transport level")
                 if not retryable:
                     raise
+                # Forget the response of an earlier attempt, so the final error
+                # cannot be built from it as if it were the last one.
+                r = None
+                transport_error = exc
                 continue
-            if 200 <= r.status_code <= 201:
-                logger.debug("Response[%s %s]: %r", r.status_code, r.reason, r.json())
-                return r.json()
+            if 200 <= r.status_code < 300:
+                if not r.content:
+                    logger.debug(f"Response[{r.status_code} {r.reason}]: no body")
+                    return {}
+                try:
+                    data = r.json()
+                except ValueError:
+                    # A proxy interstitial or a maintenance page can come with a 200 as well.
+                    raise self._error_response_from(r) from None
+                logger.debug(f"Response[{r.status_code} {r.reason}]: {data!r}")
+                return data
             if 500 <= r.status_code < 600:
                 logger.debug("Server error")
                 logger.debug("Response[%s %s]: %r", r.status_code, r.reason, r.text)
@@ -256,44 +272,53 @@ class UnzerClient:
                 continue
             logger.debug("Client error")
             logger.debug("Response[%s %s]: %r", r.status_code, r.reason, r.text)
-            # Not every 4xx comes from the API itself, and a body the SDK cannot map
-            # onto its error model used to escape as a bare exception from inside
-            # `fromDict` -- hiding the status code and the body, so the caller could
-            # not tell a refused request from an SDK bug. The two causes are kept
-            # apart because they need different things done about them.
-            try:
-                data = r.json()
-            except ValueError:
-                # Measured: a gateway in front of the API refuses a returnUrl on
-                # localhost or a private IP with a 403 and an nginx HTML page.
-                errorResponse = ErrorResponse(
-                    f"HTTP {r.status_code} {r.reason} with a non-JSON body: {r.text[:200]!r}")
-            else:
-                try:
-                    errorResponse = ErrorResponse.fromDict(data)
-                except (KeyError, TypeError, ValueError):
-                    # Valid JSON, but not this API's error envelope -- the shape an
-                    # API gateway or WAF sends (`{"message": "Forbidden"}`), and the
-                    # shape `fromDict` produces for a timestamp it cannot parse.
-                    logger.exception(f"Cannot read {data!r} as an ErrorResponse")
-                    errorResponse = ErrorResponse(
-                        f"HTTP {r.status_code} {r.reason} with a body the error schema "
-                        f"does not fit: {r.text[:200]!r}")
-            errorResponse.statusCode = r.status_code
-            errorResponse.srcResponse = r
-            raise errorResponse
+            raise self._error_response_from(r)
 
         logger.error("All request attempts failed")
         if r is not None:
+            raise self._error_response_from(r, "All request attempts failed")
+        raise ErrorResponse(
+            "All request attempts failed: the last attempt got no response"
+        ) from transport_error
+
+    @staticmethod
+    def _error_response_from(r: requests.Response, message: str | None = None) -> ErrorResponse:
+        """Build the :exc:`ErrorResponse` for a response, whatever its body holds.
+
+        Not every error response comes from the API itself, and a body the SDK
+        cannot map onto its error model used to escape as a bare exception from
+        inside `fromDict` -- hiding the status code and the body, so the caller
+        could not tell a refused request from an SDK bug. The two causes are kept
+        apart because they need different things done about them. Either way the
+        result carries the status code and the response.
+
+        :param r: The response to report.
+        :param message: (optional) The exception message for an API error
+            envelope, and the prefix of the message for any other body.
+        :return: The error, ready to be raised.
+        """
+        prefix = f"{message}: " if message else ""
+        try:
+            data = r.json()
+        except ValueError:
+            # Measured: a gateway in front of the API refuses a returnUrl on
+            # localhost or a private IP with a 403 and an nginx HTML page.
+            error = ErrorResponse(
+                f"{prefix}HTTP {r.status_code} {r.reason} with a non-JSON body: {r.text[:200]!r}")
+        else:
             try:
-                errorResponse = ErrorResponse.fromDict(r.json(), "All request attempts failed")
-                errorResponse.statusCode = r.status_code
-                errorResponse.srcResponse = r
-            except ValueError:
-                logger.exception("Failed to build an ErrorResponse from last request")
-            else:
-                raise errorResponse
-        raise ErrorResponse("All request attempts failed", srcResponse=r)
+                error = ErrorResponse.fromDict(data, message or "Unzer Error")
+            except (KeyError, TypeError, ValueError):
+                # Valid JSON, but not this API's error envelope -- the shape an
+                # API gateway or WAF sends (`{"message": "Forbidden"}`), and the
+                # shape `fromDict` produces for a timestamp it cannot parse.
+                logger.exception(f"Cannot read {data!r} as an ErrorResponse")
+                error = ErrorResponse(
+                    f"{prefix}HTTP {r.status_code} {r.reason} with a body the error schema "
+                    f"does not fit: {r.text[:200]!r}")
+        error.statusCode = r.status_code
+        error.srcResponse = r
+        return error
 
     def getKeyPair(self) -> dict[str, t.Any]:
         """Provide the public key of the used private key
