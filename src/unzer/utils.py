@@ -193,3 +193,8 @@ def normalize_language(value: str | None) -> str | None:
         # in the request; raise here to fail before it is sent.
         raise ValueError(f"Invalid language {value!r}, expected a two letter ISO 639-1 code")
     return value.lower()
+
+
+def _type_checker_probe() -> int:
+    # Deliberate type error to see the CI type-checker job fail; reverted in the next commit.
+    return "not an int"
