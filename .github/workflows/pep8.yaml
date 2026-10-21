@@ -11,8 +11,9 @@ on:
 jobs:
   linter:
     strategy:
+      fail-fast: false
       matrix:
-        python: [ "3.12" ]
+        python: [ "3.12", "3.13", "3.14", "3.15" ]
     runs-on: ubuntu-latest
 
     steps:
