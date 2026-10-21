@@ -118,7 +118,11 @@ def enum_value(value: t.Any) -> t.Any:
     log of the payload would still show ``<Events.PAYMENT: 'payment'>``. Converting
     here keeps the payload what is actually sent.
 
-    For fields that take a member or free text, such as ``companyType``.
+    Meant for fields that take either a member or free text, such as
+    ``companyType``; where a field always holds a member, ``.value`` is enough.
+
+    :param value: An enum member, or any other value.
+    :return: The member's value, or ``value`` itself if it is not a member.
     """
     return value.value if isinstance(value, enum.Enum) else value
 
