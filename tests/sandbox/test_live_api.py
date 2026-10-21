@@ -222,6 +222,7 @@ class TestB2BCustomer:
             companyData=CompanyInfo.registered("HRB 12345", companyType=CompanyType.COMPANY),
         ))
         assert customer.company == "Mustermann GmbH"
+        assert customer.companyData is not None
         assert customer.companyData.registrationType == "registered"
         assert customer.companyData.commercialRegisterNumber == "HRB 12345"
         assert customer.companyData.companyType == "company"
@@ -239,9 +240,11 @@ class TestB2BCustomer:
             ),
         ))
         info = customer.companyData
+        assert info is not None
         assert (info.registrationType, info.function, info.commercialSector) == (
             "not_registered", "OWNER", "OTHER")
         # Sent as dd.mm.yyyy, answered in ISO form.
+        assert info.owner is not None and info.owner.birthdate is not None
         assert info.owner.birthdate.strftime("%Y-%m-%d") == "1980-11-22"
 
     def test_a_consumer_has_no_company_data(self, sandbox_client: UnzerClient) -> None:
@@ -292,6 +295,7 @@ class TestB2BCustomer:
             email="maximilian.mustermann@example.com", billingAddress=self._address(),
             companyData=info,
         ))
+        assert customer.companyData is not None
         assert customer.companyData.commercialRegisterNumber is None
 
     def test_free_text_is_stored_where_the_docs_list_values(self, sandbox_client: UnzerClient) -> None:
@@ -303,6 +307,7 @@ class TestB2BCustomer:
                                                commercialSector="nonsense", companyType="nonsense"),
         ))
         info = customer.companyData
+        assert info is not None
         assert (info.function, info.commercialSector, info.companyType) == ("Owner", "nonsense", "nonsense")
 
     def test_address_company_is_stored_on_the_billing_address_only(self, sandbox_client: UnzerClient) -> None:
