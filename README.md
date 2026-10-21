@@ -10,7 +10,7 @@
     An unofficial python SDK for the payment service <a href="https://www.unzer.com">Unzer</a>.
 </div>
 
-> **Unofficial.** This package is not built or endorsed by Unzer. Unzer publishes SDKs for
+> **Unofficial.** This package is neither developed nor maintained by Unzer. Unzer publishes SDKs for
 > [PHP](https://github.com/unzerdev/php-sdk) and [Java](https://github.com/unzerdev/java-sdk),
 > but none for Python.
 
