@@ -509,6 +509,46 @@ class TestAmountRounding:
         assert PaymentResponse.fromDict(raw, client).amount == 100.0
 
 
+class TestBasketItemAmountsWereNotRounded:
+    """``Basket.serialize`` rounded its amounts, ``BasketItem.serialize`` did not (#18).
+
+    Ordinary arithmetic is enough to trip it: ``amountVat=15.97 * 3`` went out as
+    ``47.910000000000004``, and the API refused the whole basket with
+    ``API.600.200.133`` (more than 4 positions after the decimal point).
+    """
+
+    @pytest.mark.parametrize("field", ["amountGross", "amountVat", "amountPerUnit",
+                                       "amountNet", "amountDiscount"])
+    def test_v1_item_amounts_are_rounded(self, field: str) -> None:
+        from unzer.model import BasketItem
+        kwargs: dict[str, t.Any] = {field: 15.97 * 3}
+        assert kwargs[field] == 47.910000000000004, "precondition: the IEEE-754 residue"
+        assert BasketItem(**kwargs).serialize()[field] == 47.91
+
+    @pytest.mark.parametrize("field", ["amountPerUnitGross", "amountDiscountPerUnitGross"])
+    def test_v3_item_amounts_are_rounded(self, field: str) -> None:
+        from unzer.model import BasketItem
+        kwargs: dict[str, t.Any] = {field: 0.1 + 0.2}
+        assert kwargs[field] == 0.30000000000000004, "precondition: the IEEE-754 residue"
+        assert BasketItem(**kwargs).serialize()[field] == 0.3
+
+    def test_item_matches_the_basket_total(self) -> None:
+        """The case from the issue: the total went out rounded, the item did not."""
+        from unzer.model import Basket, BasketItem
+        basket = Basket(amountTotalGross=0.1 + 0.2, currencyCode="EUR",
+                        basketItems=[BasketItem(amountGross=0.1 + 0.2,
+                                                amountDiscount=12.3 - 10.0 - 2.3)])
+        data = json.loads(json.dumps(basket.serialize()))
+        assert data["basketItems"][0]["amountGross"] == data["amountTotalGross"] == 0.3
+        assert data["basketItems"][0]["amountDiscount"] == 0.0
+
+    def test_missing_item_amounts_stay_none(self) -> None:
+        from unzer.model import BasketItem
+        data = BasketItem(amountGross=1.0).serialize()
+        assert data["amountVat"] is None
+        assert data["amountDiscount"] is None
+
+
 class TestInstallmentPlansTimestamp:
     """getPaylaterInstallmentPlans() raised on every single call.
 

@@ -233,21 +233,16 @@ from its source, the docstring says so and why — `PaymentTypes` drops the `UNK
 the Java SDK uses as a parsing fallback. Deviating silently is how `Action` came to be missing
 a type in the first place.
 
-**Basket-level amounts are rounded to four decimals on serialisation**
-(`unzer.utils.roundAmount`). The API takes `Decimal{10,4}`, and float arithmetic does not
-cooperate: `12.3 - 10.0 - 2.3` is `8.88e-16`, which `json.dumps` writes in scientific
-notation — not a number the API accepts. Amounts come back from the API as *strings* with
-four decimals (`"5.5500"`).
+**Amounts are rounded to four decimals on serialisation** (`unzer.utils.roundAmount`) — on
+the basket, on every basket item, on payments and paypages. The API takes `Decimal{10,4}`,
+and float arithmetic does not cooperate: `12.3 - 10.0 - 2.3` is `8.88e-16`, which
+`json.dumps` writes in scientific notation — not a number the API accepts. Amounts come back
+from the API as *strings* with four decimals (`"5.5500"`).
 
-`BasketItem.serialize` does **not** do this — measured, an item goes out as
-`0.30000000000000004` next to a basket total rounded to `0.3`. That is an inconsistency,
-not a design decision (#18), and it matters most where v3 reconciles the total against the
-items to the cent.
-
-It is not a theoretical hazard: building a three-unit line with `amountVat=15.97 * 3` is
-enough. The API refuses the basket outright with
-`API.600.200.133 "Amount 47.910000000000004 has more than 4 positions after the decimal
-point."` — so until #18 is fixed, a caller has to round every item amount itself.
+Ordinary arithmetic is enough to trip it: an item with `amountVat=15.97 * 3` used to go out
+as `47.910000000000004`, and the API refused the whole basket with `API.600.200.133 "Amount
+… has more than 4 positions after the decimal point."` Until #18, `BasketItem.serialize`
+did not round. Any new amount field must go through `roundAmount` too.
 
 **`Basket` intentionally supports two incompatible schemas.** v1 uses `amountTotalGross`, v3
 uses `totalValueGross`; setting the latter switches the basket to the v3 endpoint. Do not
