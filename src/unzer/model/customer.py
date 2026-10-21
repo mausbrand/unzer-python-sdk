@@ -86,7 +86,7 @@ class Customer(BaseModel):
             billingAddress: Address | None = None,
             shippingAddress: Address | None = None,
             company: str | None = None,
-            companyData: t.Any = None,
+            companyData: CompanyInfo | None = None,
             language: str | Sentinel | None = SENTINEL,
             **kwargs: t.Any,
     ) -> None:
@@ -134,7 +134,7 @@ class Customer(BaseModel):
         self.billingAddress: Address | None = billingAddress
         self.shippingAddress: Address | None = shippingAddress
         self.company: str | None = company
-        self.companyData: t.Any = companyData
+        self.companyData: CompanyInfo | None = companyData
         self.language = language
 
     @property

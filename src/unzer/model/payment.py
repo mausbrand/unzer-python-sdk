@@ -275,7 +275,6 @@ class PaymentGetResponse(BaseModel):
         self.amountRemaining: float | None = amountRemaining
         # PaymentResponseResources
         self.customerId: str | None = customerId
-        self.paymentId = paymentId
         self.basketId: str | None = basketId
         self.metadataId: str | None = metadataId
         self.payPageId: str | None = payPageId

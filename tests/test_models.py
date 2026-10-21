@@ -231,6 +231,7 @@ class TestB2BCustomer:
 
     def test_unregistered_company_with_owner_from_api_response(self, fixture_json: t.Callable[[str], t.Any]) -> None:
         info = Customer.fromDict(fixture_json("customer_b2b_not_registered")).companyData
+        assert info is not None
         assert info.registrationType is CompanyRegistrationType.NOT_REGISTERED
         assert info.commercialRegisterNumber is None
         assert info.companyType == CompanyType.SOLE
@@ -289,7 +290,11 @@ class TestB2BCustomer:
 
     def test_company_data_must_be_a_company_info(self) -> None:
         with pytest.raises(TypeError, match="CompanyInfo"):
-            Customer(firstname="A", lastname="B", companyData={"registrationType": "registered"}).serialize()
+            Customer(
+                firstname="A",
+                lastname="B",
+                companyData={"registrationType": "registered"},  # type: ignore[arg-type]
+            ).serialize()
 
     def test_api_requirements_are_not_checked_here(self) -> None:
         """Missing company, address or email is the API's to refuse, not the SDK's."""
