@@ -1,0 +1,32 @@
+{
+  "paymentTypes": [
+    {
+      "supports": [
+        {
+          "brands": ["MAESTRO", "DANKORT", "SERVIRED", "POSTEPAY", "CARTEBLEUE", "VISAELECTRON", "VISA", "MASTER"],
+          "countries": [],
+          "channel": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "currency": ["CHF", "USD", "GBP", "EUR"]
+        }
+      ],
+      "type": "card",
+      "allowCustomerTypes": "B2C,B2B",
+      "allowCreditTransaction": false,
+      "3ds": true
+    },
+    {
+      "supports": [
+        {
+          "brands": ["DANKORT", "SERVIRED", "POSTEPAY", "CARTEBLEUE", "VISAELECTRON", "MAESTRO", "VISA", "MASTER"],
+          "countries": [],
+          "channel": "ffffffffffffffffffffffffffffffff",
+          "currency": ["CHF", "GBP", "USD", "EUR"]
+        }
+      ],
+      "type": "card",
+      "allowCustomerTypes": "B2C",
+      "allowCreditTransaction": false,
+      "3ds": false
+    }
+  ]
+}

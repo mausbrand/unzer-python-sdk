@@ -183,43 +183,96 @@ class PaymentType(BaseModel):
         :raises ValueError: For a customer type this SDK does not know.
         """
         values = [
-            configuration["allowCustomerTypes"]
+            allowed
             for configuration in self.get_configurations()
-            if configuration.get("allowCustomerTypes") is not None
+            if (allowed := _customer_types_of(configuration)) is not None
         ]
         if not values:
             return None
-        return {
-            CustomerType(part.strip())
-            for value in values
-            for part in value.split(",")
-            if part.strip()
-        }
+        return set().union(*values)
 
     # TODO: Without caching this isn't the best solution --> better implement in the KeyPairTypeModel
-    def get_channel_id(self, brand: str | None = None) -> str:
+    def get_channel_id(
+            self,
+            brand: str | None = None,
+            customer_type: CustomerType | None = None,
+            three_ds: bool | None = None,
+    ) -> str:
         """Provide the channel id configured for this payment type.
 
-        :param brand: (optional) Restrict the lookup to the configuration that
-            supports this brand (e.g. ``AMEX``). Required whenever a keypair holds
-            several configurations for one payment type -- a real keypair was seen
-            with two ``card`` entries, one for ``MASTER``/``VISA`` and one for
-            ``AMEX``, each on its own channel. Without the brand the first entry
-            wins, which is the wrong channel for every other brand.
-        :raises LookupError: If no configuration supports the requested brand.
-        """
-        return self._support(brand)["channel"]
+        A keypair can hold several configurations for one payment type, and
+        which field tells them apart differs between keypairs. Measured in the
+        sandbox:
 
-    def get_brands(self, brand: str | None = None) -> list[str]:
+        * two ``card`` entries, one for ``MASTER``/``VISA`` and one for
+          ``AMEX``, each on its own channel -- the brand decides;
+        * two ``card`` entries with **identical** brands on different channels,
+          one with ``3ds: true`` and ``allowCustomerTypes: "B2C,B2B"``, the
+          other with ``3ds: false`` and ``"B2C"`` -- only the 3DS flag or the
+          customer type decides.
+
+        Without any filter the first entry wins, which is the wrong channel for
+        every other case, and a warning is logged.
+
+        :param brand: (optional) Restrict the lookup to the configuration that
+            supports this brand (e.g. ``AMEX``), case-insensitive.
+        :param customer_type: (optional) Keep only configurations whose
+            ``allowCustomerTypes`` contains this customer type. A configuration
+            without the field is kept: keypairs differ in which fields they
+            carry, and a missing field means "not known", not "not allowed".
+        :param three_ds: (optional) Keep only configurations whose ``3ds`` flag
+            equals this value. A configuration without the field is kept, as
+            above.
+        :raises LookupError: If no configuration matches the filters.
+        :raises ValueError: For a customer type in the keypair this SDK does
+            not know -- only read when ``customer_type`` is given.
+        """
+        return self._support(brand, customer_type, three_ds)["channel"]
+
+    def get_brands(
+            self,
+            brand: str | None = None,
+            customer_type: CustomerType | None = None,
+            three_ds: bool | None = None,
+    ) -> list[str]:
         """Provide the card brands this payment type accepts.
 
         :param brand: (optional) See :meth:`get_channel_id`.
+        :param customer_type: (optional) See :meth:`get_channel_id`.
+        :param three_ds: (optional) See :meth:`get_channel_id`.
         """
-        return self._support(brand)["brands"]
+        return self._support(brand, customer_type, three_ds)["brands"]
 
-    def _support(self, brand: str | None = None) -> dict[str, t.Any]:
-        """Pick the ``supports`` entry to read channel and brands from."""
+    def _support(
+            self,
+            brand: str | None = None,
+            customer_type: CustomerType | None = None,
+            three_ds: bool | None = None,
+    ) -> dict[str, t.Any]:
+        """Pick the ``supports`` entry to read channel and brands from.
+
+        ``customer_type`` and ``three_ds`` filter the configuration entries
+        first; ``brand`` then filters the ``supports`` entries of what is left.
+        """
         configurations = self.get_configurations()
+        if customer_type is not None:
+            customer_type = CustomerType(customer_type)
+            configurations = [
+                configuration
+                for configuration in configurations
+                if (allowed := _customer_types_of(configuration)) is None or customer_type in allowed
+            ]
+        if three_ds is not None:
+            configurations = [
+                configuration
+                for configuration in configurations
+                if configuration.get("3ds") is None or configuration["3ds"] is three_ds
+            ]
+        if not configurations:
+            raise LookupError(
+                f"No configuration of {self.method_name} matches "
+                f"customer_type={customer_type!r}, three_ds={three_ds!r}"
+            )
         supports = [
             support
             for configuration in configurations
@@ -240,6 +293,21 @@ class PaymentType(BaseModel):
         if len(supports) > 1:
             logger.warning(
                 f"{self.method_name} has {len(supports)} configurations; using the "
-                f"first one. Pass brand= to choose."
+                f"first one. Pass brand=, customer_type= or three_ds= to choose."
             )
         return supports[0]
+
+
+def _customer_types_of(configuration: dict[str, t.Any]) -> set[CustomerType] | None:
+    """Parse the ``allowCustomerTypes`` of one keypair configuration.
+
+    The API sends it as one comma-separated string (``"B2B,B2C"``), not as a list.
+
+    :return: The customer types, or ``None`` if the configuration does not carry
+        the field.
+    :raises ValueError: For a customer type this SDK does not know.
+    """
+    value = configuration.get("allowCustomerTypes")
+    if value is None:
+        return None
+    return {CustomerType(part.strip()) for part in value.split(",") if part.strip()}
