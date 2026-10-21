@@ -5,6 +5,7 @@ names what went wrong. Verified against the sandbox where the API was involved -
 see AGENTS.md on why the API, and not the documentation, is the reference.
 """
 
+import enum
 import json
 import typing as t
 
@@ -629,3 +630,47 @@ class TestEnumsStayComparableToTheirValue:
         """``json.dumps(..., default=str)`` turned a member into "Action.CHARGE"."""
         assert json.dumps(Action.CHARGE) == '"charge"'
         assert json.dumps(PaymentState.COMPLETED) == "1"
+
+
+def _enum_members(payload: t.Any) -> list[enum.Enum]:
+    """Collect every enum member left anywhere in a payload."""
+    if isinstance(payload, enum.Enum):
+        return [payload]
+    if isinstance(payload, dict):
+        return [member for value in payload.values() for member in _enum_members(value)]
+    if isinstance(payload, list):
+        return [member for value in payload for member in _enum_members(value)]
+    return []
+
+
+class TestPayloadsCarryNoEnumMembers:
+    """Members reached the payload unconverted. The request was right anyway, a
+    StrEnum being a str, but only via the JSON encoder -- and the debug log of the
+    payload showed ``<Events.PAYMENT: 'payment'>`` instead of what was sent.
+
+    An equality check cannot catch this, since a StrEnum member equals its value.
+    """
+
+    def test_webhook(self) -> None:
+        payload = Webhook(url="https://e.com/h", event=[Events.PAYMENT, Events.CHARGE]).serialize()
+        assert _enum_members(payload) == []
+        assert payload["eventList"] == ["payment", "charge"]
+
+    def test_company_info(self) -> None:
+        from unzer.model.company_info import CompanyCommercialSector, CompanyFunction, CompanyInfo, CompanyType
+        payload = CompanyInfo.not_registered(
+            function=CompanyFunction.OWNER,
+            commercialSector=CompanyCommercialSector.OTHER,
+            companyType=CompanyType.SOLE,
+        ).serialize()
+        assert _enum_members(payload) == []
+
+    def test_payment_page(self) -> None:
+        payload = PaymentPage(
+            action=Action.CHARGE,
+            amount=1.0,
+            returnUrl="https://e.com/r",
+            excludeTypes=[PaymentMethodTypes.CARD],
+        ).serialize()
+        assert _enum_members(payload) == []
+        assert payload["excludeTypes"] == ["card"]

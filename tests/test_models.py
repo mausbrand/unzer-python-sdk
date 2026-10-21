@@ -492,7 +492,7 @@ class TestWebhook:
     def test_serialisation_uses_event_list(self) -> None:
         webhook = Webhook(url="https://e.com/h", event=[Events.CHARGE, Events.PAYMENT])
         assert webhook.serialize() == {
-            "eventList": [Events.CHARGE, Events.PAYMENT],
+            "eventList": ["charge", "payment"],
             "url": "https://e.com/h",
         }
 

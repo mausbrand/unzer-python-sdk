@@ -131,7 +131,7 @@ class Webhook(BaseModel):
 
     def serialize(self) -> dict[str, t.Any]:
         return {
-            "eventList": self.event,
+            "eventList": [event.value for event in self.event],
             "url": self.url,
         }
 

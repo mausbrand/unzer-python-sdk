@@ -1,7 +1,7 @@
 import typing as t
 from types import NoneType
 
-from ..utils import parseBool, roundAmount
+from ..utils import enum_value, parseBool, roundAmount
 from .base import BaseModel
 from .payment import Action
 
@@ -140,7 +140,7 @@ class PaymentPage(BaseModel):
             "orderId": self.orderId,
             "card3ds": self.card3ds,
             "returnUrl": self.returnUrl,
-            "excludeTypes": self.excludeTypes or [],
+            "excludeTypes": [enum_value(type_) for type_ in self.excludeTypes or []],
             "additionalAttributes": self.additionalAttributes,
             "logoImage": self.logoImage or None,
             "fullPageImage": self.fullPageImage or None,

@@ -11,7 +11,7 @@ import datetime
 import enum
 import typing as t
 
-from ..utils import format_birth_date, parse_birth_date
+from ..utils import enum_value, format_birth_date, parse_birth_date
 from .base import BaseModel, JSONValue
 
 if t.TYPE_CHECKING:
@@ -345,9 +345,9 @@ class CompanyInfo(BaseModel):
         data = {
             "registrationType": self.registrationType.value,
             "commercialRegisterNumber": self.commercialRegisterNumber,
-            "function": self.function,
-            "commercialSector": self.commercialSector,
-            "companyType": self.companyType,
+            "function": enum_value(self.function),
+            "commercialSector": enum_value(self.commercialSector),
+            "companyType": enum_value(self.companyType),
             "owner": self.owner.serialize() if self.owner is not None else None,
         }
         return {key: value for key, value in data.items() if value not in (None, "")}

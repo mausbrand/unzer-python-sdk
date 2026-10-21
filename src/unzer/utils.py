@@ -5,7 +5,9 @@ strings, dates in two different formats, timestamps in a unit its own reference
 gets wrong -- so these helpers exist to keep that out of the models.
 """
 import datetime
+import enum
 import re
+import typing as t
 
 
 class Sentinel:
@@ -106,6 +108,19 @@ def format_birth_date(value: datetime.date | str | None) -> str | None:
     if isinstance(value, (datetime.datetime, datetime.date)):
         return value.strftime("%Y-%m-%d")
     return value
+
+
+def enum_value(value: t.Any) -> t.Any:
+    """Turn an enum member into its value for the payload, pass anything else through.
+
+    The members of a :class:`enum.StrEnum` would serialise to their value anyway,
+    since they are strings -- but only by way of the JSON encoder, and the debug
+    log of the payload would still show ``<Events.PAYMENT: 'payment'>``. Converting
+    here keeps the payload what is actually sent.
+
+    For fields that take a member or free text, such as ``companyType``.
+    """
+    return value.value if isinstance(value, enum.Enum) else value
 
 
 def parseFloat(value: str | int | float | None) -> float | None:
