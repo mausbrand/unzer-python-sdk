@@ -140,13 +140,7 @@ class PaymentType(BaseModel):
 
         :raises LookupError: If the payment type is not configured at all.
         """
-        if self._client is None:
-            raise RuntimeError(
-                f"{type(self).__name__} was created without a client, so it cannot "
-                f"read its keypair configuration. Pass client= to the constructor, "
-                f"or use the instance the client returned."
-            )
-        key_pair_types = self._client.getKeyPairTypes()
+        key_pair_types = self._require_client("read its keypair configuration").getKeyPairTypes()
         logger.debug(f"key_pair_types: {key_pair_types!r}")
         # Compared case-insensitive: Unzer is not consistent about the casing of the
         # method names -- the API really does answer with *EPS* while the resource

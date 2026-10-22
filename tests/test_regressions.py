@@ -629,3 +629,61 @@ class TestEnumsStayComparableToTheirValue:
         """``json.dumps(..., default=str)`` turned a member into "Action.CHARGE"."""
         assert json.dumps(Action.CHARGE) == '"charge"'
         assert json.dumps(PaymentState.COMPLETED) == "1"
+
+
+class TestNoneIsReportedAsWhatIsMissing:
+    """A model used a value that can be ``None`` without checking it (#32).
+
+    Without a client, ``charge()`` failed with ``AttributeError: 'NoneType' object
+    has no attribute 'charge'``; a missing ``paymentId`` ended up in the URL as
+    ``payments/None/charges/...``, and a missing ``paymentType`` reached
+    ``PaymentType.construct()``, which built a placeholder type for ``None``.
+    None of these named the actual cause.
+    """
+
+    def test_payment_response_charge_without_client(self) -> None:
+        from unzer.model.payment import PaymentResponse
+        response = PaymentResponse(paymentId="s-pay-1", typeId="s-sdd-abc")
+        with pytest.raises(RuntimeError, match=r"PaymentResponse was created without a client, so it cannot charge"):
+            response.charge(1.0)
+
+    def test_payment_get_response_charge_without_client(self, fixture_json: t.Callable[[str], t.Any]) -> None:
+        payment = PaymentGetResponse.fromDict(fixture_json("payment_get"), None)
+        with pytest.raises(RuntimeError, match=r"PaymentGetResponse was created without a client"):
+            payment.charge(1.0)
+
+    def test_charged_transactions_without_client(self, fixture_json: t.Callable[[str], t.Any]) -> None:
+        payment = PaymentGetResponse.fromDict(fixture_json("payment_get"), None)
+        with pytest.raises(RuntimeError, match=r"cannot fetch its charged transactions"):
+            payment.getChargedTransactions()
+
+    def test_charged_transactions_without_charges_need_no_client(
+            self,
+            fixture_json: t.Callable[[str], t.Any],
+    ) -> None:
+        payment = PaymentGetResponse.fromDict(fixture_json("payment_get"))
+        payment.transactions = [txn for txn in payment.transactions if txn.action != Action.CHARGE]
+        assert payment.getChargedTransactions() == []
+
+    @pytest.mark.usefixtures("mocked_api")
+    def test_charged_transactions_without_payment_id(
+            self,
+            client: UnzerClient,
+            fixture_json: t.Callable[[str], t.Any],
+    ) -> None:
+        payment = PaymentGetResponse.fromDict(fixture_json("payment_get"), client)
+        payment.paymentId = None
+        with pytest.raises(ValueError, match=r"has no paymentId"):
+            payment.getChargedTransactions()
+
+    @pytest.mark.usefixtures("mocked_api")
+    def test_charge_without_payment_type(self, client: UnzerClient, fixture_json: t.Callable[[str], t.Any]) -> None:
+        payment = PaymentGetResponse.fromDict(fixture_json("payment_get"), client)
+        payment.paymentType = None
+        with pytest.raises(ValueError, match=r"has no paymentType"):
+            payment.charge(1.0)
+
+    def test_payment_type_names_the_remedy(self) -> None:
+        from unzer.model.payment_type.sepa_direct_debit import SepaDirectDebit
+        with pytest.raises(RuntimeError, match=r"SepaDirectDebit was created without a client.*bind_client\(\)"):
+            SepaDirectDebit().get_configurations()
