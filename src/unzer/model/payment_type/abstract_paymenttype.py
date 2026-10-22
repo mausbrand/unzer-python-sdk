@@ -77,7 +77,12 @@ class PaymentType(BaseModel):
     @classmethod
     def fromDict(cls, data: dict[str, t.Any]) -> t.Self:
         data = data.copy()
-        data["key"] = data["id"]
+        data["key"] = data.pop("id")
+        # Every type resource answers with these, measured for SEPA direct debit,
+        # Direct Bank Transfer, Wero, Pay later invoice and installment. None is modelled:
+        # method repeats the class, recurring and geoLocation are not read by this SDK.
+        for key in ("method", "recurring", "geoLocation"):
+            data.pop(key, None)
         return cls(**data)
 
     @classmethod

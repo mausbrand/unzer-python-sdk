@@ -38,9 +38,3 @@ class Bancontact(PaymentType):
         return {
             "holder": self.holder,
         }
-
-    @classmethod
-    def fromDict(cls, data: dict[str, t.Any]) -> t.Self:
-        data = data.copy()
-        data["key"] = data["id"]
-        return cls(**data)

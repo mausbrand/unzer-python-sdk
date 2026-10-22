@@ -41,9 +41,3 @@ class OpenbankingPis(PaymentType):
     def serialize(self) -> dict[str, t.Any]:
         # Only send what is set: an empty body is valid, a null value is not
         return {key: value for key, value in (("ibanCountry", self.ibanCountry),) if value is not None}
-
-    @classmethod
-    def fromDict(cls, data: dict[str, t.Any]) -> t.Self:
-        data = data.copy()
-        data["key"] = data["id"]
-        return cls(**data)

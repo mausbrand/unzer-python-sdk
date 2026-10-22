@@ -1,9 +1,12 @@
 """The base class every resource model derives from."""
 import abc
+import logging
 import typing as t
 
 if t.TYPE_CHECKING:
     from ..client import UnzerClient  # pylint: disable=unused-import
+
+logger = logging.getLogger("unzer-sdk").getChild(__name__)
 
 JSONValue: t.TypeAlias = str | int | float | bool | list["JSONValue"] | dict[str, "JSONValue"] | None
 
@@ -46,9 +49,16 @@ class BaseModel(abc.ABC):
     ) -> None:
         """
         :param client: (optional) The client instance.
+        :param kwargs: Keyword arguments no subclass took. They are ignored, with a
+            warning: a misspelt or renamed field (``type`` instead of ``kind``,
+            ``quantitiy``) would otherwise vanish silently from the payload. Only
+            the names are logged, never the values -- they can hold an IBAN or a
+            date of birth.
         """
         super().__init__()
         self._client: UnzerClient | None = client
+        if kwargs:
+            logger.warning(f"{type(self).__name__} got unknown keyword arguments, which are ignored: {sorted(kwargs)}")
 
     def bind_client(self, client: "UnzerClient") -> t.Self:
         """Attach a client to this model, unless it already has one.

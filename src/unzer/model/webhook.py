@@ -138,5 +138,5 @@ class Webhook(BaseModel):
     @classmethod
     def fromDict(cls, data: dict[str, t.Any]) -> t.Self:
         data = data.copy()
-        data["webhookId"] = data["id"]
+        data["webhookId"] = data.pop("id")
         return cls(**data)

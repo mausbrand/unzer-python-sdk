@@ -304,10 +304,12 @@ class Customer(BaseModel):
             new customer -- see :meth:`~unzer.model.base.BaseModel.bind_client`.
         """
         data = data.copy()
-        data["key"] = data["id"]
+        data["key"] = data.pop("id")
         data["billingAddress"] = Address.fromDict(data["billingAddress"])
         data["shippingAddress"] = Address.fromDict(data["shippingAddress"])
         # A B2C customer came back without the key at all in the sandbox.
         company_info = data.pop("companyInfo", None)
         data["companyData"] = CompanyInfo.fromDict(company_info, client=client) if company_info else None
+        # Not modelled: the client IP and its country the customer was created from.
+        data.pop("geoLocation", None)
         return cls(**data, client=client)
