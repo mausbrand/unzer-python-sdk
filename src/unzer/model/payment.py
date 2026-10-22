@@ -5,6 +5,7 @@ transactions it accumulated. Note that the list contains every transaction the
 payment has, including kinds this SDK cannot create.
 """
 import enum
+import inspect
 import logging
 import re
 import typing as t
@@ -300,25 +301,27 @@ class PaymentGetResponse(BaseModel):
             :meth:`getChargedTransactions` raise without one.
         """
         data = data.copy()
-        data["paymentId"] = data["id"]
-        if data["resources"].get("typeId"):
-            data["paymentType"] = PaymentGetResponse.getPaymentTypeFromTypeId(data["resources"]["typeId"])
+        data["paymentId"] = data.pop("id")
+        resources = data.pop("resources")
+        if resources.get("typeId"):
+            data["paymentType"] = PaymentGetResponse.getPaymentTypeFromTypeId(resources["typeId"])
         data["state"] = int(data["state"]["id"])
         data["card3ds"] = parseBool(data["card3ds"]) if "card3ds" in data else None
         data["transactions"] = list(map(PaymentTransaction.fromDict, data["transactions"]))
         # Amounts
-        data["amountTotal"] = float(data["amount"].get("total", 0))
-        data["amountCharged"] = float(data["amount"].get("charged", 0))
-        data["amountCanceled"] = float(data["amount"].get("canceled", 0))
-        data["amountRemaining"] = float(data["amount"].get("remaining", 0))
+        amount = data.pop("amount")
+        data["amountTotal"] = float(amount.get("total", 0))
+        data["amountCharged"] = float(amount.get("charged", 0))
+        data["amountCanceled"] = float(amount.get("canceled", 0))
+        data["amountRemaining"] = float(amount.get("remaining", 0))
         # Resources
-        data["customerId"] = data["resources"].get("customerId") or None
+        data["customerId"] = resources.get("customerId") or None
         # resources.paymentId is already on top-level
-        data["basketId"] = data["resources"].get("basketId") or None
-        data["metadataId"] = data["resources"].get("metadataId") or None
-        data["payPageId"] = data["resources"].get("payPageId") or None
-        data["linkPayId"] = data["resources"].get("linkPayId") or None
-        data["typeId"] = data["resources"].get("typeId") or None
+        data["basketId"] = resources.get("basketId") or None
+        data["metadataId"] = resources.get("metadataId") or None
+        data["payPageId"] = resources.get("payPageId") or None
+        data["linkPayId"] = resources.get("linkPayId") or None
+        data["typeId"] = resources.get("typeId") or None
         return cls(client=client, **data)
 
     def getChargedTransactions(self) -> list["PaymentResponse"]:
@@ -376,7 +379,7 @@ class PaymentGetResponse(BaseModel):
         client = self._require_client("charge")
         if self.paymentType is None:
             raise ValueError(f"{type(self).__name__} has no paymentType, so it cannot charge.")
-        req_kwargs = self.__dict__.copy()
+        req_kwargs = _charge_request_kwargs(self)
         req_kwargs["paymentType"] = PaymentType.construct(self.paymentType)(self.typeId)
         req_kwargs["amount"] = amount
         req = PaymentRequest(**req_kwargs)
@@ -433,7 +436,9 @@ class PaymentTransaction(BaseModel):
         # A value the enums do not know means this SDK is behind the API, which is a
         # defect worth seeing. It raises rather than degrading into a placeholder.
         data["status"] = TransactionStatus(data["status"].lower())
-        data["action"] = Action(data["type"].lower())
+        data["action"] = Action(data.pop("type").lower())
+        # Not modelled; AdditionalTransactionData is a request-only model.
+        data.pop("additionalTransactionData", None)
         data["date"] = parseDateTime(data["date"])
         data["amount"] = float(data["amount"])
         # And now some ugly parsing of the url, because Unzer provide no suitable parameters
@@ -451,10 +456,10 @@ class PaymentTransaction(BaseModel):
                 f"Unexpected operation {matchDict['operation']!r} in transaction url"
             )
         data["paymentId"] = matchDict["paymentId"]
-        data["subOperation"] = matchDict["subOperation"]
-        data["subCode"] = data["transactionId"] = matchDict["subCode"]
-        data["subSubOperation"] = matchDict["subSubOperation"]
-        data["subSubCode"] = matchDict["subSubCode"]
+        data["transactionId"] = matchDict["subCode"]
+        # subOperation, subSubOperation and subSubCode were passed on here too, but the
+        # model has no attribute for them and they were always dropped. A cancel of a
+        # charge therefore carries the id of the charge as its transactionId.
         return cls(**data)
 
 
@@ -559,6 +564,20 @@ class PaymentRequest(BaseModel):
     @classmethod
     def fromDict(cls, data: dict[str, t.Any]) -> t.Self:
         raise NotImplementedError("Use PaymentResponse.fromDict for your responses.")
+
+
+def _charge_request_kwargs(response: BaseModel) -> dict[str, t.Any]:
+    """Take the attributes of a response that a :class:`PaymentRequest` accepts.
+
+    A response holds more than a request does -- its amounts, state, transactions
+    and the client. Handing all of them over made :class:`PaymentRequest` drop the
+    rest, which it now warns about.
+
+    :param response: The payment or transaction the charge follows on from.
+    :return: The keyword arguments for :class:`PaymentRequest`.
+    """
+    parameters = inspect.signature(PaymentRequest.__init__).parameters
+    return {key: value for key, value in vars(response).items() if key in parameters}
 
 
 class PaymentResponse(BaseModel):
@@ -682,7 +701,7 @@ class PaymentResponse(BaseModel):
             without one.
         """
         data = data.copy()
-        data["transactionId"] = data["id"]
+        data["transactionId"] = data.pop("id")
         data["isSuccess"] = parseBool(data["isSuccess"])
         data["isPending"] = parseBool(data["isPending"])
         data["isError"] = parseBool(data["isError"])
@@ -690,20 +709,24 @@ class PaymentResponse(BaseModel):
         data["amount"] = float(data["amount"])
         data["date"] = parseDateTime(data["date"])
         data["processing"] = PaymentResponseMetadata.fromDict(data["processing"])
+        # Not modelled: isResumed next to the three flags read above, and the
+        # additionalTransactionData, whose model is request-only.
+        data.pop("isResumed", None)
+        data.pop("additionalTransactionData", None)
         # Message
-        if not data["message"]:
-            data["message"] = {}
-        data["messageCode"] = data["message"].get("code")
-        data["messageMerchant"] = data["message"].get("merchant")
-        data["messageCustomer"] = data["message"].get("customer")
+        message = data.pop("message") or {}
+        data["messageCode"] = message.get("code")
+        data["messageMerchant"] = message.get("merchant")
+        data["messageCustomer"] = message.get("customer")
         # Resources
-        data["customerId"] = data["resources"].get("customerId") or None
-        data["paymentId"] = data["resources"].get("paymentId") or None
-        data["basketId"] = data["resources"].get("basketId") or None
-        data["metadataId"] = data["resources"].get("metadataId") or None
-        data["payPageId"] = data["resources"].get("payPageId") or None
-        data["linkPayId"] = data["resources"].get("linkPayId") or None
-        data["typeId"] = data["resources"].get("typeId") or None
+        resources = data.pop("resources")
+        data["customerId"] = resources.get("customerId") or None
+        data["paymentId"] = resources.get("paymentId") or None
+        data["basketId"] = resources.get("basketId") or None
+        data["metadataId"] = resources.get("metadataId") or None
+        data["payPageId"] = resources.get("payPageId") or None
+        data["linkPayId"] = resources.get("linkPayId") or None
+        data["typeId"] = resources.get("typeId") or None
         return cls(**data, client=client)
 
     def charge(self, amount: float) -> "PaymentResponse":
@@ -716,7 +739,7 @@ class PaymentResponse(BaseModel):
         :return: The transaction that was created.
         """
         client = self._require_client("charge")
-        req_kwargs = self.__dict__.copy()
+        req_kwargs = _charge_request_kwargs(self)
         payment_type_name = PaymentGetResponse.getPaymentTypeFromTypeId(self.typeId)
         req_kwargs["paymentType"] = PaymentType.construct(payment_type_name)(self.typeId)
         req_kwargs["amount"] = amount
@@ -812,7 +835,7 @@ class PaymentResponseMetadata(BaseModel):
     def fromDict(cls, data: dict[str, t.Any]) -> t.Self:
         data = data.copy()
         # Nobody, really nobody starts identifier with a digit. Unzer: here you have the 3dsEci flag
-        data["threeDsEci"] = data.get("3dsEci")
+        data["threeDsEci"] = data.pop("3dsEci", None)
         return cls(**data)
 
 

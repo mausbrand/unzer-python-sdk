@@ -101,7 +101,7 @@ class Basket(BaseModel):
     def fromDict(cls, data: dict[str, t.Any]) -> t.Self:
         """Unserialize a basket of either schema; missing amounts stay ``None``."""
         data = data.copy()
-        data["key"] = data["id"]
+        data["key"] = data.pop("id")
         data["basketItems"] = [BasketItem.fromDict(basketItem) for basketItem in data.get("basketItems") or []]
         for key in ("amountTotalGross", "amountTotalVat", "amountTotalDiscount", "totalValueGross"):
             data[key] = parseFloat(data.get(key))

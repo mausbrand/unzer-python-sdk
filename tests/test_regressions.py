@@ -6,6 +6,8 @@ see AGENTS.md on why the API, and not the documentation, is the reference.
 """
 
 import json
+import logging
+import pathlib
 import typing as t
 
 import pytest
@@ -16,17 +18,23 @@ from unzer import UnzerClient
 from unzer.model import (
     Action,
     Address,
+    Basket,
+    BasketItem,
     Customer,
+    ErrorResponse,
     Events,
+    InstallmentPlans,
     PaymentGetResponse,
     PaymentMethodTypes,
     PaymentPage,
     PaymentPageResponse,
     PaymentRequest,
+    PaymentResponse,
     PaymentState,
     PaymentTransaction,
     PaymentType,
     PaymentTypes,
+    SepaDirectDebit,
     TransactionStatus,
     Webhook,
 )
@@ -687,3 +695,125 @@ class TestNoneIsReportedAsWhatIsMissing:
         from unzer.model.payment_type.sepa_direct_debit import SepaDirectDebit
         with pytest.raises(RuntimeError, match=r"SepaDirectDebit was created without a client.*bind_client\(\)"):
             SepaDirectDebit().get_configurations()
+
+
+FIXTURE_DIR = pathlib.Path(__file__).parent / "fixtures"
+
+NOT_PARSED = {
+    "keypair_types_multi_card": "read as a plain dict by the client, not through a model",
+    "paylater_invoice_config_b2b": "read as a plain dict by the client, not through a model",
+    # TODO: Unused by any test, and Customer.fromDict cannot read it: Address.fromDict
+    #   fails on the "" addresses. The sandbox answers with an address object instead
+    #   (tests/sandbox/test_live_api.py::TestCustomer).
+    "customer_without_addresses": "addresses as empty strings, which Customer.fromDict cannot read",
+}
+
+
+def _parse_fixture(name: str, data: t.Any, client: UnzerClient) -> object:
+    """Read a captured response through the model the client uses for it.
+
+    :return: The parsed model, or a list of them.
+    """
+    match name:
+        case "basket_v1" | "basket_v3":
+            return Basket.fromDict(data)
+        case "charge" | "charge_sepa_direct_debit":
+            return PaymentResponse.fromDict(data, client)
+        case "customer" | "customer_b2b_registered" | "customer_b2b_not_registered":
+            return Customer.fromDict(data, client=client)
+        case "error_400":
+            return ErrorResponse.fromDict(data)
+        case "installment_plans" | "installment_plans_unprefixed_flags":
+            return InstallmentPlans.fromDict(data)
+        case "payment_get" | "payment_get_sepa_direct_debit":
+            return PaymentGetResponse.fromDict(data, client)
+        case "type_sepa_direct_debit":
+            return SepaDirectDebit.fromDict(data)
+        case "paypage":
+            return PaymentPageResponse.fromDict(data)
+        case "webhook_single":
+            return Webhook.fromDict(data)
+        case "webhooks_list":
+            return [Webhook.fromDict(webhook) for webhook in data["events"]]
+    raise AssertionError(f"No model known for fixture {name!r} -- add it to _parse_fixture or NOT_PARSED")
+
+
+class TestUnknownKeywordsAreReported:
+    """``BaseModel.__init__`` swallowed every keyword it did not know (#17).
+
+    ``BasketItem(type="goods")`` -- the name the API uses for the field -- left
+    :attr:`~unzer.model.BasketItem.kind` empty without a word, and so did a typo
+    like ``quantitiy``. It now warns, so the ``fromDict`` methods must not hand
+    it the keys they mapped or deliberately ignore.
+    """
+
+    def test_unknown_keyword_warns(self, caplog: pytest.LogCaptureFixture) -> None:
+        with caplog.at_level(logging.WARNING, logger="unzer-sdk"):
+            item = BasketItem(title="t", type="goods", quantitiy=3)
+        assert item.kind is None
+        assert item.quantity is None
+        assert "BasketItem got unknown keyword arguments" in caplog.text
+        assert "'quantitiy'" in caplog.text
+        assert "'type'" in caplog.text
+
+    def test_known_keywords_do_not_warn(self, caplog: pytest.LogCaptureFixture) -> None:
+        with caplog.at_level(logging.WARNING, logger="unzer-sdk"):
+            BasketItem(title="t", kind="goods", quantity=3)
+        assert not caplog.records
+
+    def test_values_are_not_logged(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Only the names: a value can be a date of birth or an IBAN."""
+        with caplog.at_level(logging.WARNING, logger="unzer-sdk"):
+            # The owner's spelling, not the customer's
+            customer = Customer(firstname="Max", lastname="Mustermann", birthdate="1990-01-24")
+        assert customer.birthDate is None
+        assert "'birthdate'" in caplog.text
+        assert "1990" not in caplog.text
+
+    def test_every_fixture_is_covered(self, client: UnzerClient) -> None:
+        """A new fixture has to be added to :func:`_parse_fixture` or :data:`NOT_PARSED`."""
+        for path in FIXTURE_DIR.glob("*.json"):
+            if path.stem not in NOT_PARSED:
+                _parse_fixture(path.stem, json.loads(path.read_text(encoding="utf-8")), client)
+
+    @pytest.mark.parametrize("name", sorted(
+        path.stem for path in FIXTURE_DIR.glob("*.json") if path.stem not in NOT_PARSED
+    ))
+    def test_captured_responses_parse_without_warning(
+            self,
+            name: str,
+            client: UnzerClient,
+            fixture_json: t.Callable[[str], t.Any],
+            caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Every key of a real response is either mapped or dropped on purpose."""
+        with caplog.at_level(logging.WARNING, logger="unzer-sdk"):
+            _parse_fixture(name, fixture_json(name), client)
+        assert not caplog.records, caplog.text
+
+    @pytest.mark.parametrize("name", [
+        "charge",
+        "payment_get",
+        "charge_sepa_direct_debit",
+        "payment_get_sepa_direct_debit",
+    ])
+    def test_charge_on_a_response_does_not_warn(
+            self,
+            name: str,
+            client: UnzerClient,
+            fixture_json: t.Callable[[str], t.Any],
+            caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """``charge()`` builds its request from the attributes of the response."""
+        response = _parse_fixture(name, fixture_json(name), client)
+        assert isinstance(response, PaymentResponse | PaymentGetResponse)
+        responses.start()
+        try:
+            responses.add(responses.POST, f"{BASE}/payments/{response.paymentId}/charges", json=fixture_json("charge"))
+            with caplog.at_level(logging.WARNING, logger="unzer-sdk"):
+                response.charge(10.0)
+            assert len(responses.calls) == 1
+        finally:
+            responses.stop()
+            responses.reset()
+        assert not caplog.records, caplog.text

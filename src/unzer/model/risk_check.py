@@ -48,14 +48,14 @@ class RiskCheckResponse(BaseModel):
     @classmethod
     def fromDict(cls, data: dict[str, t.Any]) -> t.Self:
         data = data.copy()
-        data["key"] = data["id"]
+        data["key"] = data.pop("id")
         data["timestamp"] = parseDateTime(data.get("timestamp"))
         for key in ("isSuccess", "isPending", "isError"):
             data[key] = parseBool(data[key]) if key in data else None
         # Unzer uses both spellings: isResume in the API reference and in the accepted
         # response, isResumed in the declined response
         if "isResumed" in data or "isResume" in data:
-            data["isResumed"] = parseBool(data.get("isResumed", data.get("isResume")))
+            data["isResumed"] = parseBool(data.get("isResumed", data.pop("isResume", None)))
         else:
             data["isResumed"] = None
         return cls(**data)

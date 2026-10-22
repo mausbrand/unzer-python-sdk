@@ -54,7 +54,7 @@ def main() -> None:
         totalValueGross=AMOUNT, currencyCode="EUR", orderId="example-installment-1",
         basketItems=[BasketItem(
             title="Custom print t-shirt", quantity=1, vat=19,
-            amountPerUnitGross=AMOUNT, basketItemReferenceId="item-1", type="goods",
+            amountPerUnitGross=AMOUNT, basketItemReferenceId="item-1", kind="goods",
         )],
     ))
 

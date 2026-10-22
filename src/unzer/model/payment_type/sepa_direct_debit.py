@@ -53,5 +53,6 @@ class SepaDirectDebit(PaymentType):
     @classmethod
     def fromDict(cls, data: dict[str, t.Any]) -> t.Self:
         data = data.copy()
-        data["key"] = data["id"]
-        return cls(**data)
+        # Not modelled: the mandate reference. Seen on one sandbox keypair, not on another.
+        data.pop("mandateId", None)
+        return super().fromDict(data)

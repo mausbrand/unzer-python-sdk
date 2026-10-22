@@ -667,7 +667,7 @@ class TestPaylaterB2B:
             amountTotalGross=119.0, currencyCode="EUR", orderId=f"sdk-test-{uuid.uuid4().hex[:12]}",
             basketItems=[BasketItem(basketItemReferenceId="item-1", quantity=1, amountPerUnit=119.0,
                                     amountNet=100.0, amountVat=19.0, amountGross=119.0, vat=19,
-                                    title="Article", type="goods")],
+                                    title="Article", kind="goods")],
         ))
         return sandbox_client.authorize(PaymentRequest(
             paymentType=PaylaterInvoice(), amount=119.0, currency="EUR",

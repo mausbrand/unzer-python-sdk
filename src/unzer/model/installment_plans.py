@@ -149,7 +149,7 @@ class InstallmentPlans(BaseModel):
     @classmethod
     def fromDict(cls, data: dict[str, t.Any]) -> t.Self:
         data = data.copy()
-        data["inquiryId"] = data["id"]
+        data["inquiryId"] = data.pop("id")
         data["amount"] = parseFloat(data.get("amount"))
         # Unzer sends the expiry as unix timestamp (as string), in milliseconds --
         # the API reference shows seconds. parseTimestamp handles both.
@@ -157,4 +157,7 @@ class InstallmentPlans(BaseModel):
         data["plans"] = [InstallmentPlan.fromDict(plan) for plan in data.get("plans") or []]
         for key in ("isSuccess", "isPending", "isResumed", "isError"):
             data[key] = parseBool(data[key]) if key in data else None
+        # The sandbox repeats the flags without the "is" prefix; the prefixed ones are read.
+        for key in ("success", "pending", "resumed", "error"):
+            data.pop(key, None)
         return cls(**data)

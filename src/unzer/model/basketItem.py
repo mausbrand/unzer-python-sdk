@@ -117,7 +117,7 @@ class BasketItem(BaseModel):
     def fromDict(cls, data: dict[str, t.Any]) -> t.Self:
         """Unserialize an item of either schema; missing amounts stay ``None``."""
         data = data.copy()
-        data["kind"] = data.get("type")
+        data["kind"] = data.pop("type", None)
         for key in (
                 "amountGross",
                 "amountVat",

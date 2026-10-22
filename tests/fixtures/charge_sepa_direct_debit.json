@@ -1,0 +1,37 @@
+{
+  "id": "s-chg-1",
+  "isSuccess": true,
+  "isPending": false,
+  "isResumed": false,
+  "isError": false,
+  "card3ds": false,
+  "message": {
+    "code": "COR.000.000.000",
+    "merchant": "Transaction succeeded",
+    "customer": "Your payments have been successfully processed."
+  },
+  "amount": "12.3400",
+  "currency": "EUR",
+  "returnUrl": "https://shop.example.com/return",
+  "date": "2026-10-22 00:02:10",
+  "resources": {
+    "paymentId": "s-pay-149",
+    "traceId": "e59cb7f698403bfcb15b3d1a58edf861",
+    "typeId": "s-sdd-lqv5jtadxeuu"
+  },
+  "additionalTransactionData": {
+    "sepaDirectDebit": {
+      "mandateId": "ba66e4102b6b44c7ac88783dbf3b98ba",
+      "mandateSignatureDate": "2026-10-22"
+    }
+  },
+  "orderId": "sdk-fixture-sdd-charge",
+  "paymentReference": "",
+  "processing": {
+    "iban": "DE89370400440532013000",
+    "bic": "COBADEFFXXX",
+    "uniqueId": "241a3c73.4a2a.41bb.b0a1.3a5920b0e416",
+    "shortId": "1000.0434.1631",
+    "traceId": "e59cb7f698403bfcb15b3d1a58edf861"
+  }
+}

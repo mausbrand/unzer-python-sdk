@@ -210,11 +210,16 @@ class PaymentPageResponse(PaymentPage):
     @classmethod
     def fromDict(cls, data: dict[str, t.Any]) -> t.Self:
         data = data.copy()
-        data["payPageId"] = data["id"]
-        data["customerId"] = data["resources"].get("customerId")
-        data["basketId"] = data["resources"].get("basketId")
-        data["metadataId"] = data["resources"].get("metadataId")
-        data["paymentId"] = data["resources"].get("paymentId")
+        data["payPageId"] = data.pop("id")
+        resources = data.pop("resources")
+        data["customerId"] = resources.get("customerId")
+        data["basketId"] = resources.get("basketId")
+        data["metadataId"] = resources.get("metadataId")
+        data["paymentId"] = resources.get("paymentId")
+        # Not modelled: PaymentPage has no paymentReference, and impressumUrl comes
+        # back next to imprintUrl, which is the field this SDK sends.
+        data.pop("paymentReference", None)
+        data.pop("impressumUrl", None)
         data["card3ds"] = parseBool(data["card3ds"])
         data["shippingAddressRequired"] = parseBool(data["shippingAddressRequired"])
         data["billingAddressRequired"] = parseBool(data["billingAddressRequired"])
