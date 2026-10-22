@@ -38,7 +38,7 @@ class PaymentPage(BaseModel):
             card3ds: bool | None = None,
             returnUrl: str | None = None,
             excludeTypes: list[str] | None = None,
-            additionalAttributes: dict[str, str] | None = None,
+            additionalAttributes: dict[str, str | int | float | bool] | None = None,
             logoImage: str | None = None,
             fullPageImage: str | None = None,
             shopName: str | None = None,
@@ -67,7 +67,10 @@ class PaymentPage(BaseModel):
         :param card3ds: (optional) Switches between 3ds and non 3ds card transactions.
         :param returnUrl: (required) The URL to redirect the customer to after the payment is completed.
         :param excludeTypes: (optional) Exclude some of the payment types from the Payment Page.
-        :param additionalAttributes: (optional) Attributes for LinkPay.
+        :param additionalAttributes: (optional) Attributes for specific payment methods,
+            e.g. ``effectiveInterestRate`` for installment. The API takes scalar values and
+            stores them as strings (``4.99`` comes back as ``"4.99"``, ``True`` as ``"true"``);
+            a nested object or a list is refused with ``API.610.300.007`` (sandbox).
 
         Paypage config:
         :param logoImage: (optional) Your company logo to show in the Embedded Payment Page’s header.
@@ -75,7 +78,11 @@ class PaymentPage(BaseModel):
         :param shopName: (optional) Your company name to show in the Embedded Payment Page’s header.
         :param shopDescription: (optional) Main description of the purchase.
         :param tagline: (optional) A short description to show in the Payment Page’s header.
-        :param css: (optional)
+        :param css: (optional) CSS declarations per page element, e.g.
+            ``{"header": "color: #000;"}``. The values are checked as CSS: anything else,
+            a number included, is refused with ``API.610.620.042``. A key the API does not
+            know is dropped without an error (sandbox); the known ones are listed as
+            ``CssData`` in the OpenAPI spec.
         :param termsAndConditionUrl: (optional) Your Terms and Conditions URL to show in the Payment Page’s footer.
         :param privacyPolicyUrl: (optional) Your Privacy Policy URL to show in the Payment Page’s footer.
         :param imprintUrl: (optional) Your imprint URL to show in the Payment Page’s footer.
@@ -125,7 +132,7 @@ class PaymentPage(BaseModel):
         self.invoiceId: str | None = invoiceId
         self.orderId: str | None = orderId
         self.card3ds: bool | None = card3ds
-        self.additionalAttributes: dict[str, str] = additionalAttributes
+        self.additionalAttributes: dict[str, str | int | float | bool] = additionalAttributes
         self.excludeTypes: list[str] = excludeTypes
         self.action: Action = action
         self.customerId: str | None = customerId
