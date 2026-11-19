@@ -1,0 +1,27 @@
+{
+  "id": "Tg-d4ccab156df",
+  "amount": "100.00",
+  "currency": "EUR",
+  "plans": [
+    {
+      "numberOfRates": 1,
+      "totalAmount": "100.00",
+      "interestAmount": "0.00",
+      "minimumInstallmentFee": "0.00",
+      "secciUrl": "https://test-payment.paylater.unzer.com/payolution-payment/infoport/creditagreementdraft/?channelId=example-invoice&amount=100.00&language=de",
+      "installmentRates": [
+        {
+          "rate": "100.00"
+        }
+      ]
+    }
+  ],
+  "success": true,
+  "error": false,
+  "pending": false,
+  "resumed": false,
+  "isSuccess": true,
+  "isPending": false,
+  "isResumed": false,
+  "isError": false
+}

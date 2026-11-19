@@ -387,3 +387,48 @@ class TestPaylaterConfig:
         url = responses.calls[0].request.url
         assert url is not None
         assert "?" not in url
+
+
+class TestPaylaterPlans:
+    """`GET types/<type>/plans` for any Pay Later type.
+
+    The invoice response (captured from the sandbox) carries one plan of one rate,
+    no `expiresAt` and no interest rates; its `secciUrl` is the consumer credit
+    information the checkout has to offer under CCD2.
+    """
+
+    @responses.activate
+    def test_invoice_plans_carry_the_secci_document(
+            self,
+            client: UnzerClient,
+            fixture_json: t.Callable[[str], t.Any],
+    ) -> None:
+        from unzer.model import PaylaterInvoice
+        responses.add(
+            responses.GET, f"{BASE}/types/paylater-invoice/plans",
+            json=fixture_json("paylater_invoice_plans"), status=200,
+        )
+        plans = client.get_paylater_plans(PaylaterInvoice, amount=100.0, currency="EUR", country="DE",
+                                          customer_type="B2C", order_id="order-1")
+        query = parse_qs(urlsplit(str(responses.calls[0].request.url)).query)
+        assert query == {"amount": ["100.0"], "currency": ["EUR"], "country": ["DE"],
+                         "customerType": ["B2C"], "orderId": ["order-1"]}
+        assert plans.inquiryId == "Tg-d4ccab156df"
+        assert plans.expiresAt is None
+        assert len(plans.plans) == 1
+        assert plans.plans[0].numberOfRates == 1
+        assert plans.plans[0].secciUrl is not None and "creditagreementdraft" in plans.plans[0].secciUrl
+        assert plans.isSuccess is True
+
+    @responses.activate
+    def test_type_can_be_given_as_slug_or_instance(
+            self,
+            client: UnzerClient,
+            fixture_json: t.Callable[[str], t.Any],
+    ) -> None:
+        from unzer.model import PaylaterInstallment
+        responses.add(responses.GET, f"{BASE}/types/paylater-installment/plans",
+                      json=fixture_json("installment_plans"), status=200)
+        client.get_paylater_plans("paylater-installment", amount=190.0, currency="EUR", country="DE")
+        client.get_paylater_plans(PaylaterInstallment(numberOfRates=3), amount=190.0, currency="EUR", country="DE")
+        assert len(responses.calls) == 2
