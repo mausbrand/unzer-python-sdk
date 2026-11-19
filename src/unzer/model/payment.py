@@ -676,22 +676,30 @@ class PaymentResponse(BaseModel):
         data["isError"] = parseBool(data["isError"])
         data["card3ds"] = parseBool(data["card3ds"]) if "card3ds" in data else None
         data["amount"] = float(data["amount"])
-        data["date"] = parseDateTime(data["date"])
-        data["processing"] = PaymentResponseMetadata.fromDict(data["processing"])
+        # A pending authorization -- the customer still has to complete a verification
+        # step at ``redirectUrl`` -- is documented without ``date``. Nothing else is
+        # optional there, but the parser must not turn an unexpected gap into a crash
+        # in the middle of a checkout, so the sub-objects are read defensively too.
+        data["date"] = parseDateTime(data["date"]) if data.get("date") else None
+        data["processing"] = (
+            PaymentResponseMetadata.fromDict(data["processing"]) if data.get("processing") else None
+        )
         # Message
-        if not data["message"]:
-            data["message"] = {}
-        data["messageCode"] = data["message"].get("code")
-        data["messageMerchant"] = data["message"].get("merchant")
-        data["messageCustomer"] = data["message"].get("customer")
+        message = data.get("message") or {}
+        data["message"] = message
+        data["messageCode"] = message.get("code")
+        data["messageMerchant"] = message.get("merchant")
+        data["messageCustomer"] = message.get("customer")
         # Resources
-        data["customerId"] = data["resources"].get("customerId") or None
-        data["paymentId"] = data["resources"].get("paymentId") or None
-        data["basketId"] = data["resources"].get("basketId") or None
-        data["metadataId"] = data["resources"].get("metadataId") or None
-        data["payPageId"] = data["resources"].get("payPageId") or None
-        data["linkPayId"] = data["resources"].get("linkPayId") or None
-        data["typeId"] = data["resources"].get("typeId") or None
+        resources = data.get("resources") or {}
+        data["resources"] = resources
+        data["customerId"] = resources.get("customerId") or None
+        data["paymentId"] = resources.get("paymentId") or None
+        data["basketId"] = resources.get("basketId") or None
+        data["metadataId"] = resources.get("metadataId") or None
+        data["payPageId"] = resources.get("payPageId") or None
+        data["linkPayId"] = resources.get("linkPayId") or None
+        data["typeId"] = resources.get("typeId") or None
         return cls(**data, client=client)
 
     def charge(self, amount: float) -> "PaymentResponse":
