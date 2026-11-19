@@ -212,7 +212,9 @@ class Customer(BaseModel):
         Only a customer that was never given a language falls back to the
         client; ``None`` is an answer of its own and is kept.
         """
-        if self._language is not SENTINEL:
+        # isinstance, not `is SENTINEL`: mypy narrows only the former (2.4.1 reports
+        # the sentinel as a possible return value otherwise).
+        if not isinstance(self._language, Sentinel):
             return self._language
         if self._client is None:
             return None
@@ -225,8 +227,7 @@ class Customer(BaseModel):
         # The sentinel is kept as it is: assigning it means "not given" again, and
         # the getter turns it into the language of the client, or None without one.
         # It must not reach normalize_language(), which reads it as an empty value.
-        # TODO: mypy cannot narrow `is SENTINEL`; isinstance(value, Sentinel) would be equivalent.
-        self._language = value if value is SENTINEL else normalize_language(value)  # type: ignore[arg-type]
+        self._language = value if isinstance(value, Sentinel) else normalize_language(value)
 
     def validateBeforeRequest(self) -> bool:
         """Validate the customer and the addresses it carries.
