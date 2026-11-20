@@ -380,6 +380,23 @@ class TestBasket:
         assert basket.isV3()
         assert len(basket.key) > len("s-bsk-999")
 
+    def test_v1_item_amounts_are_rounded(self, sandbox_client: UnzerClient) -> None:
+        """``15.97 * 3`` is ``47.910000000000004``; unrounded, that got the basket refused.
+
+        Before #18 the item went out as is and the API answered ``API.600.200.133``
+        (more than 4 positions after the decimal point).
+        """
+        basket = sandbox_client.createBasket(Basket(
+            amountTotalGross=100.0 * 3, amountTotalVat=15.97 * 3, currencyCode="EUR",
+            orderId="sdk-test-basket-v1-item-rounding",
+            basketItems=[BasketItem(
+                title="T-Shirt", quantity=3, vat=19, amountGross=100.0 * 3, amountPerUnit=84.03,
+                amountNet=84.03 * 3, amountVat=15.97 * 3, basketItemReferenceId="item-1",
+                kind="goods")],
+        ))
+        assert basket.key
+        assert sandbox_client.getBasket(basket.key).basketItems[0].amountVat == 47.91
+
     def test_v1_rejects_negative_item_amounts(self, sandbox_client: UnzerClient) -> None:
         """A discount as its own negative line item is refused, not merely discouraged.
 

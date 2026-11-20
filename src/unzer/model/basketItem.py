@@ -1,6 +1,6 @@
 import typing as t
 
-from ..utils import parseFloat
+from ..utils import parseFloat, roundAmount
 from .base import BaseModel
 
 
@@ -85,7 +85,12 @@ class BasketItem(BaseModel):
         return self.amountPerUnitGross is not None or self.amountDiscountPerUnitGross is not None
 
     def serialize(self) -> dict[str, t.Any]:
-        """Serialize this item in the schema implied by :meth:`isV3`."""
+        """Serialize this item in the schema implied by :meth:`isV3`.
+
+        Amounts are rounded with :func:`~unzer.utils.roundAmount`, like those of the
+        :class:`~unzer.model.Basket`: ``15.97 * 3`` is ``47.910000000000004``, which the
+        API refuses with ``API.600.200.133``.
+        """
         data = {
             "basketItemReferenceId": self.getString(self.basketItemReferenceId),
             "unit": self.getString(self.unit),
@@ -98,16 +103,16 @@ class BasketItem(BaseModel):
         }
         if self.isV3():
             data |= {
-                "amountPerUnitGross": self.amountPerUnitGross,
-                "amountDiscountPerUnitGross": self.amountDiscountPerUnitGross,
+                "amountPerUnitGross": roundAmount(self.amountPerUnitGross),
+                "amountDiscountPerUnitGross": roundAmount(self.amountDiscountPerUnitGross),
             }
         else:
             data |= {
-                "amountDiscount": self.amountDiscount,
-                "amountGross": self.amountGross,
-                "amountVat": self.amountVat,
-                "amountPerUnit": self.amountPerUnit,
-                "amountNet": self.amountNet,
+                "amountDiscount": roundAmount(self.amountDiscount),
+                "amountGross": roundAmount(self.amountGross),
+                "amountVat": roundAmount(self.amountVat),
+                "amountPerUnit": roundAmount(self.amountPerUnit),
+                "amountNet": roundAmount(self.amountNet),
                 # The v3 schema knows no participantId
                 "participantId": self.getString(self.participantId),
             }
