@@ -501,6 +501,57 @@ class UnzerClient:
         )
         return type(paymentType).fromDict(data)
 
+    def get_paylater_plans(
+            self,
+            payment_type: type[PaymentType] | PaymentType | PaymentMethodTypes | str,
+            amount: float,
+            currency: str,
+            country: str,
+            customer_type: CustomerType | str | None = None,
+            order_id: str | None = None,
+    ) -> InstallmentPlans:
+        """Fetch the plans of a Pay Later type for a purchase, with their SECCI documents.
+
+        ``GET types/<type>/plans`` exists for every Pay Later type, not only for
+        installment: for ``paylater-invoice`` the sandbox answers with a single plan
+        of one rate, whose ``secciUrl`` is the consumer credit information (SECCI)
+        the checkout has to offer for download under CCD2. The endpoint is not
+        documented for invoice; measured against the sandbox on 2026-11-18.
+
+        :param payment_type: The Pay Later type, as class, instance, method type or slug
+            (e.g. ``PaylaterInvoice`` or ``"paylater-invoice"``).
+        :param amount: Total amount of the purchase.
+        :param currency: ISO currency code of the transaction.
+        :param country: The customer's country in ISO 3166 ALPHA-2 format (e.g. ``DE``).
+        :param customer_type: (optional) :class:`~unzer.model.CustomerType`.
+        :param order_id: (optional) Order id that identifies the payment on merchant side.
+        :return: The plans; ``plans[n].secciUrl`` is the SECCI document of each plan.
+        """
+        if isinstance(payment_type, PaymentType):
+            slug = payment_type.method_name.value
+        elif isinstance(payment_type, type) and issubclass(payment_type, PaymentType):
+            # On the concrete classes `method_name` is a plain class attribute; only
+            # the abstract base declares it as a property, which is what mypy sees here.
+            slug = t.cast(PaymentMethodTypes, payment_type.method_name).value
+        elif isinstance(payment_type, PaymentMethodTypes):
+            slug = payment_type.value
+        else:
+            slug = str(payment_type)
+        query: dict[str, t.Any] = {
+            "amount": amount,
+            "currency": currency,
+            "country": country,
+        }
+        if customer_type is not None:
+            query["customerType"] = customer_type
+        if order_id is not None:
+            query["orderId"] = order_id
+        data = self.request(
+            f"types/{slug}/plans?{urlencode(query)}",
+            "GET",
+        )
+        return InstallmentPlans.fromDict(data)
+
     def getPaylaterInstallmentPlans(
             self,
             amount: float,
