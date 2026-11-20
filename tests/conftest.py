@@ -164,4 +164,5 @@ def sandbox_client() -> UnzerClient:
     key = _sandbox_key()
     if not key:  # pragma: no cover - guarded by the marker
         pytest.skip("no UNZER_PRIVATE_KEY set")
+    assert key  # pytest.skip() does not narrow for mypy 2.4.1
     return UnzerClient(key, os.environ.get("UNZER_PUBLIC_KEY", ""), sandbox=True)

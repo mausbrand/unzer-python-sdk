@@ -1,0 +1,30 @@
+{
+  "id": "s-aut-1",
+  "isSuccess": false,
+  "isPending": true,
+  "isResumed": false,
+  "isError": false,
+  "redirectUrl": "https://sandbox.unzer.com/verify?paymentId=s-pay-124",
+  "message": {
+    "code": "COR.000.200.000",
+    "merchant": "Transaction pending",
+    "customer": "Your payment is currently pending. Please contact us for more information."
+  },
+  "amount": "100.0000",
+  "currency": "EUR",
+  "returnUrl": "https://www.merchant-shop.com/checkout/redirect",
+  "resources": {
+    "customerId": "s-cst-472f919218b5",
+    "paymentId": "s-pay-124",
+    "basketId": "s-bsk-49277b9f7ee0",
+    "metadataId": "s-mtd-nwttumjh10h6",
+    "traceId": "ac83d1fb9d024e34b13980de2a6d809a",
+    "typeId": "s-piv-zex7c9iibpek"
+  },
+  "processing": {
+    "uniqueId": "Tx-hpn3fkzq7lm",
+    "shortId": "Tx-hpn3fkzq7lm",
+    "descriptor": "HPN3-FKZQ-7LM2",
+    "traceId": "ac83d1fb9d024e34b13980de2a6d809a"
+  }
+}
