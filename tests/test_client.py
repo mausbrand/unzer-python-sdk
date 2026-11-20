@@ -389,6 +389,54 @@ class TestPaylaterConfig:
         assert "?" not in url
 
 
+class TestPendingAuthorize:
+    """A pending authorization is neither a success nor an error.
+
+    Unzer's pay-later methods answer with ``isPending`` and a ``redirectUrl`` when the
+    customer has to complete an additional risk-check authentication (CCD2). The
+    documented response carries no ``date``; the parser must not trip over that.
+    """
+
+    @responses.activate
+    def test_pending_authorize_is_returned_not_raised(
+            self,
+            client: UnzerClient,
+            fixture_json: t.Callable[[str], t.Any],
+    ) -> None:
+        payload = fixture_json("authorize_pending")
+        responses.add(responses.POST, f"{BASE}/payments/authorize", json=payload, status=200)
+        from unzer.model import PaylaterInvoice, PaymentRequest
+        payment_type = PaylaterInvoice(key="s-piv-zex7c9iibpek")
+        payment = client.authorize(PaymentRequest(
+            paymentType=payment_type,
+            amount=100.0,
+            returnUrl="https://www.merchant-shop.com/checkout/redirect",
+        ))
+        assert payment.isPending is True
+        assert payment.isSuccess is False
+        assert payment.isError is False
+        assert payment.redirectUrl == "https://sandbox.unzer.com/verify?paymentId=s-pay-124"
+        assert payment.paymentId == "s-pay-124"
+        assert payment.date is None
+        assert payment.processing is not None
+        assert payment.processing.descriptor == "HPN3-FKZQ-7LM2"
+        assert payment.messageCode == "COR.000.200.000"
+
+    def test_missing_sub_objects_do_not_crash_the_parser(
+            self,
+            client: UnzerClient,
+            fixture_json: t.Callable[[str], t.Any],
+    ) -> None:
+        from unzer.model import PaymentResponse
+        payload = fixture_json("authorize_pending")
+        for key in ("processing", "message", "resources"):
+            payload.pop(key)
+        payment = PaymentResponse.fromDict(payload, client)
+        assert payment.processing is None
+        assert payment.messageCode is None
+        assert payment.paymentId is None
+
+
 class TestPaylaterPlans:
     """`GET types/<type>/plans` for any Pay Later type.
 

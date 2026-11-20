@@ -127,9 +127,14 @@ Mandatory field lists and step order, per payment method (treat as hints, not as
   https://docs.unzer.com/payment-methods/klarna/accept-klarna-server-side-only-integration/
   https://docs.unzer.com/payment-methods/direct-bank-transfer/manage-unzer-open-banking-payment/
 
-CCD2 two-factor risk check — documented as a mandatory redirect flow for the paylater types,
-not yet verified against the API:
+CCD2 two-factor risk check — a mandatory redirect flow for the paylater types. Measured on
+the sandbox (2026-11-18): a `paylater-invoice` authorize with the customer e-mail
+`testing_2fa_sms@unzer.com` answers `isPending: true` with a `redirectUrl`, without any
+activation of the test channel -- the readiness check's claim that the sandbox needs one
+first was wrong for that account. The payment then reports `authorize: pending`. Fixture:
+`tests/fixtures/authorize_pending.json`.
   https://docs.unzer.com/ccd2-2fa/
+  https://docs.unzer.com/reference/test-data/    # trigger e-mails, phone number, SMS code
 
 Payment Page attribute keys, as a live generator:
   https://demo.unzer.com/demo/resources/paypage_manual.html
